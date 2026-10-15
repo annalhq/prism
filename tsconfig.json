@@ -1,0 +1,22 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"strict": true,
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true
+	},
+	"exclude": [
+		"node_modules",
+		"build",
+		".svelte-kit/output",
+		".agents",
+		"artifacts",
+		"test-results",
+		"playwright-report"
+	]
+}

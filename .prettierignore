@@ -1,0 +1,14 @@
+node_modules
+.svelte-kit
+build
+bun.lock
+skills-lock.json
+ARCHITECTURE.md
+plan.md
+.agents
+.git
+.codex
+.aws
+artifacts
+test-results
+playwright-report
