@@ -1,0 +1,103 @@
+export const PROTOCOL_VERSION = 1 as const;
+export const MAX_COMMAND_BYTES = 1_048_576;
+export const MAX_BULK_BOOKMARKS = 100;
+
+// Validated decimal strings on the wire; bigint belongs only inside the server.
+export type Revision = `${bigint}`;
+export type Sequence = `${bigint}`;
+export type BookmarkKind = 'page' | 'social' | 'image';
+export type BookmarkFields = { title: string; description: string; url: string | null };
+export type BookmarkCommand =
+	| {
+			type: 'bookmark.create';
+			id: string;
+			kind: BookmarkKind;
+			title: string;
+			description?: string;
+			url?: string | null;
+	  }
+	| {
+			type: 'bookmark.update';
+			id: string;
+			expectedRevision: Revision;
+			patch: Partial<BookmarkFields>;
+	  }
+	| {
+			type: 'bookmark.trash' | 'bookmark.restore' | 'bookmark.purge';
+			id: string;
+			expectedRevision: Revision;
+	  };
+export type Command = BookmarkCommand | { type: 'bookmark.bulk'; commands: BookmarkCommand[] };
+export type CommandEnvelope = { protocolVersion: 1; operationId: string; command: Command };
+
+export type BookmarkProjection = BookmarkFields & {
+	id: string;
+	kind: BookmarkKind;
+	canonicalUrl: string | null;
+	domain: string | null;
+	collectionId: string | null;
+	readingStatus: 'unread' | 'reading' | 'read';
+	isPinned: boolean;
+	archivedAt: string | null;
+	tagIds: string[];
+	deletedAt: string | null;
+	revision: Revision;
+	lastSeq: Sequence;
+	createdAt: string;
+	updatedAt: string;
+};
+export type BookmarkTombstone = {
+	id: string;
+	kind: 'bookmark';
+	revision: Revision;
+	lastSeq: Sequence;
+	deletedAt: string;
+	purgedAt: string;
+};
+export type Change =
+	| { type: 'bookmark.upsert'; bookmark: BookmarkProjection }
+	// Removes the bookmark, its note/history, outgoing links, tags, activity, media,
+	// content-person relations and persona memberships. Incoming links retain the tombstone.
+	| { type: 'bookmark.purge'; tombstone: BookmarkTombstone };
+export type ChangeFrame = {
+	protocolVersion: 1;
+	operationId: string;
+	seq: Sequence;
+	changes: Change[];
+};
+export type CommandErrorCode =
+	| 'invalid_command'
+	| 'not_found'
+	| 'id_exists'
+	| 'revision_conflict'
+	| 'in_trash'
+	| 'not_in_trash'
+	| 'purged'
+	| 'duplicate_url'
+	| 'url_hash_collision'
+	| 'frame_too_large'
+	| 'operation_id_reused';
+export type CommandResult =
+	| { protocolVersion: 1; operationId: string; status: 'accepted'; frame: ChangeFrame }
+	| {
+			protocolVersion: 1;
+			operationId: string;
+			status: 'already_exists';
+			bookmark: BookmarkProjection;
+	  }
+	| {
+			protocolVersion: 1;
+			operationId: string;
+			status: 'rejected';
+			error: {
+				code: CommandErrorCode;
+				message: string;
+				id?: string;
+				existingId?: string;
+				currentRevision?: Revision;
+			};
+	  };
+
+export function serializedBytes(value: unknown): number {
+	return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+}

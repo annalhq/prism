@@ -7,6 +7,14 @@ export const GET: RequestHandler = async (event) => {
 		subject: owner.subject,
 		vaultId: owner.vaultId,
 		protocolVersion: 1,
-		capabilities: { session: true, commands: false, sync: false, media: false }
+		capabilities: { session: true, commands: true, sync: false, media: false },
+		commandTypes: [
+			'bookmark.create',
+			'bookmark.update',
+			'bookmark.trash',
+			'bookmark.restore',
+			'bookmark.purge',
+			'bookmark.bulk'
+		]
 	});
 };

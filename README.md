@@ -2,7 +2,7 @@
 
 A private personal knowledge library for saved content, people and connections across devices.
 
-The foundation provides an accessible, responsive SvelteKit shell with Bits UI, Phosphor Icons Svelte, a self-hosted font and system light/dark themes. Task 2 adds a server-only relational schema, guarded migration tools and an owner-only Neon Auth integration. The isolated Neon schema is migrated and its owner vault initialized; live authentication verification is pending. Saving, people workflows and synchronization are subsequent milestones. The shell requires no credentials and performs no service calls.
+The foundation provides an accessible, responsive SvelteKit shell with Bits UI, Phosphor Icons Svelte, a self-hosted font and system light/dark themes. Task 2 adds a server-only relational schema, guarded migration tools and an owner-only Neon Auth integration. The isolated Neon schema is migrated and its owner vault initialized. Task 3 adds authenticated transactional bookmark commands with revision checks, retry receipts and atomic change frames. The saving UI, people workflows and synchronization are subsequent milestones; broader live verification remains deferred. The shell requires no credentials and performs no service calls.
 
 ## Develop
 
@@ -57,6 +57,8 @@ Future offline access is for trusted devices. Pending drafts/outbox data must su
 ## Connect the private vault
 
 Follow [Task 2 setup and evidence](docs/task-2.md). The public shell remains credential-free; `/auth/sign-in` uses Neon Auth and `/api/v1/session` requires the configured owner and initialized vault. Configure `NEON_AUTH_COOKIE_SECRET` locally in addition to the existing environment keys. No public signup or first-visitor ownership is exposed.
+
+The owner-only `POST /api/v1/commands` supports bookmark create/update/trash/restore/purge and atomic bulk chunks. See [Task 3 contracts and pending verification](docs/task-3.md) for request examples, retry rules and the deferred media-cleanup worker. No additional migration is needed for this slice.
 
 ## Environment loading
 
