@@ -27,7 +27,23 @@ export type BookmarkCommand =
 			id: string;
 			expectedRevision: Revision;
 	  };
-export type Command = BookmarkCommand | { type: 'bookmark.bulk'; commands: BookmarkCommand[] };
+export type NoteCommand = {
+	type: 'note.replace';
+	id: string;
+	// 0 is the absence of a stored note. All accepted note revisions are positive.
+	expectedRevision: Revision;
+	bodyMarkdown: string;
+};
+export type RelatedLinkCommand = {
+	id: string;
+	expectedRevision: Revision;
+	target: import('./notes.js').EntityReference;
+} & ({ type: 'related-link.add' } | { type: 'related-link.remove' });
+export type Command =
+	| BookmarkCommand
+	| NoteCommand
+	| RelatedLinkCommand
+	| { type: 'bookmark.bulk'; commands: BookmarkCommand[] };
 export type CommandEnvelope = { protocolVersion: 1; operationId: string; command: Command };
 
 export type BookmarkProjection = BookmarkFields & {
@@ -56,9 +72,36 @@ export type BookmarkTombstone = {
 };
 export type Change =
 	| { type: 'bookmark.upsert'; bookmark: BookmarkProjection }
+	| { type: 'entity.upsert'; entity: EntityProjection }
+	| { type: 'note.upsert'; note: NoteProjection }
+	| { type: 'links.replace'; links: LinkProjection }
 	// Removes the bookmark, its note/history, outgoing links, tags, activity, media,
 	// content-person relations and persona memberships. Incoming links retain the tombstone.
 	| { type: 'bookmark.purge'; tombstone: BookmarkTombstone };
+export type EntityProjection = {
+	id: string;
+	kind: import('./notes.js').EntityKind;
+	revision: Revision;
+	lastSeq: Sequence;
+	deletedAt: string | null;
+	purgedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+};
+export type NoteProjection = {
+	entityId: string;
+	bodyMarkdown: string;
+	revision: Revision;
+	lastSeq: Sequence;
+	createdAt: string;
+	updatedAt: string;
+};
+export type LinkProjection = {
+	sourceId: string;
+	lastSeq: Sequence;
+	// Full replacement of both kinds; targets resolve via the registry, including tombstones.
+	edges: { targetId: string; kind: 'note_reference' | 'related' }[];
+};
 export type ChangeFrame = {
 	protocolVersion: 1;
 	operationId: string;

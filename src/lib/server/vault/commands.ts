@@ -19,24 +19,14 @@ import { ApiError } from '../http.js';
 import { bookmarkProjection } from './projections.js';
 import { prepareEnvelope, readReceipt, writeReceipt } from './receipts.js';
 import { purgeBookmark } from './purge.js';
+import { replaceNote } from './notes.js';
+import { changeRelatedLink } from './links.js';
+import { Rejected, reject } from './rejections.js';
 
-type Rejection = Extract<CommandResult, { status: 'rejected' }>['error'];
-class Rejected extends Error {
-	constructor(readonly detail: Rejection) {
-		super(detail.message);
-	}
-}
 class AlreadyExists extends Error {
 	constructor(readonly id: string) {
 		super('Bookmark already exists.');
 	}
-}
-function reject(
-	code: Rejection['code'],
-	message: string,
-	detail: Omit<Rejection, 'code' | 'message'> = {}
-): never {
-	throw new Rejected({ code, message, ...detail });
 }
 const hashUrl = (url: string | null) =>
 	url === null ? null : createHash('sha256').update(url).digest('hex');
@@ -225,17 +215,23 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 				const seq = vault.changeSeq + 1n;
 				const now = new Date();
 				const changes: Change[] = [];
-				for (const item of command.type === 'bookmark.bulk' ? command.commands : [command]) {
-					try {
-						changes.push(await applyBookmark(mutation, owner.vaultId, item, seq, now));
-					} catch (error) {
-						if (error instanceof AlreadyExists && command.type === 'bookmark.bulk')
-							reject(
-								'duplicate_url',
-								'A bulk create duplicates an active bookmark; the entire chunk was rejected.',
-								{ id: item.id, existingId: error.id }
-							);
-						throw error;
+				if (command.type === 'note.replace') {
+					changes.push(...(await replaceNote(mutation, owner.vaultId, command, seq, now)));
+				} else if (command.type === 'related-link.add' || command.type === 'related-link.remove') {
+					changes.push(...(await changeRelatedLink(mutation, owner.vaultId, command, seq, now)));
+				} else {
+					for (const item of command.type === 'bookmark.bulk' ? command.commands : [command]) {
+						try {
+							changes.push(await applyBookmark(mutation, owner.vaultId, item, seq, now));
+						} catch (error) {
+							if (error instanceof AlreadyExists && command.type === 'bookmark.bulk')
+								reject(
+									'duplicate_url',
+									'A bulk create duplicates an active bookmark; the entire chunk was rejected.',
+									{ id: item.id, existingId: error.id }
+								);
+							throw error;
+						}
 					}
 				}
 				const frame: ChangeFrame = {

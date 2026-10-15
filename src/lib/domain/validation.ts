@@ -5,6 +5,7 @@ import {
 	type Revision
 } from './contracts.js';
 import { normalizeUrl } from './urls.js';
+import { NoteValidationError, validateNoteBody } from './notes.js';
 
 export class ValidationError extends Error {}
 export function object(value: unknown): Record<string, unknown> {
@@ -101,6 +102,33 @@ function bookmark(value: unknown): BookmarkCommand {
 }
 export function parseCommand(value: unknown): Command {
 	const c = object(value);
+	if (c.type === 'note.replace') {
+		keys(c, ['type', 'id', 'expectedRevision', 'bodyMarkdown']);
+		try {
+			return {
+				type: c.type,
+				id: uuid(c.id),
+				expectedRevision: c.expectedRevision === '0' ? '0' : revision(c.expectedRevision),
+				bodyMarkdown: validateNoteBody(c.bodyMarkdown)
+			};
+		} catch (error) {
+			if (error instanceof NoteValidationError) throw new ValidationError(error.message);
+			throw error;
+		}
+	}
+	if (c.type === 'related-link.add' || c.type === 'related-link.remove') {
+		keys(c, ['type', 'id', 'expectedRevision', 'target']);
+		const target = object(c.target);
+		keys(target, ['kind', 'id']);
+		if (target.kind !== 'bookmark' && target.kind !== 'person' && target.kind !== 'persona')
+			throw new ValidationError('Unknown related target kind.');
+		return {
+			type: c.type,
+			id: uuid(c.id),
+			expectedRevision: revision(c.expectedRevision),
+			target: { kind: target.kind, id: uuid(target.id) }
+		};
+	}
 	if (c.type !== 'bookmark.bulk') return bookmark(c);
 	keys(c, ['type', 'commands']);
 	if (!Array.isArray(c.commands) || !c.commands.length || c.commands.length > MAX_BULK_BOOKMARKS)
