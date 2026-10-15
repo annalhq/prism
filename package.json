@@ -14,7 +14,7 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
-		"start": "node build",
+		"start": "node --env-file-if-exists=.env build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -24,13 +24,18 @@
 		"test:integration": "vitest run --project integration",
 		"test:e2e": "playwright test",
 		"bench": "node scripts/baseline.mjs",
-		"db:generate": "node scripts/not-ready.mjs db:generate",
-		"db:migrate": "node scripts/not-ready.mjs db:migrate",
-		"maintenance": "node scripts/not-ready.mjs maintenance"
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "bun scripts/db/migrate.ts",
+		"maintenance": "node scripts/not-ready.mjs maintenance",
+		"db:inventory": "bun scripts/db/inventory.ts",
+		"db:init-owner": "bun scripts/db/init-owner.ts"
 	},
 	"dependencies": {
 		"@internationalized/date": "3.12.4",
+		"@neondatabase/auth": "0.6.0-beta",
 		"bits-ui": "2.19.5",
+		"drizzle-orm": "0.45.4",
+		"pg": "8.23.1",
 		"phosphor-icons-svelte": "2.1.0"
 	},
 	"devDependencies": {
@@ -41,6 +46,8 @@
 		"@sveltejs/kit": "3.1.0",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",
 		"@types/node": "26.6.5",
+		"@types/pg": "8.23.1",
+		"drizzle-kit": "0.31.11",
 		"eslint": "9.39.5",
 		"eslint-config-prettier": "10.1.8",
 		"eslint-plugin-svelte": "3.23.1",

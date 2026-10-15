@@ -2,7 +2,7 @@
 
 A private personal knowledge library for saved content, people and connections across devices.
 
-The Task 1 foundation provides an accessible, responsive SvelteKit shell with Bits UI, Phosphor Icons Svelte, a self-hosted font and system light/dark themes. Saving, authentication, database access, people profiles and synchronization are planned in subsequent milestones. The shell requires no credentials and performs no service calls.
+The foundation provides an accessible, responsive SvelteKit shell with Bits UI, Phosphor Icons Svelte, a self-hosted font and system light/dark themes. Task 2 adds a server-only relational schema, guarded migration tools and an owner-only Neon Auth integration. The isolated Neon schema is migrated and its owner vault initialized; live authentication verification is pending. Saving, people workflows and synchronization are subsequent milestones. The shell requires no credentials and performs no service calls.
 
 ## Develop
 
@@ -19,21 +19,24 @@ SvelteKit 3 configuration lives in `vite.config.ts`, local imports use `#lib`, a
 
 ## Commands
 
-| Command                                      | Purpose                                                                                        |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `bun run dev`                                | Development server                                                                             |
-| `bun run check`                              | Framework synchronization and strict Svelte/TypeScript checks                                  |
-| `bun run lint`                               | Prettier check and ESLint                                                                      |
-| `bun run format`                             | Apply formatting                                                                               |
-| `bun run build`                              | Production Node-adapter build                                                                  |
-| `bun run start`                              | Run the existing production build                                                              |
-| `bun run preview`                            | Local Vite production preview                                                                  |
-| `bun run bench`                              | Record emitted asset sizes in `artifacts/baseline.json`; build first                           |
-| `bun run test`                               | Unit/SSR tests, isolated from integration and browser tests                                    |
-| `bun run test:integration`                   | Integration suite; currently empty and intentionally fails rather than reporting false success |
-| `bun run test:e2e`                           | Production browser smoke tests; deferred until the final quality pass                          |
-| `bun run db:generate` / `bun run db:migrate` | Reserved for Task 2; currently exit nonzero with instructions and contact no service           |
-| `bun run maintenance`                        | Reserved for Task 16; currently exits nonzero with instructions                                |
+| Command                    | Purpose                                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `bun run dev`              | Development server                                                                             |
+| `bun run check`            | Framework synchronization and strict Svelte/TypeScript checks                                  |
+| `bun run lint`             | Prettier check and ESLint                                                                      |
+| `bun run format`           | Apply formatting                                                                               |
+| `bun run build`            | Production Node-adapter build                                                                  |
+| `bun run start`            | Run the existing production build                                                              |
+| `bun run preview`          | Local Vite production preview                                                                  |
+| `bun run bench`            | Record emitted asset sizes in `artifacts/baseline.json`; build first                           |
+| `bun run test`             | Unit/SSR tests, isolated from integration and browser tests                                    |
+| `bun run test:integration` | Integration suite; currently empty and intentionally fails rather than reporting false success |
+| `bun run test:e2e`         | Production browser smoke tests; deferred until the final quality pass                          |
+| `bun run db:generate`      | Generate SQL offline from the Drizzle schema                                                   |
+| `bun run db:inventory`     | Read-only metadata and row counts from the direct database                                     |
+| `bun run db:migrate`       | Apply reviewed SQL to an explicitly isolated target after inventory                            |
+| `bun run db:init-owner`    | Explicitly initialize the configured owner vault after migration                               |
+| `bun run maintenance`      | Reserved for Task 16; currently exits nonzero with instructions                                |
 
 The browser suite builds and starts the actual Node-adapter output with empty service credentials. When browser testing resumes, install its matching browser with `bunx playwright install chromium`. It includes desktop/mobile viewport, landmarks, keyboard skip navigation, dialog focus restoration and absence of external requests. It is configured but has not passed in this environment. Do not run builds concurrently: they share generated output.
 
@@ -50,3 +53,17 @@ Future offline access is for trusted devices. Pending drafts/outbox data must su
 ## Design and progress
 
 [Architecture](ARCHITECTURE.md) describes the intended system. [Implementation plan](plan.md) tracks completed work and deferred verification. Web clipper design/research remains deferred at the user's request.
+
+## Connect the private vault
+
+Follow [Task 2 setup and evidence](docs/task-2.md). The public shell remains credential-free; `/auth/sign-in` uses Neon Auth and `/api/v1/session` requires the configured owner and initialized vault. Configure `NEON_AUTH_COOKIE_SECRET` locally in addition to the existing environment keys. No public signup or first-visitor ownership is exposed.
+
+## Environment loading
+
+Application server modules use SvelteKit 3's private runtime variables declared in `src/env.ts` and imported from `$app/env/private`. Vite reads local `.env` files through this framework mechanism; do not use direct `process.env` reads in application auth/database code. The standalone Bun database scripts load their environment independently and share only the pure connection-URL validator.
+
+`bun run start` uses Node's `--env-file-if-exists=.env` for a local production build. Deployment-provided environment variables retain precedence. Restart the development/production server after changing environment settings. To diagnose only the local sign-in page without submitting credentials, run `node scripts/check-auth-page.mjs http://localhost:5173` (adjust the port if necessary).
+
+### Set the owner's password
+
+If your Neon Auth user exists but has no password, open `/auth/sign-in` → **Set or reset password** → enter that account's email → **Email password setup link**. Open the email link, choose a password and sign in. Enable email authentication in Neon Auth and register the app origin as a trusted domain. This uses the application account, not the Neon Console login or PostgreSQL role password.

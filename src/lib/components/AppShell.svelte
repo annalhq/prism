@@ -27,7 +27,7 @@
 			<span class="brand-symbol" aria-hidden="true">P</span>
 			<span>Prism<span class="brand-caption">Personal library</span></span>
 		</a>
-		<span class="foundation-badge">Foundation</span>
+		<a class="foundation-badge" href={resolve('/auth/sign-in')}>Account</a>
 		<Dialog.Root>
 			<Dialog.Trigger class="icon-button" aria-label="About this foundation">
 				<IconInfoRegular />

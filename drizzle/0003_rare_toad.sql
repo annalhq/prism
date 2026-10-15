@@ -1,0 +1,2 @@
+ALTER TABLE "knowledge_entities" DROP CONSTRAINT "entity_persona_name_valid";--> statement-breakpoint
+ALTER TABLE "knowledge_entities" ADD CONSTRAINT "entity_persona_name_valid" CHECK (("knowledge_entities"."kind" = 'persona' AND (("knowledge_entities"."purged_at" IS NOT NULL AND "knowledge_entities"."persona_name" IS NULL) OR (char_length("knowledge_entities"."persona_name") BETWEEN 1 AND 256 AND "knowledge_entities"."persona_name" IS NOT NULL))) OR ("knowledge_entities"."kind" <> 'persona' AND "knowledge_entities"."persona_name" IS NULL));
