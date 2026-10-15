@@ -1,7 +1,51 @@
 import { and, eq } from 'drizzle-orm';
-import type { BookmarkProjection, Revision, Sequence } from '#lib/domain/contracts.js';
+import type {
+	BookmarkProjection,
+	Change,
+	EntityProjection,
+	Revision,
+	Sequence
+} from '#lib/domain/contracts.js';
 import type { Transaction } from '../db/connection.js';
 import { bookmarks, entities, entityTags } from '../db/schema.js';
+
+export async function entityProjection(
+	tx: Transaction,
+	vaultId: string,
+	id: string
+): Promise<EntityProjection> {
+	const [entity] = await tx
+		.select()
+		.from(entities)
+		.where(and(eq(entities.vaultId, vaultId), eq(entities.id, id)));
+	if (!entity || entity.purgedAt) throw new Error('Entity projection invariant failed.');
+	const tags = await tx
+		.select({ id: entityTags.tagId })
+		.from(entityTags)
+		.where(and(eq(entityTags.vaultId, vaultId), eq(entityTags.entityId, id)))
+		.orderBy(entityTags.tagId);
+	return {
+		id,
+		kind: entity.kind,
+		tagIds: tags.map((tag) => tag.id),
+		revision: String(entity.revision) as Revision,
+		lastSeq: String(entity.lastSeq) as Sequence,
+		deletedAt: entity.deletedAt?.toISOString() ?? null,
+		purgedAt: null,
+		createdAt: entity.createdAt.toISOString(),
+		updatedAt: entity.updatedAt.toISOString()
+	};
+}
+export async function entityMetadataChange(
+	tx: Transaction,
+	vaultId: string,
+	id: string,
+	kind: EntityProjection['kind']
+): Promise<Change> {
+	return kind === 'bookmark'
+		? { type: 'bookmark.upsert', bookmark: await bookmarkProjection(tx, vaultId, id) }
+		: { type: 'entity.upsert', entity: await entityProjection(tx, vaultId, id) };
+}
 
 export async function bookmarkProjection(
 	tx: Transaction,

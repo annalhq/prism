@@ -2,7 +2,7 @@
 
 A private personal knowledge library for saved content, people and connections across devices.
 
-The foundation provides an accessible, responsive SvelteKit shell with Bits UI, Phosphor Icons Svelte, a self-hosted font and system light/dark themes. Task 2 adds a server-only relational schema, guarded migration tools and an owner-only Neon Auth integration. The isolated Neon schema is migrated and its owner vault initialized. Task 3 adds authenticated transactional bookmark commands with revision checks, retry receipts and atomic change frames. Task 4 adds revisioned shared notes, safe Markdown references, related-link commands, recovery history and backlink reads. The saving UI, people workflows and synchronization are subsequent milestones; broader live verification remains deferred. The shell requires no credentials and performs no service calls.
+The foundation provides an accessible, responsive SvelteKit shell with Bits UI, Phosphor Icons Svelte, a self-hosted font and system light/dark themes. Task 2 adds a server-only relational schema, guarded migration tools and an owner-only Neon Auth integration. The isolated Neon schema is migrated and its owner vault initialized. Task 3 adds authenticated transactional bookmark commands with revision checks, retry receipts and atomic change frames. Task 4 adds revisioned shared notes, safe Markdown references, related-link commands, recovery history and backlink reads. Task 5 adds organization commands for tags, collections, reading status, pin/archive, saved searches and activity. The saving UI, people workflows and synchronization are subsequent milestones; broader live verification remains deferred. The shell requires no credentials and performs no service calls.
 
 ## Develop
 
@@ -58,7 +58,7 @@ Future offline access is for trusted devices. Pending drafts/outbox data must su
 
 Follow [Task 2 setup and evidence](docs/task-2.md). The public shell remains credential-free; `/auth/sign-in` uses Neon Auth and `/api/v1/session` requires the configured owner and initialized vault. Configure `NEON_AUTH_COOKIE_SECRET` locally in addition to the existing environment keys. No public signup or first-visitor ownership is exposed.
 
-The owner-only `POST /api/v1/commands` supports bookmark create/update/trash/restore/purge and atomic bulk chunks. See [Task 3 contracts and pending verification](docs/task-3.md) for request examples, retry rules and the deferred media-cleanup worker. Task 4 extends the endpoint with `note.replace` and `related-link.add/remove`, plus owner-only history and backlink GET endpoints. See [Task 4 contracts and pending verification](docs/task-4.md). No additional migration is needed for these slices.
+The owner-only `POST /api/v1/commands` supports bookmark create/update/trash/restore/purge and atomic bulk chunks. See [Task 3 contracts and pending verification](docs/task-3.md) for request examples, retry rules and the deferred media-cleanup worker. Task 4 extends the endpoint with `note.replace` and `related-link.add/remove`, plus owner-only history and backlink GET endpoints. See [Task 4 contracts and pending verification](docs/task-4.md). Task 5 adds organization and activity commands and extends bookmark bulk to organization/tag intents; see [Task 5 contracts and pending verification](docs/task-5.md). No additional migration is needed for these slices.
 
 ## Environment loading
 

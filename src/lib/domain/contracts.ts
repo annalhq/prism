@@ -9,6 +9,12 @@ export type BookmarkKind = 'page' | 'social' | 'image';
 export type BookmarkFields = { title: string; description: string; url: string | null };
 export type BookmarkCommand =
 	| {
+			type: 'bookmark.organize';
+			id: string;
+			expectedRevision: Revision;
+			patch: import('./organization.js').BookmarkOrganization;
+	  }
+	| {
 			type: 'bookmark.create';
 			id: string;
 			kind: BookmarkKind;
@@ -41,9 +47,12 @@ export type RelatedLinkCommand = {
 } & ({ type: 'related-link.add' } | { type: 'related-link.remove' });
 export type Command =
 	| BookmarkCommand
+	| import('./organization.js').OrganizationCommand
 	| NoteCommand
 	| RelatedLinkCommand
-	| { type: 'bookmark.bulk'; commands: BookmarkCommand[] };
+	| { type: 'bookmark.bulk'; commands: BulkBookmarkCommand[] };
+export type BulkBookmarkCommand =
+	BookmarkCommand | import('./organization.js').TagMembershipCommand;
 export type CommandEnvelope = { protocolVersion: 1; operationId: string; command: Command };
 
 export type BookmarkProjection = BookmarkFields & {
@@ -75,16 +84,45 @@ export type Change =
 	| { type: 'entity.upsert'; entity: EntityProjection }
 	| { type: 'note.upsert'; note: NoteProjection }
 	| { type: 'links.replace'; links: LinkProjection }
+	| { type: 'tag.upsert'; tag: TaxonomyProjection }
+	| { type: 'collection.upsert'; collection: TaxonomyProjection }
+	| { type: 'saved-search.upsert'; savedSearch: SavedSearchProjection }
+	| { type: 'activity.upsert'; activity: ActivityProjection }
 	// Removes the bookmark, its note/history, outgoing links, tags, activity, media,
 	// content-person relations and persona memberships. Incoming links retain the tombstone.
 	| { type: 'bookmark.purge'; tombstone: BookmarkTombstone };
 export type EntityProjection = {
 	id: string;
+	tagIds: string[];
 	kind: import('./notes.js').EntityKind;
 	revision: Revision;
 	lastSeq: Sequence;
 	deletedAt: string | null;
 	purgedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+};
+export type TaxonomyProjection = {
+	id: string;
+	name: string;
+	normalizedName: string;
+	revision: Revision;
+	lastSeq: Sequence;
+	deletedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+};
+export type SavedSearchProjection = Omit<TaxonomyProjection, 'normalizedName'> & {
+	filter: import('./search.js').SearchFilter;
+	astVersion: 1;
+	sort: import('./search.js').SearchSort;
+};
+export type ActivityProjection = {
+	bookmarkId: string;
+	lastOpenedAt: string;
+	openCount: `${bigint}`;
+	revision: Revision;
+	lastSeq: Sequence;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -118,6 +156,10 @@ export type CommandErrorCode =
 	| 'purged'
 	| 'duplicate_url'
 	| 'url_hash_collision'
+	| 'duplicate_name'
+	| 'in_use'
+	| 'tag_limit'
+	| 'invalid_reference'
 	| 'frame_too_large'
 	| 'operation_id_reused';
 export type CommandResult =

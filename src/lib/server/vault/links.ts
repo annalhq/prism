@@ -12,7 +12,7 @@ import { inTransaction, type Transaction } from '../db/connection.js';
 import { bookmarks, entities, entityLinks, notes, people, personas } from '../db/schema.js';
 import { findEntity, requireEntity, requireTargetKind } from './entities.js';
 import { ApiError } from '../http.js';
-import { bookmarkProjection } from './projections.js';
+import { entityMetadataChange } from './projections.js';
 import { reject } from './rejections.js';
 
 export async function linkProjection(
@@ -62,27 +62,11 @@ export async function changeRelatedLink(
 					eq(entityLinks.kind, 'related')
 				)
 			);
-	const [updated] = await tx
+	await tx
 		.update(entities)
 		.set({ revision: source.revision + 1n, lastSeq: seq, updatedAt: now })
-		.where(and(eq(entities.vaultId, vaultId), eq(entities.id, source.id)))
-		.returning();
-	const metadata: Change =
-		source.kind === 'bookmark'
-			? { type: 'bookmark.upsert', bookmark: await bookmarkProjection(tx, vaultId, source.id) }
-			: {
-					type: 'entity.upsert',
-					entity: {
-						id: updated.id,
-						kind: updated.kind,
-						revision: String(updated.revision) as Revision,
-						lastSeq: String(updated.lastSeq) as Sequence,
-						deletedAt: updated.deletedAt?.toISOString() ?? null,
-						purgedAt: updated.purgedAt?.toISOString() ?? null,
-						createdAt: updated.createdAt.toISOString(),
-						updatedAt: updated.updatedAt.toISOString()
-					}
-				};
+		.where(and(eq(entities.vaultId, vaultId), eq(entities.id, source.id)));
+	const metadata = await entityMetadataChange(tx, vaultId, source.id, source.kind);
 	return [
 		metadata,
 		{ type: 'links.replace', links: await linkProjection(tx, vaultId, source.id, seq) }

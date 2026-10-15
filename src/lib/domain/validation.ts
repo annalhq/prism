@@ -1,43 +1,20 @@
 import {
 	MAX_BULK_BOOKMARKS,
 	type BookmarkCommand,
-	type Command,
-	type Revision
+	type BulkBookmarkCommand,
+	type Command
 } from './contracts.js';
 import { normalizeUrl } from './urls.js';
 import { NoteValidationError, validateNoteBody } from './notes.js';
+import {
+	isOrganizationCommand,
+	parseOrganizationCommand,
+	parseBookmarkOrganization
+} from './organization.js';
 
-export class ValidationError extends Error {}
-export function object(value: unknown): Record<string, unknown> {
-	if (!value || typeof value !== 'object' || Array.isArray(value))
-		throw new ValidationError('Expected an object.');
-	return value as Record<string, unknown>;
-}
-export function keys(value: Record<string, unknown>, allowed: string[]): void {
-	if (Object.keys(value).some((key) => !allowed.includes(key)))
-		throw new ValidationError('Unknown field.');
-}
-export function uuid(value: unknown): string {
-	if (
-		typeof value !== 'string' ||
-		!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
-	)
-		throw new ValidationError('Expected a UUID.');
-	return value.toLowerCase();
-}
-function text(value: unknown, max: number, required = false): string {
-	if (
-		typeof value !== 'string' ||
-		!value.isWellFormed() ||
-		value.includes('\0') ||
-		[...value].length > max ||
-		(required && !value.trim())
-	)
-		throw new ValidationError(
-			`Expected ${required ? 'nonempty ' : ''}text of at most ${max} characters.`
-		);
-	return value;
-}
+export { ValidationError, object, keys, uuid } from './validation-fields.js';
+import { ValidationError, object, keys, uuid, text, revision } from './validation-fields.js';
+
 function url(value: unknown): string | null {
 	if (value === null) return null;
 	const input = text(value, 8192);
@@ -47,15 +24,6 @@ function url(value: unknown): string | null {
 		throw new ValidationError((error as Error).message);
 	}
 	return input;
-}
-function revision(value: unknown): Revision {
-	if (
-		typeof value !== 'string' ||
-		!/^[1-9]\d{0,18}$/.test(value) ||
-		BigInt(value) > 9223372036854775807n
-	)
-		throw new ValidationError('Expected a positive decimal revision within signed bigint range.');
-	return value as Revision;
 }
 function bookmark(value: unknown): BookmarkCommand {
 	const c = object(value);
@@ -77,6 +45,10 @@ function bookmark(value: unknown): BookmarkCommand {
 		};
 	}
 	const expectedRevision = revision(c.expectedRevision);
+	if (c.type === 'bookmark.organize') {
+		keys(c, ['type', 'id', 'expectedRevision', 'patch']);
+		return { type: c.type, id, expectedRevision, patch: parseBookmarkOrganization(c.patch) };
+	}
 	if (c.type === 'bookmark.update') {
 		keys(c, ['type', 'id', 'expectedRevision', 'patch']);
 		const p = object(c.patch);
@@ -102,6 +74,8 @@ function bookmark(value: unknown): BookmarkCommand {
 }
 export function parseCommand(value: unknown): Command {
 	const c = object(value);
+	if (typeof c.type === 'string' && isOrganizationCommand({ type: c.type }))
+		return parseOrganizationCommand(c);
 	if (c.type === 'note.replace') {
 		keys(c, ['type', 'id', 'expectedRevision', 'bodyMarkdown']);
 		try {
@@ -133,7 +107,14 @@ export function parseCommand(value: unknown): Command {
 	keys(c, ['type', 'commands']);
 	if (!Array.isArray(c.commands) || !c.commands.length || c.commands.length > MAX_BULK_BOOKMARKS)
 		throw new ValidationError(`Bulk commands require 1–${MAX_BULK_BOOKMARKS} bookmarks.`);
-	const commands = c.commands.map(bookmark);
+	const commands: BulkBookmarkCommand[] = c.commands.map((value) => {
+		const item = object(value);
+		if (item.type === 'tag.add' || item.type === 'tag.remove') {
+			const parsed = parseOrganizationCommand(item);
+			if (parsed.type === 'tag.add' || parsed.type === 'tag.remove') return parsed;
+		}
+		return bookmark(item);
+	});
 	if (new Set(commands.map((c) => c.id)).size !== commands.length)
 		throw new ValidationError('Each bookmark can occur only once in a bulk command.');
 	return { type: c.type, commands };

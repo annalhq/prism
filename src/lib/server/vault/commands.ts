@@ -22,6 +22,10 @@ import { purgeBookmark } from './purge.js';
 import { replaceNote } from './notes.js';
 import { changeRelatedLink } from './links.js';
 import { Rejected, reject } from './rejections.js';
+import { changeTaxonomy, changeTagMembership, organizeBookmark } from './organization.js';
+import { changeSavedSearch } from './saved-searches.js';
+import { recordOpen } from './activity.js';
+import { isOrganizationCommand, type OrganizationCommand } from '#lib/domain/organization.js';
 
 class AlreadyExists extends Error {
 	constructor(readonly id: string) {
@@ -124,7 +128,14 @@ async function applyBookmark(
 	} else if (command.type === 'bookmark.purge') {
 		if (!entity.deletedAt)
 			reject('not_in_trash', 'Move this bookmark to trash before permanently removing it.', { id });
-	} else if (entity.deletedAt)
+	} else if (
+		entity.deletedAt &&
+		!(
+			command.type === 'bookmark.organize' &&
+			Object.keys(command.patch).length === 1 &&
+			command.patch.collectionId === null
+		)
+	)
 		reject('in_trash', 'Restore this bookmark before editing or trashing it again.', { id });
 
 	const revision = entity.revision + 1n;
@@ -170,6 +181,8 @@ async function applyBookmark(
 			.set({ ...command.patch, ...normalized })
 			.where(bookmarkIdentity);
 	}
+	if (command.type === 'bookmark.organize')
+		await organizeBookmark(tx, vaultId, id, command.patch, bookmark, now);
 	if (command.type === 'bookmark.restore')
 		await ensureUniqueUrl(tx, vaultId, id, bookmark.canonicalUrl, false);
 	await tx
@@ -188,6 +201,29 @@ async function applyBookmark(
 		})
 		.where(identity);
 	return { type: 'bookmark.upsert', bookmark: await bookmarkProjection(tx, vaultId, id) };
+}
+
+async function applyOrganization(
+	tx: Transaction,
+	vaultId: string,
+	command: OrganizationCommand,
+	seq: bigint,
+	now: Date,
+	bookmarkOnly = false
+): Promise<Change[]> {
+	switch (command.type) {
+		case 'tag.add':
+		case 'tag.remove':
+			return changeTagMembership(tx, vaultId, command, seq, now, bookmarkOnly);
+		case 'saved-search.create':
+		case 'saved-search.update':
+		case 'saved-search.delete':
+			return changeSavedSearch(tx, vaultId, command, seq, now);
+		case 'activity.open':
+			return recordOpen(tx, vaultId, command.id, seq, now);
+		default:
+			return changeTaxonomy(tx, vaultId, command, seq, now);
+	}
 }
 
 export async function executeCommand(owner: OwnerContext, input: unknown): Promise<CommandResult> {
@@ -219,10 +255,16 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 					changes.push(...(await replaceNote(mutation, owner.vaultId, command, seq, now)));
 				} else if (command.type === 'related-link.add' || command.type === 'related-link.remove') {
 					changes.push(...(await changeRelatedLink(mutation, owner.vaultId, command, seq, now)));
+				} else if (isOrganizationCommand(command)) {
+					changes.push(...(await applyOrganization(mutation, owner.vaultId, command, seq, now)));
 				} else {
 					for (const item of command.type === 'bookmark.bulk' ? command.commands : [command]) {
 						try {
-							changes.push(await applyBookmark(mutation, owner.vaultId, item, seq, now));
+							if (isOrganizationCommand(item)) {
+								changes.push(
+									...(await applyOrganization(mutation, owner.vaultId, item, seq, now, true))
+								);
+							} else changes.push(await applyBookmark(mutation, owner.vaultId, item, seq, now));
 						} catch (error) {
 							if (error instanceof AlreadyExists && command.type === 'bookmark.bulk')
 								reject(
