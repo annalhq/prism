@@ -7,7 +7,16 @@
 	import { extractReferences } from '#lib/domain/notes.js';
 	import { isTweetSource } from '#lib/domain/relationships.js';
 	import { entityLabel } from '#lib/client/search.js';
+	import { AlertDialog } from 'bits-ui';
 	import NoteEditor from './NoteEditor.svelte';
+	let purgeOpen = $state(false);
+	import SelectField from './ui/SelectField.svelte';
+	import Check from './ui/Check.svelte';
+	import IconXFill from 'phosphor-icons-svelte/IconXFill.svelte';
+	import IconArrowUpRightFill from 'phosphor-icons-svelte/IconArrowUpRightFill.svelte';
+	import IconPushPinFill from 'phosphor-icons-svelte/IconPushPinFill.svelte';
+	import IconArchiveFill from 'phosphor-icons-svelte/IconArchiveFill.svelte';
+	import IconTrashFill from 'phosphor-icons-svelte/IconTrashFill.svelte';
 	type Row = Record<string, unknown>;
 	let {
 		library,
@@ -228,12 +237,11 @@
 			patch
 		} as Command);
 	}
-	async function lifecycle(action: 'trash' | 'restore' | 'purge') {
-		if (
-			action === 'purge' &&
-			!confirm('Permanently remove this item? Its note and owned data will be removed.')
-		)
+	async function lifecycle(action: 'trash' | 'restore' | 'purge', approved = false) {
+		if (action === 'purge' && !approved) {
+			purgeOpen = true;
 			return;
+		}
 		if (
 			await act({
 				type: `${entity.kind}.${action}`,
@@ -286,7 +294,7 @@
 				: entity.kind === 'person'
 					? 'Person'
 					: 'Knowledge context'}</span
-		><button class="icon-button" onclick={close} aria-label="Close inspector">×</button>
+		><button class="icon-button" onclick={close} aria-label="Close inspector"><IconXFill /></button>
 	</div>
 	{#if !row}<div class="panel-message">
 			<h2>Item unavailable</h2>
@@ -299,13 +307,14 @@
 				>
 			</div>{/if}
 		<section class="inspector-section">
-			<label for="item-title">{entity.kind === 'person' ? 'Name' : 'Title'}</label><input
+			<label for="item-title">{entity.kind === 'person' ? 'Name' : 'Title'}</label><textarea
+				rows="2"
 				id="item-title"
 				bind:value={title}
 				oninput={() => (dirty = true)}
 				maxlength={entity.kind === 'person' ? 200 : entity.kind === 'persona' ? 64 : 500}
-				disabled={!!row.deletedAt}
-			/><label for="item-description">{entity.kind === 'person' ? 'Bio' : 'Description'}</label
+				disabled={!!row.deletedAt}></textarea><label for="item-description"
+				>{entity.kind === 'person' ? 'Bio' : 'Description'}</label
 			><textarea
 				id="item-description"
 				bind:value={description}
@@ -328,7 +337,7 @@
 						onclick={() => {
 							if (entity.kind === 'bookmark')
 								void library.save({ type: 'activity.open', id: entity.id });
-						}}>Open source ↗</a
+						}}>Open source <IconArrowUpRightFill /></a
 					>{/if}{/if}
 			{#if dirty}<div class="button-row">
 					<button class="primary-button" onclick={saveMetadata} disabled={busy || !!row.deletedAt}
@@ -348,30 +357,41 @@
 			{#if !row.deletedAt}<div class="button-row">
 					{#if entity.kind === 'bookmark'}<button
 							onclick={() => organize({ isPinned: !row.isPinned })}
-							disabled={busy}>{row.isPinned ? 'Unpin' : 'Pin'}</button
+							disabled={busy}
+							aria-pressed={!!row.isPinned}
+							><IconPushPinFill />{row.isPinned ? 'Unpin' : 'Pin'}</button
 						><button onclick={() => organize({ isArchived: !row.archivedAt })} disabled={busy}
-							>{row.archivedAt ? 'Unarchive' : 'Archive'}</button
-						>{/if}<button onclick={() => lifecycle('trash')} disabled={busy}>Move to trash</button>
+							><IconArchiveFill />{row.archivedAt ? 'Unarchive' : 'Archive'}</button
+						>{/if}<button onclick={() => lifecycle('trash')} disabled={busy}
+						><IconTrashFill />Move to trash</button
+					>
 				</div>{/if}
 		</section>
 		{#if error}<p class="form-error inset" role="alert">{error}</p>{/if}
 		{#if !row.deletedAt}
 			{#if entity.kind === 'bookmark'}<section class="inspector-section form-grid">
-					<label for="reading-status">Reading</label><select
-						id="reading-status"
+					<label for="reading-status">Reading</label><SelectField
+						label="Reading status"
 						value={String(row.readingStatus)}
-						onchange={(e) => organize({ readingStatus: e.currentTarget.value })}
-						><option value="unread">Unread</option><option value="reading">Reading</option><option
-							value="read">Read</option
-						></select
-					><label for="collection">Collection</label><select
-						id="collection"
+						options={[
+							{ value: 'unread', label: 'Unread' },
+							{ value: 'reading', label: 'Reading' },
+							{ value: 'read', label: 'Read' }
+						]}
+						id="reading-status"
+						disabled={busy}
+						onValueChange={(value) => organize({ readingStatus: value })}
+					/><label for="collection">Collection</label><SelectField
+						label="Collection"
 						value={String(row.collectionId ?? '')}
-						onchange={(e) => organize({ collectionId: e.currentTarget.value || null })}
-						><option value="">Inbox · no collection</option>{#each collections as c (c.id)}<option
-								value={String(c.id)}>{c.name}</option
-							>{/each}</select
-					>
+						options={[
+							{ value: '', label: 'Inbox · no collection' },
+							...collections.map((r) => ({ value: String(r.id), label: String(r.name) }))
+						]}
+						id="collection"
+						disabled={busy}
+						onValueChange={(value) => organize({ collectionId: value || null })}
+					/>
 				</section>{/if}
 			<NoteEditor {library} {entity} {version} {feedback} {navigate} />
 			<section class="inspector-section">
@@ -380,16 +400,20 @@
 					{#each (row.tagIds as string[]) ?? [] as id (id)}<span class="chip"
 							>{tags.find((t) => t.id === id)?.name ?? 'Unavailable tag'}<button
 								aria-label="Remove tag"
-								onclick={() => act({ type: 'tag.remove', id: entity.id, tagId: id })}>×</button
+								onclick={() => act({ type: 'tag.remove', id: entity.id, tagId: id })}
+								><IconXFill /></button
 							></span
 						>{/each}
 				</div>
 				<div class="button-row">
-					<select aria-label="Add tag" bind:value={tagId}
-						><option value="">Choose a tag…</option>{#each tags as t (t.id)}<option
-								value={String(t.id)}>{t.name}</option
-							>{/each}</select
-					><button
+					<SelectField
+						label="Add tag"
+						bind:value={tagId}
+						options={[
+							{ value: '', label: 'Choose a tag…' },
+							...tags.map((r) => ({ value: String(r.id), label: String(r.name) }))
+						]}
+					/><button
 						onclick={async () => {
 							if (await act({ type: 'tag.add', id: entity.id, tagId })) tagId = '';
 						}}
@@ -418,19 +442,27 @@
 										bookmarkId: entity.id,
 										personId: String(relation.personId),
 										role: relation.role as 'author'
-									})}>×</button
+									})}><IconXFill /></button
 							>
-						</div>{/each}<select aria-label="Person" bind:value={personId}
-						><option value="">Choose a person…</option>{#each people as p (p.id)}<option
-								value={String(p.id)}>{p.displayName}</option
-							>{/each}</select
-					>
+						</div>{/each}<SelectField
+						label="Person"
+						bind:value={personId}
+						options={[
+							{ value: '', label: 'Choose a person…' },
+							...people.map((r) => ({ value: String(r.id), label: String(r.displayName) }))
+						]}
+					/>
 					<div class="button-row">
-						<select aria-label="Person role" bind:value={role}
-							><option value="related">Related</option><option value="author">Author</option><option
-								value="about">About</option
-							></select
-						><button
+						<SelectField
+							label="Person role"
+							value={role}
+							options={[
+								{ value: 'related', label: 'Related' },
+								{ value: 'author', label: 'Author' },
+								{ value: 'about', label: 'About' }
+							]}
+							onValueChange={(value) => (role = value as typeof role)}
+						/><button
 							disabled={!personId}
 							onclick={async () => {
 								if (
@@ -448,7 +480,7 @@
 					</div>
 				</section>{/if}
 			{#if entity.kind !== 'persona'}<section class="inspector-section">
-					<h3>Personas</h3>
+					<h3>Contexts</h3>
 					<div class="chip-list">
 						{#each members.filter((m) => (m.member as EntityRef).id === entity.id) as membership (membership.personaId)}<span
 								class="chip"
@@ -463,16 +495,19 @@
 											type: 'persona-member.remove',
 											personaId: String(membership.personaId),
 											member: entity as { kind: 'bookmark' | 'person'; id: string }
-										})}>×</button
+										})}><IconXFill /></button
 								></span
 							>{/each}
 					</div>
 					<div class="button-row">
-						<select aria-label="Persona" bind:value={personaId}
-							><option value="">Choose a context…</option>{#each personas as p (p.id)}<option
-									value={String(p.id)}>{p.name}</option
-								>{/each}</select
-						><button
+						<SelectField
+							label="Persona"
+							bind:value={personaId}
+							options={[
+								{ value: '', label: 'Choose a context…' },
+								...personas.map((r) => ({ value: String(r.id), label: String(r.name) }))
+							]}
+						/><button
 							disabled={!personaId}
 							onclick={async () => {
 								if (
@@ -489,12 +524,17 @@
 				</section>{/if}
 			{#if entity.kind === 'person'}<section class="inspector-section">
 					<h3>Saved content</h3>
-					<select aria-label="Person feed" bind:value={feed}
-						><option value="all">All associations</option><option value="authored">Authored</option
-						><option value="about">About</option><option value="related">Related</option><option
-							value="tweets">Tweets</option
-						></select
-					>{#each feedRows as item (item.id)}<button
+					<SelectField
+						label="Person feed"
+						bind:value={feed}
+						options={[
+							{ value: 'all', label: 'All associations' },
+							{ value: 'authored', label: 'Authored' },
+							{ value: 'about', label: 'About' },
+							{ value: 'related', label: 'Related' },
+							{ value: 'tweets', label: 'Tweets' }
+						]}
+					/>{#each feedRows as item (item.id)}<button
 							class="connection-link"
 							onclick={() => navigate({ kind: 'bookmark', id: String(item.id) })}
 							>{item.title}</button
@@ -513,7 +553,7 @@
 										id: String(identity.id),
 										personId: entity.id,
 										expectedRevision: String(identity.revision) as Revision
-									})}>×</button
+									})}><IconXFill /></button
 							>
 						</div>{/each}
 					<details>
@@ -534,7 +574,8 @@
 								id="identity-native"
 								bind:value={nativeId}
 							/><label class="checkbox-label"
-								><input type="checkbox" bind:checked={confirmed} /> I confirm this is the same person</label
+								><Check bind:checked={confirmed} label="I confirm this is the same person" /> I confirm
+								this is the same person</label
 							><button disabled={!confirmed || !platform || !profileUrl} onclick={addIdentity}
 								>Add identity</button
 							>
@@ -543,12 +584,16 @@
 				</section>{/if}
 			{#if entity.kind === 'persona'}<section class="inspector-section">
 					<h3>Members</h3>
-					<select aria-label="Persona view" bind:value={feed}
-						><option value="all">Explicit members</option><option value="people">People</option
-						><option value="content">Content</option><option value="authored"
-							>From these people · authored content</option
-						></select
-					>{#if feed === 'authored'}<p class="muted">
+					<SelectField
+						label="Context view"
+						bind:value={feed}
+						options={[
+							{ value: 'all', label: 'Explicit members' },
+							{ value: 'people', label: 'People' },
+							{ value: 'content', label: 'Content' },
+							{ value: 'authored', label: 'From these people · authored content' }
+						]}
+					/>{#if feed === 'authored'}<p class="muted">
 							Derived from member people. These items are not automatically assigned to this
 							context.
 						</p>{/if}{#each personaRows as item (item.id)}<div class="relation-row">
@@ -569,16 +614,20 @@
 												kind: item.kind === 'person' ? 'person' : 'bookmark',
 												id: String(item.id)
 											}
-										})}>×</button
+										})}><IconXFill /></button
 								>{/if}
 						</div>{:else}<p class="muted">Add people or content to start this context.</p>{/each}
 					<div class="button-row">
-						<select aria-label="New persona member" bind:value={target}
-							><option value="">Choose a member…</option
-							>{#each allTargets.filter((t) => t.kind !== 'persona') as t (t.id)}<option
-									value={`${t.kind}/${t.id}`}>{t.kind} · {t.title}</option
-								>{/each}</select
-						><button
+						<SelectField
+							label="New context member"
+							bind:value={target}
+							options={[
+								{ value: '', label: 'Choose a member…' },
+								...allTargets
+									.filter((t) => t.kind !== 'persona')
+									.map((t) => ({ value: `${t.kind}/${t.id}`, label: `${t.kind} · ${t.title}` }))
+							]}
+						/><button
 							disabled={!target}
 							onclick={async () => {
 								const [kind, id] = target.split('/');
@@ -616,17 +665,39 @@
 									id: entity.id,
 									expectedRevision: revision(),
 									target: refFor(edge.targetId)
-								})}>×</button
+								})}><IconXFill /></button
 						>
 					</div>{/each}
 				<div class="button-row">
-					<select aria-label="Related target" bind:value={target}
-						><option value="">Choose a target…</option>{#each allTargets as t (t.id)}<option
-								value={`${t.kind}/${t.id}`}>{t.title}</option
-							>{/each}</select
-					><button onclick={addRelated} disabled={!target}>Link</button>
+					<SelectField
+						label="Related target"
+						bind:value={target}
+						options={[
+							{ value: '', label: 'Choose a target…' },
+							...allTargets.map((t) => ({ value: `${t.kind}/${t.id}`, label: t.title }))
+						]}
+					/><button onclick={addRelated} disabled={!target}>Link</button>
 				</div>
 			</section>
 		{/if}
 	{/if}
 </aside>
+
+<AlertDialog.Root bind:open={purgeOpen}>
+	<AlertDialog.Portal
+		><AlertDialog.Overlay class="dialog-overlay" /><AlertDialog.Content class="dialog-content">
+			<AlertDialog.Title class="dialog-title">Delete this item permanently?</AlertDialog.Title>
+			<AlertDialog.Description class="dialog-description"
+				>Its note and owned data will be removed. This action cannot be undone.</AlertDialog.Description
+			>
+			<div class="button-row dialog-actions">
+				<AlertDialog.Cancel class="secondary-button">Keep in trash</AlertDialog.Cancel
+				><AlertDialog.Action
+					class="danger-button"
+					onclick={() => lifecycle('purge', true)}
+					disabled={busy}>Delete permanently</AlertDialog.Action
+				>
+			</div>
+		</AlertDialog.Content></AlertDialog.Portal
+	>
+</AlertDialog.Root>

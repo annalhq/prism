@@ -3,13 +3,16 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { Dialog } from 'bits-ui';
-	import IconPlusRegular from 'phosphor-icons-svelte/IconPlusRegular.svelte';
-	import IconMagnifyingGlassRegular from 'phosphor-icons-svelte/IconMagnifyingGlassRegular.svelte';
-	import IconTrayRegular from 'phosphor-icons-svelte/IconTrayRegular.svelte';
-	import IconBookmarkSimpleRegular from 'phosphor-icons-svelte/IconBookmarkSimpleRegular.svelte';
-	import IconUsersRegular from 'phosphor-icons-svelte/IconUsersRegular.svelte';
-	import IconSquaresFourRegular from 'phosphor-icons-svelte/IconSquaresFourRegular.svelte';
+	import { Dialog, DropdownMenu } from 'bits-ui';
+	import Brand from './ui/Brand.svelte';
+	import SelectField from './ui/SelectField.svelte';
+	import Check from './ui/Check.svelte';
+	import IconPlusFill from 'phosphor-icons-svelte/IconPlusFill.svelte';
+	import IconMagnifyingGlassFill from 'phosphor-icons-svelte/IconMagnifyingGlassFill.svelte';
+	import IconTrayFill from 'phosphor-icons-svelte/IconTrayFill.svelte';
+	import IconBookmarkSimpleFill from 'phosphor-icons-svelte/IconBookmarkSimpleFill.svelte';
+	import IconUsersFill from 'phosphor-icons-svelte/IconUsersFill.svelte';
+	import IconSquaresFourFill from 'phosphor-icons-svelte/IconSquaresFourFill.svelte';
 	import { createLibraryClient, type LibraryClient } from '#lib/client/vault/library.js';
 	import { createSearchClient } from '#lib/client/search-client.js';
 	import { entityLabel, emptySearch, type searchLibrary } from '#lib/client/search.js';
@@ -22,9 +25,25 @@
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { BookmarkCommand, Command, Revision } from '#lib/domain/contracts.js';
 	import LibraryInspector from './LibraryInspector.svelte';
+	import IconClockFill from 'phosphor-icons-svelte/IconClockFill.svelte';
+	import IconPushPinFill from 'phosphor-icons-svelte/IconPushPinFill.svelte';
+	import IconFolderFill from 'phosphor-icons-svelte/IconFolderFill.svelte';
+	import IconHashFill from 'phosphor-icons-svelte/IconHashFill.svelte';
+	import IconArchiveFill from 'phosphor-icons-svelte/IconArchiveFill.svelte';
+	import IconTrashFill from 'phosphor-icons-svelte/IconTrashFill.svelte';
+	import IconCaretDownFill from 'phosphor-icons-svelte/IconCaretDownFill.svelte';
+	import IconDotsThreeFill from 'phosphor-icons-svelte/IconDotsThreeFill.svelte';
+	import IconUserCircleFill from 'phosphor-icons-svelte/IconUserCircleFill.svelte';
+	import IconGearSixFill from 'phosphor-icons-svelte/IconGearSixFill.svelte';
+	import IconXFill from 'phosphor-icons-svelte/IconXFill.svelte';
+	import IconGlobeFill from 'phosphor-icons-svelte/IconGlobeFill.svelte';
+	import IconImageFill from 'phosphor-icons-svelte/IconImageFill.svelte';
+	import IconQuotesFill from 'phosphor-icons-svelte/IconQuotesFill.svelte';
+	let { openOffline = false }: { openOffline?: boolean } = $props();
 
 	type Row = Record<string, unknown>;
-	let library = $state<LibraryClient | null>(null),
+	// The facade owns its mutable state and notifies via version; do not proxy its snapshots.
+	let library = $state.raw<LibraryClient | null>(null),
 		version = $state(0),
 		sort = $state('newest'),
 		toast = $state(''),
@@ -118,7 +137,9 @@
 			version++;
 		});
 		library = client;
-		void client.start();
+		void client.start().then(() => {
+			if (openOffline) return client.openCached().catch((error: Error) => feedback(error.message));
+		});
 		const key = (event: KeyboardEvent) => {
 			const target = event.target as HTMLElement;
 			if (target.closest('input,textarea,select,[contenteditable]') || event.isComposing) return;
@@ -396,35 +417,72 @@
 <a class="skip-link" href="#library-main">Skip to content</a>
 <div class="v0-shell">
 	<header class="v0-header">
-		<a class="brand" href={resolve('/')}
-			><span class="brand-symbol" aria-hidden="true">P</span><span
-				>Prism<span class="brand-caption">Your private library</span></span
-			></a
-		>
+		<Brand />
 		<div class="global-search">
-			<IconMagnifyingGlassRegular /><input
+			<IconMagnifyingGlassFill /><input
 				bind:this={searchInput}
 				bind:value={query}
 				aria-label="Search library"
-				placeholder="Search your library…   /"
+				placeholder="Search anything in your library…"
 				disabled={!status?.ready}
 			/>
+			<kbd>⌘ K</kbd>
 		</div>
-		<button
-			class="primary-button new-button"
-			onclick={() =>
-				create(view === 'people' ? 'person' : view === 'personas' ? 'persona' : 'bookmark')}
-			disabled={!status?.ready}><IconPlusRegular /><span>New</span></button
-		><a class="account-link" href={resolve('/auth/sign-in')}>Account</a><button
-			class="icon-button"
-			aria-label="Library settings"
-			onclick={() => (settings = true)}>⋯</button
-		>
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger class="primary-button new-button" disabled={!status?.ready}
+				><IconPlusFill /><span>Add new</span><IconCaretDownFill /></DropdownMenu.Trigger
+			>
+			<DropdownMenu.Portal
+				><DropdownMenu.Content class="menu-content" sideOffset={8} align="end">
+					<DropdownMenu.Group
+						><DropdownMenu.GroupHeading class="menu-heading"
+							>Add to your library</DropdownMenu.GroupHeading
+						>
+						<DropdownMenu.Item class="menu-item" onSelect={() => create('bookmark')}
+							><IconBookmarkSimpleFill />Saved content</DropdownMenu.Item
+						>
+						<DropdownMenu.Item class="menu-item" onSelect={() => create('person')}
+							><IconUsersFill />Person</DropdownMenu.Item
+						>
+						<DropdownMenu.Item class="menu-item" onSelect={() => create('persona')}
+							><IconSquaresFourFill />Knowledge context</DropdownMenu.Item
+						>
+					</DropdownMenu.Group>
+					<DropdownMenu.Separator class="menu-separator" />
+					<DropdownMenu.Item class="menu-item" onSelect={() => create('collection')}
+						><IconFolderFill />Collection</DropdownMenu.Item
+					>
+					<DropdownMenu.Item class="menu-item" onSelect={() => create('tag')}
+						><IconHashFill />Tag</DropdownMenu.Item
+					>
+				</DropdownMenu.Content></DropdownMenu.Portal
+			>
+		</DropdownMenu.Root>
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger class="account-button" aria-label="Account and library settings"
+				><IconUserCircleFill /><IconCaretDownFill /></DropdownMenu.Trigger
+			>
+			<DropdownMenu.Portal
+				><DropdownMenu.Content class="menu-content" sideOffset={8} align="end">
+					<DropdownMenu.Group
+						><DropdownMenu.GroupHeading class="menu-heading"
+							>Your personal space</DropdownMenu.GroupHeading
+						>
+						<DropdownMenu.Item class="menu-item" onSelect={() => (settings = true)}
+							><IconGearSixFill />Library settings</DropdownMenu.Item
+						>
+						<DropdownMenu.Item class="menu-item" onSelect={() => goto(resolve('/auth/sign-in'))}
+							><IconUserCircleFill />Account & sign out</DropdownMenu.Item
+						>
+					</DropdownMenu.Group>
+				</DropdownMenu.Content></DropdownMenu.Portal
+			>
+		</DropdownMenu.Root>
 	</header>
 	<div class:has-selection={!!selected} class="v0-workspace">
 		<nav class="v0-sidebar" aria-label="Library navigation">
 			<p class="section-label">Library</p>
-			{#each [{ id: 'inbox', name: 'Inbox', icon: IconTrayRegular }, { id: 'all', name: 'All content', icon: IconBookmarkSimpleRegular }, { id: 'later', name: 'Read later', icon: IconBookmarkSimpleRegular }, { id: 'pinned', name: 'Pinned', icon: IconBookmarkSimpleRegular }, { id: 'people', name: 'People', icon: IconUsersRegular }, { id: 'personas', name: 'Personas', icon: IconSquaresFourRegular }] as item (item.id)}<button
+			{#each [{ id: 'inbox', name: 'Inbox', icon: IconTrayFill }, { id: 'all', name: 'All content', icon: IconBookmarkSimpleFill }, { id: 'later', name: 'Read later', icon: IconClockFill }, { id: 'pinned', name: 'Pinned', icon: IconPushPinFill }, { id: 'people', name: 'People', icon: IconUsersFill }, { id: 'personas', name: 'Contexts', icon: IconSquaresFourFill }] as item (item.id)}<button
 					class:active={view === item.id}
 					class="nav-item"
 					onclick={() => navigate(null, item.id)}
@@ -437,21 +495,22 @@
 					class="text-button"
 					aria-label="New collection"
 					onclick={() => create('collection')}
-					disabled={!status?.ready}>+</button
+					disabled={!status?.ready}><IconPlusFill /></button
 				>
 			</div>
 			{#each collections as item (item.id)}<div class="sidebar-row">
 					<button
 						class:active={view === `collection:${item.id}`}
 						class="nav-item"
-						onclick={() => navigate(null, `collection:${item.id}`)}>{item.name}</button
+						onclick={() => navigate(null, `collection:${item.id}`)}
+						><IconFolderFill /><span>{item.name}</span></button
 					><button
 						aria-label={`Manage ${item.name}`}
 						class="quiet-button"
 						onclick={() => {
 							manage = { table: 'collections', row: item };
 							rename = String(item.name);
-						}}>⋯</button
+						}}><IconDotsThreeFill /></button
 					>
 				</div>{:else}<p class="sidebar-hint">A place for a focused reading list.</p>{/each}
 			<div class="sidebar-heading">
@@ -460,21 +519,22 @@
 					class="text-button"
 					aria-label="New tag"
 					onclick={() => create('tag')}
-					disabled={!status?.ready}>+</button
+					disabled={!status?.ready}><IconPlusFill /></button
 				>
 			</div>
 			{#each tags as item (item.id)}<div class="sidebar-row">
 					<button
 						class:active={view === `tag:${item.id}`}
 						class="nav-item"
-						onclick={() => navigate(null, `tag:${item.id}`)}># {item.name}</button
+						onclick={() => navigate(null, `tag:${item.id}`)}
+						><IconHashFill /><span>{item.name}</span></button
 					><button
 						aria-label={`Manage ${item.name}`}
 						class="quiet-button"
 						onclick={() => {
 							manage = { table: 'tags', row: item };
 							rename = String(item.name);
-						}}>⋯</button
+						}}><IconDotsThreeFill /></button
 					>
 				</div>{/each}
 			{#if saved.length}<p class="section-label sidebar-heading">Saved searches</p>
@@ -482,42 +542,47 @@
 						<button
 							class="nav-item"
 							class:active={view === `saved:${item.id}`}
-							onclick={() => navigate(null, `saved:${item.id}`)}>{item.name}</button
+							onclick={() => navigate(null, `saved:${item.id}`)}
+							><IconMagnifyingGlassFill /><span>{item.name}</span></button
 						><button
 							aria-label={`Manage ${item.name}`}
 							class="quiet-button"
 							onclick={() => {
 								manage = { table: 'savedSearches', row: item };
 								rename = String(item.name);
-							}}>⋯</button
+							}}><IconDotsThreeFill /></button
 						>
 					</div>{/each}{/if}
 			<div class="sidebar-bottom">
 				<button
 					class="nav-item"
 					class:active={view === 'archive'}
-					onclick={() => navigate(null, 'archive')}>Archive</button
+					onclick={() => navigate(null, 'archive')}><IconArchiveFill /><span>Archive</span></button
 				><button
 					class="nav-item"
 					class:active={view === 'trash'}
-					onclick={() => navigate(null, 'trash')}>Trash</button
+					onclick={() => navigate(null, 'trash')}><IconTrashFill /><span>Trash</span></button
 				>
 			</div>
 		</nav>
 		<main id="library-main" class="library-main" tabindex="-1">
 			<div class="library-heading">
 				<div>
-					<p class="eyebrow">Your knowledge, connected</p>
+					<p class="eyebrow">YOUR LIBRARY</p>
 					<h1>{title}</h1>
 				</div>
-				{#if status?.ready}<select aria-label="Sort results" bind:value={sort}
-						><option value="newest">Newest first</option><option value="title">Title</option><option
-							value="recently_opened">Recently opened</option
-						></select
-					>{/if}
+				{#if status?.ready}<SelectField
+						label="Sort results"
+						bind:value={sort}
+						options={[
+							{ value: 'newest', label: 'Newest first' },
+							{ value: 'title', label: 'Title A–Z' },
+							{ value: 'recently_opened', label: 'Recently opened' }
+						]}
+					/>{/if}
 			</div>
 			{#if !status?.ready}<section class="welcome-panel">
-					<div class="empty-icon"><IconBookmarkSimpleRegular /></div>
+					<div class="empty-icon"><IconBookmarkSimpleFill /></div>
 					<h2>
 						{status?.loading
 							? 'Opening your library…'
@@ -553,19 +618,22 @@
 				</div>
 				{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
 				{#if selectedIds.length}<div class="bulk-bar">
-						<strong>{selectedIds.length} selected</strong><select
-							aria-label="Bulk tag"
+						<strong>{selectedIds.length} selected</strong><SelectField
+							label="Bulk tag"
 							bind:value={bulkTag}
-							><option value="">Tag…</option>{#each tags as tag (tag.id)}<option
-									value={String(tag.id)}>{tag.name}</option
-								>{/each}</select
-						><button onclick={() => bulk('tag')} disabled={!bulkTag || busy}>Add tag</button><select
-							aria-label="Bulk collection"
+							options={[
+								{ value: '', label: 'Choose a tag…' },
+								...tags.map((r) => ({ value: String(r.id), label: String(r.name) }))
+							]}
+						/><button onclick={() => bulk('tag')} disabled={!bulkTag || busy}>Add tag</button
+						><SelectField
+							label="Bulk collection"
 							bind:value={bulkCollection}
-							><option value="">Inbox</option>{#each collections as c (c.id)}<option
-									value={String(c.id)}>{c.name}</option
-								>{/each}</select
-						><button onclick={() => bulk('collection')} disabled={busy}>Move</button><button
+							options={[
+								{ value: '', label: 'Inbox' },
+								...collections.map((r) => ({ value: String(r.id), label: String(r.name) }))
+							]}
+						/><button onclick={() => bulk('collection')} disabled={busy}>Move</button><button
 							onclick={() => bulk('archive')}
 							disabled={busy}>Archive</button
 						><button onclick={() => bulk('trash')} disabled={busy}>Trash</button>
@@ -575,33 +643,40 @@
 							class:selected={selected?.id === item.id}
 							class="library-row"
 						>
-							{#if item.entityKind === 'bookmark' && view !== 'trash'}<input
-									class="row-checkbox"
-									type="checkbox"
-									aria-label={`Select ${entityLabel(item)}`}
+							{#if item.entityKind === 'bookmark' && view !== 'trash'}<Check
+									label={`Select ${entityLabel(item)}`}
 									checked={selectedIds.includes(String(item.id))}
-									onchange={(e) =>
-										(selectedIds = e.currentTarget.checked
+									onCheckedChange={(checked) =>
+										(selectedIds = checked
 											? [...selectedIds, String(item.id)]
 											: selectedIds.filter((id) => id !== item.id))}
 								/>{/if}<button
 								class="library-row-body"
 								onclick={() => navigate({ kind: item.entityKind, id: String(item.id) })}
-								><span class="row-kind"
-									>{item.entityKind === 'bookmark' ? item.kind : item.entityKind}</span
-								><span class="row-title">{item.isPinned ? '✦ ' : ''}{entityLabel(item)}</span><span
-									class="row-description"
-									>{String(item.description ?? item.bio ?? '').slice(0, 180) ||
-										String(item.domain ?? '')}</span
-								><span class="row-meta"
-									>{item.domain ??
-										(item.entityKind === 'persona'
-											? 'Knowledge context'
-											: item.entityKind === 'person'
-												? 'Profile'
-												: '')}{item.readingStatus && item.entityKind === 'bookmark'
-										? ` · ${item.readingStatus}`
-										: ''}</span
+								><span class="row-type-icon" aria-hidden="true"
+									>{#if item.entityKind === 'person'}<IconUsersFill
+										/>{:else if item.entityKind === 'persona'}<IconSquaresFourFill
+										/>{:else if item.kind === 'image'}<IconImageFill
+										/>{:else if item.kind === 'social'}<IconQuotesFill />{:else}<IconGlobeFill
+										/>{/if}</span
+								><span class="row-copy"
+									><span class="row-kind"
+										>{item.entityKind === 'bookmark' ? item.kind : item.entityKind}</span
+									><span class="row-title"
+										>{entityLabel(item)}{#if item.isPinned}<IconPushPinFill />{/if}</span
+									><span class="row-description"
+										>{String(item.description ?? item.bio ?? '').slice(0, 180) ||
+											String(item.domain ?? '')}</span
+									><span class="row-meta"
+										>{item.domain ??
+											(item.entityKind === 'persona'
+												? 'Knowledge context'
+												: item.entityKind === 'person'
+													? 'Profile'
+													: '')}{item.readingStatus && item.entityKind === 'bookmark'
+											? ` · ${item.readingStatus}`
+											: ''}</span
+									></span
 								></button
 							><span class="row-date"
 								>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
@@ -610,10 +685,10 @@
 								})}</span
 							>
 						</div>{:else}{#if !results.error}<section class="welcome-panel compact">
+								<div class="empty-state-mark"><IconBookmarkSimpleFill /></div>
+								<span class="empty-state-kicker">A SPACE FOR WHAT MATTERS</span>
 								<h2>
-									{query
-										? 'Nothing matched this search.'
-										: 'A little room for your next discovery.'}
+									{query ? 'Nothing matched this search.' : 'Your next good idea belongs here.'}
 								</h2>
 								<p>
 									{query
@@ -658,7 +733,7 @@
 				? ` · ${status.pending} pending`
 				: ''}</span
 		><span class="status-message" role="status" aria-live="polite"
-			>{toast || status?.error || 'A personal space for everything you learn.'}</span
+			>{toast || status?.error || ''}</span
 		>{#if status?.ready}<button
 				class="text-button"
 				onclick={() => library?.sync()}
@@ -682,12 +757,17 @@
 						: 'Give it a place in your library.'}</Dialog.Description
 			>
 			<form class="stack" onsubmit={submitCreate}>
-				{#if newType === 'bookmark'}<label for="capture-kind">Type</label><select
+				{#if newType === 'bookmark'}<label for="capture-kind">Type</label><SelectField
+						label="Content type"
+						value={newKind}
+						options={[
+							{ value: 'page', label: 'Web page' },
+							{ value: 'social', label: 'Social post' },
+							{ value: 'image', label: 'Image reference' }
+						]}
 						id="capture-kind"
-						bind:value={newKind}
-						><option value="page">Web page</option><option value="social">Social post</option
-						><option value="image">Image reference</option></select
-					><label for="capture-url">Source URL {newKind === 'image' ? '(optional)' : ''}</label
+						onValueChange={(value) => (newKind = value as typeof newKind)}
+					/><label for="capture-url">Source URL {newKind === 'image' ? '(optional)' : ''}</label
 					><input
 						id="capture-url"
 						type="url"
@@ -717,7 +797,7 @@
 				>
 			</form>
 			<Dialog.Close class="icon-button dialog-close" aria-label="Close creation form"
-				>×</Dialog.Close
+				><IconXFill /></Dialog.Close
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root
@@ -785,7 +865,7 @@
 						>
 					</div>{/each}{/if}<Dialog.Close
 				class="icon-button dialog-close"
-				aria-label="Close library settings">×</Dialog.Close
+				aria-label="Close library settings"><IconXFill /></Dialog.Close
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root
@@ -827,7 +907,7 @@
 					</p>{/if}{/if}<Dialog.Close
 				class="icon-button dialog-close"
 				aria-label="Close import"
-				disabled={busy}>×</Dialog.Close
+				disabled={busy}><IconXFill /></Dialog.Close
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root
@@ -854,7 +934,8 @@
 				>
 			</div>
 			<p role="status">{toast}</p>
-			<Dialog.Close class="icon-button dialog-close" aria-label="Close management">×</Dialog.Close
+			<Dialog.Close class="icon-button dialog-close" aria-label="Close management"
+				><IconXFill /></Dialog.Close
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root

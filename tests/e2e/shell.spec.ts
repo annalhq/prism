@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('renders the foundation without credentials or external requests', async ({ page }) => {
+test('shows sign-in first without credentials or external requests', async ({ page }) => {
 	const errors: string[] = [];
 	const remote: string[] = [];
 	page.on('pageerror', (error) => errors.push(error.message));
@@ -9,15 +9,10 @@ test('renders the foundation without credentials or external requests', async ({
 	});
 	await page.goto('/');
 	await expect(page).toHaveTitle(/Prism/);
-	await expect(page.getByRole('navigation', { name: 'Library navigation' })).toBeVisible();
+	await expect(page.getByRole('navigation', { name: 'Library navigation' })).not.toBeVisible();
 	await expect(page.getByRole('main')).toBeVisible();
-	await expect(page.getByRole('heading', { name: 'Your library starts here' })).toBeVisible();
-	await expect(page.getByText('Not connected', { exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'About this foundation' }).click();
-	await expect(page.getByRole('dialog')).toBeVisible();
-	await page.keyboard.press('Escape');
-	await expect(page.getByRole('dialog')).not.toBeVisible();
-	await expect(page.getByRole('button', { name: 'About this foundation' })).toBeFocused();
+	await expect(page.getByRole('heading', { name: 'A clearer mind starts here.' })).toBeVisible();
+	await expect(page.getByText('Sign-in is not configured yet.', { exact: false })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
 		true
 	);

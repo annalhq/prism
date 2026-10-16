@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
+	import { Tabs } from 'bits-ui';
+	import SelectField from './ui/SelectField.svelte';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { NoteProjection, Revision } from '#lib/domain/contracts.js';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
@@ -222,64 +224,79 @@
 </script>
 
 <section class="inspector-section note-section" aria-labelledby="note-heading">
-	<div class="section-heading">
-		<h3 id="note-heading">Note</h3>
-		<button class="text-button" onclick={() => (preview = !preview)}
-			>{preview ? 'Edit' : 'Preview'}</button
+	<Tabs.Root
+		value={preview ? 'preview' : 'edit'}
+		onValueChange={(value) => (preview = value === 'preview')}
+	>
+		<div class="section-heading">
+			<h3 id="note-heading">Note</h3>
+			<Tabs.List class="segmented-control" aria-label="Note mode"
+				><Tabs.Trigger value="edit">Write</Tabs.Trigger><Tabs.Trigger value="preview"
+					>Preview</Tabs.Trigger
+				></Tabs.List
+			>
+		</div>
+		{#if (dirty || queued) && current && current.revision !== base}<p class="notice">
+				A newer note is available. Your draft is preserved.
+			</p>
+			<div class="button-row">
+				<button onclick={rebase}>Keep draft against current version</button><button
+					onclick={useCurrent}>Use current note</button
+				><button onclick={downloadDraft}>Export draft</button>
+			</div>{/if}
+		<Tabs.Content value="preview">
+			<div class="markdown-preview" use:previewLinks role="document">
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderNote strips raw HTML and unsafe URLs before rendering. -->
+				{@html rendered}
+			</div></Tabs.Content
+		><Tabs.Content value="edit"
+			><label class="sr-only" for="note-body">Markdown note</label><textarea
+				id="note-body"
+				bind:this={editor}
+				bind:value={body}
+				oninput={edited}
+				onkeydown={(event) => {
+					if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+						event.preventDefault();
+						void save();
+					}
+				}}
+				placeholder="Write a thought. Connect it to another item with a reference."
+				rows="10"></textarea>
+			<div class="reference-insert">
+				<SelectField
+					label="Reference target"
+					bind:value={referenceId}
+					options={[
+						{ value: '', label: 'Link to something in your library…' },
+						...choices.map((c) => ({
+							value: `${c.entityKind}/${c.id}`,
+							label: `${c.entityKind} · ${entityLabel(c)}`
+						}))
+					]}
+				/><button onclick={insertReference} disabled={!referenceId}>Insert</button>
+			</div></Tabs.Content
 		>
-	</div>
-	{#if (dirty || queued) && current && current.revision !== base}<p class="notice">
-			A newer note is available. Your draft is preserved.
-		</p>
+		{#if error}<p class="form-error" role="alert">{error}</p>{/if}
 		<div class="button-row">
-			<button onclick={rebase}>Keep draft against current version</button><button
-				onclick={useCurrent}>Use current note</button
-			><button onclick={downloadDraft}>Export draft</button>
-		</div>{/if}
-	{#if preview}
-		<div class="markdown-preview" use:previewLinks role="document">
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderNote strips raw HTML and unsafe URLs before rendering. -->
-			{@html rendered}
-		</div>{:else}<label class="sr-only" for="note-body">Markdown note</label><textarea
-			id="note-body"
-			bind:this={editor}
-			bind:value={body}
-			oninput={edited}
-			onkeydown={(event) => {
-				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-					event.preventDefault();
-					void save();
-				}
-			}}
-			placeholder="Write a thought. Connect it to another item with a reference."
-			rows="10"></textarea>
-		<div class="reference-insert">
-			<select aria-label="Reference target" bind:value={referenceId}
-				><option value="">Link content, a person or a persona…</option
-				>{#each choices as choice (choice.id)}<option value={`${choice.entityKind}/${choice.id}`}
-						>{choice.entityKind} · {entityLabel(choice)}</option
-					>{/each}</select
-			><button onclick={insertReference} disabled={!referenceId}>Insert</button>
-		</div>{/if}
-	{#if error}<p class="form-error" role="alert">{error}</p>{/if}
-	<div class="button-row">
-		<button class="primary-button" onclick={save} disabled={busy || queued || !dirty}
-			>{busy ? 'Saving…' : queued ? 'Waiting for sync' : 'Save note'}</button
-		><span class="muted"
-			>{dirty ? 'Draft saved on this device' : queued ? 'Pending sync' : 'Markdown'}</span
-		>{#if entity.kind !== 'persona'}<button class="text-button" onclick={() => loadHistory()}
-				>History</button
-			>{/if}
-	</div>
-	{#if history.length}<details open>
-			<summary>Previous versions</summary>{#each history as item (item.revision)}<div
-					class="history-entry"
-				>
-					<span>{new Date(item.acceptedAt).toLocaleString()}</span><button
-						onclick={() => restoreBody(item.bodyMarkdown)}>Load as draft</button
-					>
-				</div>{/each}{#if historyBefore}<button onclick={() => loadHistory(true)}
-					>Older versions</button
+			<button class="primary-button" onclick={save} disabled={busy || queued || !dirty}
+				>{busy ? 'Saving…' : queued ? 'Waiting for sync' : 'Save note'}</button
+			><span class="muted"
+				>{dirty ? 'Draft saved on this device' : queued ? 'Pending sync' : 'Markdown'}</span
+			>{#if entity.kind !== 'persona'}<button class="text-button" onclick={() => loadHistory()}
+					>History</button
 				>{/if}
-		</details>{/if}
+		</div>
+		{#if history.length}<details open>
+				<summary>Previous versions</summary>{#each history as item (item.revision)}<div
+						class="history-entry"
+					>
+						<span>{new Date(item.acceptedAt).toLocaleString()}</span><button
+							onclick={() => restoreBody(item.bodyMarkdown)}>Load as draft</button
+						>
+					</div>{/each}{#if historyBefore}<button onclick={() => loadHistory(true)}
+						>Older versions</button
+					>{/if}
+			</details>{/if}
+	</Tabs.Root>
 </section>
