@@ -72,20 +72,19 @@ export function parseLibraryQuery(
 			else if (t.startsWith('@')) {
 				if (filter.collection) throw new Error('Use one collection per search.');
 				filter.collection = resolve('collections', t.slice(1));
-			} else if (t.startsWith('person:') || t.startsWith('author:')) {
-				const [kind, ...name] = t.split(':');
+			} else if (t.startsWith('person:')) {
+				const [, ...name] = t.split(':');
 				filter.people.push({
 					...resolve('people', name.join(':')),
-					role: kind === 'author' ? 'author' : 'any'
+					role: 'any'
 				});
-			} else if (t.startsWith('persona:')) filter.personas.push(resolve('personas', t.slice(8)));
-			else if (t.startsWith('site:')) {
+			} else if (t.startsWith('site:')) {
 				const host = t.slice(5).toLowerCase();
 				if (!host || /[\s/@?#:]/.test(host)) throw new Error('Use a hostname after site:.');
 				filter.site = host;
 			} else if (t.startsWith('is:')) {
 				const v = t.slice(3);
-				if (['page', 'social', 'image', 'person', 'persona'].includes(v))
+				if (['page', 'social', 'image', 'person'].includes(v))
 					filter.kinds.push(v as SearchFilter['kinds'][number]);
 				else if (v === 'pinned') filter.pinned = true;
 				else if (v === 'archived' || v === 'trash') {
@@ -93,11 +92,6 @@ export function parseLibraryQuery(
 						throw new Error('Choose archive or trash, not both.');
 					filter.scope = v;
 				} else throw new Error(`Unknown filter “${t}”.`);
-			} else if (t.startsWith('status:')) {
-				const v = t.slice(7);
-				if (!['unread', 'reading', 'read'].includes(v))
-					throw new Error(`Unknown reading status “${v}”.`);
-				filter.statuses.push(v as SearchFilter['statuses'][number]);
 			} else if (t.startsWith('has:')) {
 				const v = t.slice(4);
 				if (!['note', 'media', 'backlinks'].includes(v)) throw new Error(`Unknown filter “${t}”.`);
@@ -159,12 +153,12 @@ export function searchLibrary(
 		...library.list<Row>('personas').map((row) => ({ ...row, entityKind: 'persona' as const }))
 	];
 	const items = all.filter((row) => {
-		if (row.purgedAt) return false;
+		if (row.purgedAt || row.entityKind === 'persona') return false;
 		if (filter.scope === 'trash' ? !row.deletedAt : !!row.deletedAt) return false;
 		if (!row.deletedAt && (filter.scope === 'archived' ? !row.archivedAt : !!row.archivedAt))
 			return false;
 		if (view === 'people' && row.entityKind !== 'person') return false;
-		if (view === 'personas' && row.entityKind !== 'persona') return false;
+		if (view !== 'people' && row.entityKind !== 'bookmark') return false;
 		if (
 			!['people', 'personas', 'trash'].includes(view) &&
 			!input.trim() &&
@@ -173,7 +167,7 @@ export function searchLibrary(
 		)
 			return false;
 		if (view === 'inbox' && (row.entityKind !== 'bookmark' || row.collectionId)) return false;
-		if (view === 'later' && (row.entityKind !== 'bookmark' || row.readingStatus === 'read'))
+		if (view === 'later' && (row.entityKind !== 'bookmark' || row.readingStatus !== 'reading'))
 			return false;
 		if ((view === 'pinned' || filter.pinned) && !row.isPinned) return false;
 		const tagIds = (row.tagIds as string[]) ?? [];
@@ -198,12 +192,7 @@ export function searchLibrary(
 			!filter.people.every(
 				(person) =>
 					active('person', person.id) &&
-					roles.some(
-						(r) =>
-							r.bookmarkId === row.id &&
-							r.personId === person.id &&
-							(person.role === 'any' || r.role === 'author')
-					)
+					roles.some((r) => r.bookmarkId === row.id && r.personId === person.id)
 			)
 		)
 			return false;

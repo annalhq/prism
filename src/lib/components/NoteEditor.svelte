@@ -1,18 +1,22 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
-	import { Tabs } from 'bits-ui';
-	import SelectField from './ui/SelectField.svelte';
+	import TokenInput from './ui/TokenInput.svelte';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { NoteProjection, Revision } from '#lib/domain/contracts.js';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
-	import { parseReference, renderNote, validateNoteBody } from '#lib/domain/notes.js';
+	import { extractReferences, validateNoteBody } from '#lib/domain/notes.js';
 	import { entityLabel } from '#lib/client/search.js';
+	import {
+		addNoteLink,
+		splitLinkedNote,
+		joinLinkedNote,
+		removeLinkedNoteReference
+	} from '#lib/client/reference-edits.js';
 	let {
 		library,
 		entity,
 		version,
-		feedback,
-		navigate
+		feedback
 	}: {
 		library: LibraryClient;
 		entity: EntityRef;
@@ -25,13 +29,10 @@
 		initialized = $state(false),
 		dirty = $state(false),
 		queued = $state(false),
-		preview = $state(false),
 		busy = $state(false);
 	let queuedBody = $state<string | null>(null);
-	let error = $state(''),
-		referenceId = $state(''),
-		history = $state<{ revision: Revision; bodyMarkdown: string; acceptedAt: string }[]>([]),
-		historyBefore = $state<string | null>(null);
+	let error = $state('');
+	let autoSave: ReturnType<typeof setTimeout> | undefined;
 	let editor = $state<HTMLTextAreaElement>();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let destroyed = false;
@@ -47,20 +48,40 @@
 				.map((r) => ({ ...r, entityKind: 'bookmark' })),
 			...library
 				.list<Record<string, unknown>>('people')
-				.map((r) => ({ ...r, entityKind: 'person' })),
-			...library
-				.list<Record<string, unknown>>('personas')
-				.map((r) => ({ ...r, entityKind: 'persona' }))
+				.map((r) => ({ ...r, entityKind: 'person' }))
 		];
 		return rows.filter((r) => !r.deletedAt && !r.purgedAt);
 	});
-	const rendered = $derived(renderNote(body));
+	const noteText = $derived(splitLinkedNote(body).text);
+	const references = $derived(
+		extractReferences(body)
+			.filter((r) => r.kind !== 'persona')
+			.map((r) => `${r.kind}/${r.id}`)
+	);
+	const referenceChoices = $derived(
+		choices
+			.filter((c) => c.id !== entity.id)
+			.map((c) => ({
+				value: `${c.entityKind}/${c.id}`,
+				label: entityLabel(c),
+				search:
+					String(c.description ?? c.bio ?? '') +
+					' ' +
+					String(library.get<NoteProjection>('notes', String(c.id))?.bodyMarkdown ?? '')
+			}))
+	);
 	$effect(() => {
 		void version;
 		if (!initialized) {
 			const draft = library.getDraft(entity.id);
-			body = draft?.body ?? current?.bodyMarkdown ?? '';
-			base = draft?.baseRevision ?? current?.revision ?? '0';
+			body =
+				draft?.body ??
+				current?.bodyMarkdown ??
+				String(library.get<Record<string, unknown>>('bookmarks', entity.id)?.description ?? '');
+			base =
+				draft && draft.body !== current?.bodyMarkdown
+					? draft.baseRevision
+					: (current?.revision ?? draft?.baseRevision ?? '0');
 			dirty = !!draft && draft.body !== current?.bodyMarkdown;
 			initialized = true;
 		} else if (!dirty && !queued && current) {
@@ -71,6 +92,9 @@
 			base = current.revision;
 			queued = false;
 			queuedBody = null;
+			untrack(() => {
+				if (dirty) scheduleSave();
+			});
 			if (body === current.bodyMarkdown) {
 				dirty = false;
 				untrack(() => {
@@ -97,13 +121,21 @@
 	}
 	onDestroy(() => {
 		destroyed = true;
+		clearTimeout(autoSave);
 		clearTimeout(timer);
 		if (dirty || queued) void library.setDraft(entity.id, body, base).catch(() => {});
 	});
+	function scheduleSave() {
+		clearTimeout(autoSave);
+		autoSave = setTimeout(() => {
+			if (!busy && !queued && dirty && !destroyed) void save();
+		}, 700);
+	}
 	function edited() {
 		dirty = true;
 		error = '';
 		persistDraft();
+		scheduleSave();
 	}
 	async function save() {
 		if (busy) return;
@@ -146,21 +178,9 @@
 			error = (e as Error).message;
 		} finally {
 			busy = false;
+			if (dirty && !queued && !error && !destroyed) scheduleSave();
 		}
 	}
-	function previewLinks(node: HTMLElement) {
-		node.addEventListener('click', followReference);
-		return { destroy: () => node.removeEventListener('click', followReference) };
-	}
-	function followReference(event: MouseEvent) {
-		const anchor = (event.target as HTMLElement).closest('a');
-		const ref = parseReference(anchor?.getAttribute('href') ?? '');
-		if (ref) {
-			event.preventDefault();
-			navigate(ref);
-		}
-	}
-
 	function useCurrent() {
 		body = current?.bodyMarkdown ?? '';
 		base = current?.revision ?? '0';
@@ -178,41 +198,25 @@
 		dirty = true;
 		queued = false;
 		persistDraft();
-		feedback('Draft kept. Review it and save to replace the current note.');
+		error = '';
+		scheduleSave();
+		feedback('Your draft will replace the current note.');
 	}
-	function insertReference() {
-		const chosen = choices.find((r) => `${r.entityKind}/${r.id}` === referenceId);
-		if (!chosen) return;
-		const text = `[${entityLabel(chosen).replace(/[[\]]/g, '')}](prism:${chosen.entityKind}/${chosen.id})`;
-		const position = editor?.selectionStart ?? body.length;
-		body = body.slice(0, position) + text + body.slice(editor?.selectionEnd ?? position);
+	function insertReference(value: string) {
+		const chosen = choices.find((r) => `${r.entityKind}/${r.id}` === value);
+		if (!chosen || references.includes(value)) return;
+		body = addNoteLink(
+			body,
+			{ kind: chosen.entityKind as EntityRef['kind'], id: String(chosen.id) },
+			entityLabel(chosen)
+		);
 		edited();
-		referenceId = '';
-		editor?.focus();
 	}
-	async function loadHistory(more = false) {
-		try {
-			const response = await fetch(
-				`/api/v1/${entity.kind === 'bookmark' ? 'bookmarks' : 'people'}/${entity.id}/note-history${more && historyBefore ? `?before=${historyBefore}` : ''}`,
-				{ cache: 'no-store' }
-			);
-			if (!response.ok) throw new Error('History is available when signed in and online.');
-			const data = await response.json();
-			history = more ? [...history, ...data.items] : data.items;
-			historyBefore = data.nextBefore;
-			if (!history.length) feedback('No previous note versions yet.');
-		} catch (e) {
-			error = (e as Error).message;
-		}
+	function removeReference(value: string) {
+		body = removeLinkedNoteReference(body, value);
+		edited();
 	}
-	function restoreBody(value: string) {
-		body = value;
-		base = current?.revision ?? '0';
-		dirty = true;
-		queued = false;
-		persistDraft();
-		feedback('Previous version loaded as a draft. Review and save it.');
-	}
+
 	function downloadDraft() {
 		const url = URL.createObjectURL(new Blob([body], { type: 'text/markdown' }));
 		const a = document.createElement('a');
@@ -224,79 +228,53 @@
 </script>
 
 <section class="inspector-section note-section" aria-labelledby="note-heading">
-	<Tabs.Root
-		value={preview ? 'preview' : 'edit'}
-		onValueChange={(value) => (preview = value === 'preview')}
-	>
-		<div class="section-heading">
-			<h3 id="note-heading">Note</h3>
-			<Tabs.List class="segmented-control" aria-label="Note mode"
-				><Tabs.Trigger value="edit">Write</Tabs.Trigger><Tabs.Trigger value="preview"
-					>Preview</Tabs.Trigger
-				></Tabs.List
-			>
-		</div>
-		{#if (dirty || queued) && current && current.revision !== base}<p class="notice">
-				A newer note is available. Your draft is preserved.
-			</p>
-			<div class="button-row">
-				<button onclick={rebase}>Keep draft against current version</button><button
-					onclick={useCurrent}>Use current note</button
-				><button onclick={downloadDraft}>Export draft</button>
-			</div>{/if}
-		<Tabs.Content value="preview">
-			<div class="markdown-preview" use:previewLinks role="document">
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderNote strips raw HTML and unsafe URLs before rendering. -->
-				{@html rendered}
-			</div></Tabs.Content
-		><Tabs.Content value="edit"
-			><label class="sr-only" for="note-body">Markdown note</label><textarea
-				id="note-body"
-				bind:this={editor}
-				bind:value={body}
-				oninput={edited}
-				onkeydown={(event) => {
-					if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-						event.preventDefault();
-						void save();
-					}
-				}}
-				placeholder="Write a thought. Connect it to another item with a reference."
-				rows="10"></textarea>
-			<div class="reference-insert">
-				<SelectField
-					label="Reference target"
-					bind:value={referenceId}
-					options={[
-						{ value: '', label: 'Link to something in your library…' },
-						...choices.map((c) => ({
-							value: `${c.entityKind}/${c.id}`,
-							label: `${c.entityKind} · ${entityLabel(c)}`
-						}))
-					]}
-				/><button onclick={insertReference} disabled={!referenceId}>Insert</button>
-			</div></Tabs.Content
+	<div class="section-heading">
+		<h3 id="note-heading">Note</h3>
+		<span class="muted" role="status"
+			>{busy
+				? 'Saving…'
+				: queued
+					? 'Saved on this device · pending sync'
+					: dirty
+						? 'Saving draft…'
+						: 'Saved'}</span
 		>
-		{#if error}<p class="form-error" role="alert">{error}</p>{/if}
+	</div>
+	{#if (dirty || queued) && current && current.revision !== base}<p class="notice">
+			A newer note is available. Your draft is preserved.
+		</p>
 		<div class="button-row">
-			<button class="primary-button" onclick={save} disabled={busy || queued || !dirty}
-				>{busy ? 'Saving…' : queued ? 'Waiting for sync' : 'Save note'}</button
-			><span class="muted"
-				>{dirty ? 'Draft saved on this device' : queued ? 'Pending sync' : 'Markdown'}</span
-			>{#if entity.kind !== 'persona'}<button class="text-button" onclick={() => loadHistory()}
-					>History</button
-				>{/if}
-		</div>
-		{#if history.length}<details open>
-				<summary>Previous versions</summary>{#each history as item (item.revision)}<div
-						class="history-entry"
-					>
-						<span>{new Date(item.acceptedAt).toLocaleString()}</span><button
-							onclick={() => restoreBody(item.bodyMarkdown)}>Load as draft</button
-						>
-					</div>{/each}{#if historyBefore}<button onclick={() => loadHistory(true)}
-						>Older versions</button
-					>{/if}
-			</details>{/if}
-	</Tabs.Root>
+			<button onclick={rebase}>Keep my draft</button><button onclick={useCurrent}
+				>Use current note</button
+			><button onclick={downloadDraft}>Export draft</button>
+		</div>{/if}
+	<label class="sr-only" for="note-body">Note</label><textarea
+		id="note-body"
+		bind:this={editor}
+		value={noteText}
+		oninput={(event) => {
+			body = joinLinkedNote(event.currentTarget.value, splitLinkedNote(body).links);
+			edited();
+		}}
+		onblur={() => {
+			if (dirty && !busy && !queued) void save();
+		}}
+		onkeydown={(event) => {
+			if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+				event.preventDefault();
+				void save();
+			}
+		}}
+		placeholder="Your thoughts, in your own words…"
+		rows="6"></textarea>
+	<TokenInput
+		label="Link saved content"
+		placeholder="Link content or people…"
+		items={referenceChoices}
+		selected={references}
+		onAdd={(value) => insertReference(value)}
+		onRemove={removeReference}
+	/>
+	{#if error}<p class="form-error" role="alert">{error}</p>
+		<button class="text-button" onclick={save}>Try saving again</button>{/if}
 </section>

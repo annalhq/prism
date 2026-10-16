@@ -1,21 +1,32 @@
 <script lang="ts">
+	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount } from 'svelte';
+	import { SvelteURL } from 'svelte/reactivity';
+	import { normalizeUrl } from '#lib/domain/urls.js';
+	import IconCaretDownFill from 'phosphor-icons-svelte/IconCaretDownFill.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { Dialog, DropdownMenu } from 'bits-ui';
 	import Brand from './ui/Brand.svelte';
 	import SelectField from './ui/SelectField.svelte';
-	import Check from './ui/Check.svelte';
+	import TokenInput from './ui/TokenInput.svelte';
+	import BookmarkCard from './BookmarkCard.svelte';
+	import { notePreview } from '#lib/client/reference-edits.js';
+	import {
+		ensureTag,
+		inferBookmarkKind,
+		isReadLater,
+		personSlug,
+		personIdFromSlug
+	} from '#lib/client/workflows.js';
 	import IconPlusFill from 'phosphor-icons-svelte/IconPlusFill.svelte';
 	import IconMagnifyingGlassFill from 'phosphor-icons-svelte/IconMagnifyingGlassFill.svelte';
-	import IconTrayFill from 'phosphor-icons-svelte/IconTrayFill.svelte';
 	import IconBookmarkSimpleFill from 'phosphor-icons-svelte/IconBookmarkSimpleFill.svelte';
 	import IconUsersFill from 'phosphor-icons-svelte/IconUsersFill.svelte';
-	import IconSquaresFourFill from 'phosphor-icons-svelte/IconSquaresFourFill.svelte';
 	import { createLibraryClient, type LibraryClient } from '#lib/client/vault/library.js';
 	import { createSearchClient } from '#lib/client/search-client.js';
-	import { entityLabel, emptySearch, type searchLibrary } from '#lib/client/search.js';
+	import { emptySearch, type searchLibrary } from '#lib/client/search.js';
 	import {
 		exportLibrary,
 		previewImport,
@@ -31,15 +42,14 @@
 	import IconHashFill from 'phosphor-icons-svelte/IconHashFill.svelte';
 	import IconArchiveFill from 'phosphor-icons-svelte/IconArchiveFill.svelte';
 	import IconTrashFill from 'phosphor-icons-svelte/IconTrashFill.svelte';
-	import IconCaretDownFill from 'phosphor-icons-svelte/IconCaretDownFill.svelte';
 	import IconDotsThreeFill from 'phosphor-icons-svelte/IconDotsThreeFill.svelte';
 	import IconUserCircleFill from 'phosphor-icons-svelte/IconUserCircleFill.svelte';
 	import IconGearSixFill from 'phosphor-icons-svelte/IconGearSixFill.svelte';
 	import IconXFill from 'phosphor-icons-svelte/IconXFill.svelte';
-	import IconGlobeFill from 'phosphor-icons-svelte/IconGlobeFill.svelte';
-	import IconImageFill from 'phosphor-icons-svelte/IconImageFill.svelte';
-	import IconQuotesFill from 'phosphor-icons-svelte/IconQuotesFill.svelte';
-	let { openOffline = false }: { openOffline?: boolean } = $props();
+	let {
+		openOffline = false,
+		personSlug: profileSlug = ''
+	}: { openOffline?: boolean; personSlug?: string } = $props();
 
 	type Row = Record<string, unknown>;
 	// The facade owns its mutable state and notifies via version; do not proxy its snapshots.
@@ -53,8 +63,13 @@
 	let newType = $state('bookmark'),
 		newTitle = $state(''),
 		newUrl = $state(''),
-		newKind = $state<'page' | 'social' | 'image'>('page'),
-		newNote = $state('');
+		newNote = $state(''),
+		newTags = $state<string[]>([]),
+		personUrl = $state(''),
+		editingPerson = $state<Row | null>(null);
+	let captureId = '',
+		captureCreated = false,
+		captureNoteSaved = false;
 	let results = $state<ReturnType<typeof searchLibrary>>({ items: [], filter: emptySearch() }),
 		limit = $state(100),
 		selectedIds = $state<string[]>([]),
@@ -75,13 +90,36 @@
 		void version;
 		return library ? { ...library.state } : null;
 	});
-	const view = $derived(page.url.searchParams.get('view') ?? 'all');
+	const personId = $derived(personIdFromSlug(profileSlug));
+	const view = $derived(
+		profileSlug
+			? 'person'
+			: ['inbox', 'personas'].includes(page.url.searchParams.get('view') ?? '')
+				? 'all'
+				: (page.url.searchParams.get('view') ?? 'all')
+	);
+	const people = $derived.by(() => {
+		void version;
+		return library?.list<Row>('people').filter((p) => !p.deletedAt && !p.purgedAt) ?? [];
+	});
+	const person = $derived(people.find((p) => p.id === personId));
+	const personWebsite = $derived.by(() => {
+		try {
+			return normalizeUrl(String(person?.website)).url;
+		} catch {
+			return null;
+		}
+	});
+	const noteBodies = $derived.by(() => {
+		void version;
+		return new Map(
+			library?.list<Row>('notes').map((n) => [String(n.entityId), String(n.bodyMarkdown)]) ?? []
+		);
+	});
 	const selected = $derived.by(() => {
 		const id = page.url.searchParams.get('item'),
 			kind = page.url.searchParams.get('kind');
-		return id && (kind === 'bookmark' || kind === 'person' || kind === 'persona')
-			? ({ id, kind } as EntityRef)
-			: null;
+		return id && kind === 'bookmark' ? ({ id, kind } as EntityRef) : null;
 	});
 	const tags = $derived.by(() => {
 		void version;
@@ -96,18 +134,17 @@
 		return library?.list<Row>('savedSearches').filter((r) => !r.deletedAt) ?? [];
 	});
 	const title = $derived(
-		(
-			{
-				all: 'All content',
-				inbox: 'Inbox',
-				later: 'Read later',
-				pinned: 'Pinned',
-				archive: 'Archive',
-				trash: 'Trash',
-				people: 'People',
-				personas: 'Personas'
-			} as Record<string, string>
-		)[view] ??
+		(view === 'person' ? (person?.displayName ?? 'Person') : undefined) ??
+			(
+				{
+					all: 'All content',
+					later: 'Read later',
+					pinned: 'Pinned',
+					archive: 'Archive',
+					trash: 'Trash',
+					people: 'People'
+				} as Record<string, string>
+			)[view] ??
 			(view.startsWith('tag:')
 				? tags.find((t) => t.id === view.slice(4))?.name
 				: view.startsWith('collection:')
@@ -122,10 +159,23 @@
 			search = searcher;
 		if (!current || !status?.ready || !search) return;
 		const n = ++generation;
+		const profile = personId;
+		const connected = new Set(
+			current
+				.list<Row>('relationships')
+				.filter((r) => !r.deletedAt && r.personId === profile)
+				.map((r) => r.bookmarkId)
+		);
 		void search
 			.query(current, view, query, sort)
 			.then((value) => {
-				if (n === generation) results = value;
+				if (n === generation)
+					results = profileSlug
+						? {
+								...value,
+								items: value.items.filter((i) => i.entityKind === 'bookmark' && connected.has(i.id))
+							}
+						: value;
 			})
 			.catch((e) => {
 				if (n === generation) toast = (e as Error).message;
@@ -150,7 +200,12 @@
 				event.preventDefault();
 				searchInput?.focus();
 			}
-			if (event.key === 'Escape') void navigate(null);
+			if (
+				event.key === 'Escape' &&
+				!event.defaultPrevented &&
+				!document.querySelector('[role=dialog],[role=menu],[role=listbox]')
+			)
+				void navigate(null);
 		};
 		window.addEventListener('keydown', key);
 		return () => {
@@ -163,7 +218,14 @@
 		toast = message;
 	}
 	async function navigate(target: EntityRef | null, nextView?: string) {
-		const url = new URL(page.url.href);
+		if (target?.kind === 'person') {
+			const row = library?.get<Row>('people', target.id);
+			if (row) await goto(resolve('/people/[slug]', { slug: personSlug(row) }));
+			return;
+		}
+		if (target?.kind === 'persona') return;
+		const url = new SvelteURL(page.url.href);
+		if (nextView) url.pathname = resolve('/');
 		if (nextView) {
 			url.searchParams.set('view', nextView);
 			url.searchParams.delete('item');
@@ -180,83 +242,201 @@
 		}
 		if (query) url.searchParams.set('q', query);
 		else url.searchParams.delete('q');
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- The URL is cloned from the current app page, including its configured base.
 		await goto(url, { reset: false });
 	}
 	function create(type: string) {
+		if (busy) return;
 		newType = type;
+		newTags = [];
+		personUrl = '';
+		editingPerson = null;
+		captureId = crypto.randomUUID();
+		captureCreated = false;
+		captureNoteSaved = false;
 		newTitle = '';
 		newUrl = '';
 		newNote = '';
 		formError = '';
 		creating = true;
 	}
+	function editPerson() {
+		if (!person) return;
+		create('person');
+		editingPerson = person;
+		newTitle = String(person.displayName);
+		personUrl = String(person.website ?? '');
+		newNote = String(person.bio ?? '');
+	}
 	async function submitCreate(event: SubmitEvent) {
 		event.preventDefault();
-		if (!library) return;
+		if (!library || busy) return;
 		busy = true;
 		formError = '';
-		const id = crypto.randomUUID();
-		let command: Command;
-		if (newType === 'bookmark')
-			command = {
-				type: 'bookmark.create',
-				id,
-				kind: newKind,
-				title: newTitle.trim() || newUrl,
-				url: newUrl || null
-			};
-		else if (newType === 'person') command = { type: 'person.create', id, displayName: newTitle };
-		else if (newType === 'persona') command = { type: 'persona.create', id, name: newTitle };
-		else if (newType === 'saved-search')
-			command = {
-				type: 'saved-search.create',
-				id,
-				name: newTitle,
-				filter: results.filter,
-				sort: sort as 'newest'
-			};
-		else command = { type: `${newType}.create`, id, name: newTitle } as Command;
+		const id = editingPerson ? String(editingPerson.id) : captureId;
 		try {
-			const result = await library.save(command);
-			if (result.status === 'rejected') {
-				formError = result.message ?? 'Could not save.';
-				return;
-			}
-			if (result.status === 'already_exists') {
-				feedback('This URL is already saved. Its content was kept.');
-				if (result.existingId) await navigate({ kind: 'bookmark', id: result.existingId });
-				if (newNote) {
+			if (!captureCreated) {
+				const command: Command =
+					newType === 'bookmark'
+						? {
+								type: 'bookmark.create',
+								id,
+								kind: inferBookmarkKind(newUrl),
+								title: newTitle.trim() || newUrl,
+								url: newUrl
+							}
+						: newType === 'person'
+							? editingPerson
+								? {
+										type: 'person.update',
+										id,
+										expectedRevision: String(editingPerson.revision) as Revision,
+										patch: { displayName: newTitle, website: personUrl || null, bio: newNote }
+									}
+								: {
+										type: 'person.create',
+										id,
+										displayName: newTitle,
+										website: personUrl || null,
+										bio: newNote
+									}
+							: newType === 'saved-search'
+								? {
+										type: 'saved-search.create',
+										id,
+										name: newTitle,
+										filter: results.filter,
+										sort: sort as 'newest'
+									}
+								: ({ type: `${newType}.create`, id, name: newTitle } as Command);
+				const result = await library.save(command);
+				if (result.status === 'rejected') throw new Error(result.message ?? 'Could not save.');
+				if (result.status === 'already_exists') {
 					formError =
-						'This item already exists. Your capture note is still here; copy it before closing.';
+						'This URL is already saved. Your note and tags are still here; open the existing bookmark to review them.';
 					return;
 				}
-				creating = false;
-				return;
+				captureCreated = true;
 			}
-			if (newType === 'bookmark' && newNote) {
-				await library.setDraft(id, newNote, '0');
-				if (result.status === 'accepted') {
-					const note = await library.save({
+			if (newType === 'bookmark') {
+				if (newNote && !captureNoteSaved) {
+					await library.setDraft(id, newNote, '0');
+					const result = await library.save({
 						type: 'note.replace',
 						id,
 						expectedRevision: '0',
 						bodyMarkdown: newNote
 					});
-					if (note.status === 'accepted') await library.clearDraft(id);
+					if (result.status === 'rejected')
+						throw new Error(result.message ?? 'Bookmark saved; note remains as a draft.');
+					captureNoteSaved = true;
+					if (result.status === 'accepted') await library.clearDraft(id);
+				}
+				for (const name of newTags) {
+					const tagId = await ensureTag(library, name);
+					if (((library.get<Row>('bookmarks', id)?.tagIds as string[]) ?? []).includes(tagId))
+						continue;
+					const result = await library.save({ type: 'tag.add', id, tagId });
+					if (result.status === 'rejected')
+						throw new Error(result.message ?? 'Could not save tag.');
+				}
+				if (personId) {
+					const result = await library.save({
+						type: 'content-person.add',
+						bookmarkId: id,
+						personId,
+						role: 'related',
+						provenance: 'manual'
+					});
+					if (result.status === 'rejected')
+						throw new Error(result.message ?? 'Could not connect person.');
 				}
 			}
 			creating = false;
-			feedback(result.message ?? 'Saved.');
-			if (newType === 'bookmark' || newType === 'person' || newType === 'persona')
-				await navigate({ kind: newType, id });
-			else await navigate(null, `${newType === 'saved-search' ? 'saved' : newType}:${id}`);
+			feedback(status?.online ? 'Saved.' : 'Saved on this device.');
+			if (newType === 'person') await navigate({ kind: 'person', id });
+			else if (newType !== 'bookmark')
+				await navigate(null, `${newType === 'saved-search' ? 'saved' : newType}:${id}`);
 		} catch (e) {
 			formError = (e as Error).message;
 		} finally {
 			busy = false;
 		}
 	}
+	async function bookmarkAction(item: Row, action: 'later' | 'archive' | 'trash' | 'restore') {
+		if (!library) return;
+		const row = library.get<Row>('bookmarks', String(item.id));
+		if (!row) return;
+		const command: Command =
+			action === 'trash' || action === 'restore'
+				? {
+						type: `bookmark.${action}`,
+						id: String(row.id),
+						expectedRevision: String(row.revision) as Revision
+					}
+				: {
+						type: 'bookmark.organize',
+						id: String(row.id),
+						expectedRevision: String(row.revision) as Revision,
+						patch:
+							action === 'later'
+								? { readingStatus: isReadLater(row) ? 'unread' : 'reading' }
+								: { isArchived: !row.archivedAt }
+					};
+		const result = await library.save(command);
+		feedback(result.message ?? 'Saved.');
+	}
+	async function connectContent(id: string) {
+		if (!library || !personId) return;
+		const result = await library.save({
+			type: 'content-person.add',
+			bookmarkId: id,
+			personId,
+			role: 'related',
+			provenance: 'manual'
+		});
+		if (result.status === 'rejected')
+			throw new Error(result.message ?? 'Could not connect bookmark.');
+	}
+	async function disconnectContent(id: string) {
+		if (!library || !personId) return;
+		for (const row of library
+			.list<Row>('relationships')
+			.filter((r) => !r.deletedAt && r.personId === personId && r.bookmarkId === id)) {
+			const result = await library.save({
+				type: 'content-person.remove',
+				bookmarkId: id,
+				personId,
+				role: row.role as 'related'
+			});
+			if (result.status === 'rejected')
+				throw new Error(result.message ?? 'Could not disconnect bookmark.');
+		}
+	}
+	const connectedIds = $derived.by(() => {
+		void version;
+		return [
+			...new Set(
+				library
+					?.list<Row>('relationships')
+					.filter((r) => !r.deletedAt && r.personId === personId)
+					.map((r) => String(r.bookmarkId)) ?? []
+			)
+		];
+	});
+	const contentChoices = $derived.by(() => {
+		void version;
+		return (
+			library
+				?.list<Row>('bookmarks')
+				.filter((r) => !r.deletedAt && !r.purgedAt)
+				.map((r) => ({
+					value: String(r.id),
+					label: String(r.title),
+					search: String(r.description ?? '') + ' ' + String(noteBodies.get(String(r.id)) ?? '')
+				})) ?? []
+		);
+	});
+
 	async function bulk(action: 'tag' | 'collection' | 'archive' | 'trash') {
 		if (!library) return;
 		busy = true;
@@ -414,6 +594,9 @@
 	}
 </script>
 
+<svelte:head
+	>{#if profileSlug}<title>{person?.displayName ?? 'Person'} · Prism</title>{/if}</svelte:head
+>
 <a class="skip-link" href="#library-main">Skip to content</a>
 <div class="v0-shell">
 	<header class="v0-header">
@@ -428,36 +611,12 @@
 			/>
 			<kbd>⌘ K</kbd>
 		</div>
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger class="primary-button new-button" disabled={!status?.ready}
-				><IconPlusFill /><span>Add new</span><IconCaretDownFill /></DropdownMenu.Trigger
-			>
-			<DropdownMenu.Portal
-				><DropdownMenu.Content class="menu-content" sideOffset={8} align="end">
-					<DropdownMenu.Group
-						><DropdownMenu.GroupHeading class="menu-heading"
-							>Add to your library</DropdownMenu.GroupHeading
-						>
-						<DropdownMenu.Item class="menu-item" onSelect={() => create('bookmark')}
-							><IconBookmarkSimpleFill />Saved content</DropdownMenu.Item
-						>
-						<DropdownMenu.Item class="menu-item" onSelect={() => create('person')}
-							><IconUsersFill />Person</DropdownMenu.Item
-						>
-						<DropdownMenu.Item class="menu-item" onSelect={() => create('persona')}
-							><IconSquaresFourFill />Knowledge context</DropdownMenu.Item
-						>
-					</DropdownMenu.Group>
-					<DropdownMenu.Separator class="menu-separator" />
-					<DropdownMenu.Item class="menu-item" onSelect={() => create('collection')}
-						><IconFolderFill />Collection</DropdownMenu.Item
-					>
-					<DropdownMenu.Item class="menu-item" onSelect={() => create('tag')}
-						><IconHashFill />Tag</DropdownMenu.Item
-					>
-				</DropdownMenu.Content></DropdownMenu.Portal
-			>
-		</DropdownMenu.Root>
+		<button
+			class="primary-button new-button"
+			disabled={!status?.ready || busy}
+			onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
+			><IconPlusFill /><span>{view === 'people' ? 'Add person' : 'Add bookmark'}</span></button
+		>
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger class="account-button" aria-label="Account and library settings"
 				><IconUserCircleFill /><IconCaretDownFill /></DropdownMenu.Trigger
@@ -482,7 +641,7 @@
 	<div class:has-selection={!!selected} class="v0-workspace">
 		<nav class="v0-sidebar" aria-label="Library navigation">
 			<p class="section-label">Library</p>
-			{#each [{ id: 'inbox', name: 'Inbox', icon: IconTrayFill }, { id: 'all', name: 'All content', icon: IconBookmarkSimpleFill }, { id: 'later', name: 'Read later', icon: IconClockFill }, { id: 'pinned', name: 'Pinned', icon: IconPushPinFill }, { id: 'people', name: 'People', icon: IconUsersFill }, { id: 'personas', name: 'Contexts', icon: IconSquaresFourFill }] as item (item.id)}<button
+			{#each [{ id: 'all', name: 'All content', icon: IconBookmarkSimpleFill }, { id: 'later', name: 'Read later', icon: IconClockFill }, { id: 'pinned', name: 'Pinned', icon: IconPushPinFill }, { id: 'people', name: 'People', icon: IconUsersFill }] as item (item.id)}<button
 					class:active={view === item.id}
 					class="nav-item"
 					onclick={() => navigate(null, item.id)}
@@ -566,12 +725,20 @@
 			</div>
 		</nav>
 		<main id="library-main" class="library-main" tabindex="-1">
-			<div class="library-heading">
+			<div class="library-heading" class:person-heading={!!profileSlug}>
 				<div>
-					<p class="eyebrow">YOUR LIBRARY</p>
+					<p class="eyebrow">{profileSlug ? 'PEOPLE' : 'YOUR LIBRARY'}</p>
 					<h1>{title}</h1>
+					{#if person?.bio}<p class="person-bio">{person.bio}</p>{/if}{#if personWebsite}<a
+							class="source-link"
+							href={personWebsite}
+							target="_blank"
+							rel="noopener noreferrer">{personWebsite}</a
+						>{/if}
 				</div>
-				{#if status?.ready}<SelectField
+				{#if profileSlug && person}<button class="secondary-button" onclick={editPerson}
+						>Edit profile</button
+					>{:else if status?.ready}<SelectField
 						label="Sort results"
 						bind:value={sort}
 						options={[
@@ -581,6 +748,18 @@
 						]}
 					/>{/if}
 			</div>
+			{#if profileSlug && status?.ready && person}<section class="person-connect">
+					<TokenInput
+						label="Connect existing bookmarks"
+						placeholder="Connect saved content to this person…"
+						showSelected={false}
+						items={contentChoices}
+						selected={connectedIds}
+						onAdd={connectContent}
+						onRemove={disconnectContent}
+					/>
+				</section>{/if}
+
 			{#if !status?.ready}<section class="welcome-panel">
 					<div class="empty-icon"><IconBookmarkSimpleFill /></div>
 					<h2>
@@ -618,19 +797,22 @@
 				</div>
 				{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
 				{#if selectedIds.length}<div class="bulk-bar">
-						<strong>{selectedIds.length} selected</strong><SelectField
-							label="Bulk tag"
-							bind:value={bulkTag}
-							options={[
-								{ value: '', label: 'Choose a tag…' },
-								...tags.map((r) => ({ value: String(r.id), label: String(r.name) }))
-							]}
-						/><button onclick={() => bulk('tag')} disabled={!bulkTag || busy}>Add tag</button
-						><SelectField
+						<strong>{selectedIds.length} selected</strong><TokenInput
+							label="Bulk tags"
+							placeholder="Tag selected bookmarks…"
+							allowCreate
+							items={tags.map((t) => ({ value: String(t.id), label: String(t.name) }))}
+							onAdd={async (value, create) => {
+								if (!library) return;
+								bulkTag = create ? await ensureTag(library, value) : value;
+								await bulk('tag');
+							}}
+						/>
+						<SelectField
 							label="Bulk collection"
 							bind:value={bulkCollection}
 							options={[
-								{ value: '', label: 'Inbox' },
+								{ value: '', label: 'No collection' },
 								...collections.map((r) => ({ value: String(r.id), label: String(r.name) }))
 							]}
 						/><button onclick={() => bulk('collection')} disabled={busy}>Move</button><button
@@ -638,81 +820,74 @@
 							disabled={busy}>Archive</button
 						><button onclick={() => bulk('trash')} disabled={busy}>Trash</button>
 					</div>{/if}
-				<div class="bookmark-list">
-					{#each results.items.slice(0, limit) as item (String(item.id))}<div
-							class:selected={selected?.id === item.id}
-							class="library-row"
-						>
-							{#if item.entityKind === 'bookmark' && view !== 'trash'}<Check
-									label={`Select ${entityLabel(item)}`}
+				<div
+					class="bookmark-list"
+					class:person-timeline={!!profileSlug}
+					onDisconnect={profileSlug
+						? () => void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
+						: undefined}
+				>
+					{#if profileSlug && !person}<p class="panel-message">
+							This person is unavailable.
+						</p>{:else}
+						{#each results.items.slice(0, limit) as item (String(item.id))}
+							{#if item.entityKind === 'person'}<button
+									class="person-card"
+									onclick={() => navigate({ kind: 'person', id: String(item.id) })}
+									><span class="person-initial">{String(item.displayName).slice(0, 1)}</span><span
+										><strong>{item.displayName}</strong><small
+											>{item.bio || item.website || 'Open profile'}</small
+										></span
+									></button
+								>
+							{:else}<BookmarkCard
+									{item}
+									note={notePreview(
+										noteBodies.get(String(item.id)) ?? String(item.description ?? '')
+									)}
+									timeline={!!profileSlug}
+									onDisconnect={profileSlug
+										? () =>
+												void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
+										: undefined}
+									selected={selected?.id === item.id}
 									checked={selectedIds.includes(String(item.id))}
-									onCheckedChange={(checked) =>
-										(selectedIds = checked
-											? [...selectedIds, String(item.id)]
-											: selectedIds.filter((id) => id !== item.id))}
-								/>{/if}<button
-								class="library-row-body"
-								onclick={() => navigate({ kind: item.entityKind, id: String(item.id) })}
-								><span class="row-type-icon" aria-hidden="true"
-									>{#if item.entityKind === 'person'}<IconUsersFill
-										/>{:else if item.entityKind === 'persona'}<IconSquaresFourFill
-										/>{:else if item.kind === 'image'}<IconImageFill
-										/>{:else if item.kind === 'social'}<IconQuotesFill />{:else}<IconGlobeFill
-										/>{/if}</span
-								><span class="row-copy"
-									><span class="row-kind"
-										>{item.entityKind === 'bookmark' ? item.kind : item.entityKind}</span
-									><span class="row-title"
-										>{entityLabel(item)}{#if item.isPinned}<IconPushPinFill />{/if}</span
-									><span class="row-description"
-										>{String(item.description ?? item.bio ?? '').slice(0, 180) ||
-											String(item.domain ?? '')}</span
-									><span class="row-meta"
-										>{item.domain ??
-											(item.entityKind === 'persona'
-												? 'Knowledge context'
-												: item.entityKind === 'person'
-													? 'Profile'
-													: '')}{item.readingStatus && item.entityKind === 'bookmark'
-											? ` · ${item.readingStatus}`
-											: ''}</span
-									></span
-								></button
-							><span class="row-date"
-								>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
-									month: 'short',
-									day: 'numeric'
-								})}</span
-							>
-						</div>{:else}{#if !results.error}<section class="welcome-panel compact">
-								<div class="empty-state-mark"><IconBookmarkSimpleFill /></div>
-								<span class="empty-state-kicker">A SPACE FOR WHAT MATTERS</span>
-								<h2>
-									{query ? 'Nothing matched this search.' : 'Your next good idea belongs here.'}
-								</h2>
-								<p>
-									{query
-										? 'Try a title, a phrase, #tag, person:"Name" or site:example.com.'
-										: view === 'people'
-											? 'Add a person, then connect their saved work.'
-											: view === 'personas'
-												? 'Create a context and bring relevant people and content together.'
-												: 'Save something you want to remember, then make it your own with notes.'}
-								</p>
-								{#if !query && view !== 'trash' && view !== 'archive'}<button
-										class="primary-button"
-										onclick={() =>
-											create(
-												view === 'people' ? 'person' : view === 'personas' ? 'persona' : 'bookmark'
-											)}
-										>Add your first {view === 'people'
-											? 'person'
-											: view === 'personas'
-												? 'persona'
-												: 'item'}</button
-									>{/if}
-							</section>{/if}{/each}
+									onCheck={profileSlug
+										? undefined
+										: (checked) =>
+												(selectedIds = checked
+													? [...selectedIds, String(item.id)]
+													: selectedIds.filter((id) => id !== item.id))}
+									onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
+									onAction={(action) => void bookmarkAction(item, action)}
+									onOpen={() => void library?.save({ type: 'activity.open', id: String(item.id) })}
+								/>{/if}
+						{:else}{#if !results.error}<section class="welcome-panel compact">
+									<div class="empty-state-mark"><IconBookmarkSimpleFill /></div>
+									<h2>
+										{query
+											? 'Nothing matched this search.'
+											: view === 'people'
+												? 'Keep the people behind the ideas.'
+												: profileSlug
+													? 'Their saved content appears here.'
+													: 'Your next good idea belongs here.'}
+									</h2>
+									<p>
+										{query
+											? 'Try a title, note or #tag.'
+											: profileSlug
+												? 'Connect an existing bookmark above, or save a new one here.'
+												: 'Save a link, add a thought, and come back to it anytime.'}
+									</p>
+									{#if !query && view !== 'trash' && view !== 'archive'}<button
+											class="primary-button"
+											onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
+											>Add {view === 'people' ? 'person' : 'bookmark'}</button
+										>{/if}
+								</section>{/if}{/each}{/if}
 				</div>
+
 				{#if results.items.length > limit}<button class="load-more" onclick={() => (limit += 100)}
 						>Show more</button
 					>{/if}
@@ -744,62 +919,100 @@
 
 <Dialog.Root bind:open={creating}
 	><Dialog.Portal
-		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content v0-dialog"
+		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content
+			class="dialog-content v0-dialog capture-dialog"
 			><Dialog.Title class="dialog-title"
-				>{newType === 'saved-search'
-					? 'Save this search'
-					: `New ${newType === 'bookmark' ? 'saved content' : newType}`}</Dialog.Title
-			><Dialog.Description class="dialog-description"
-				>{newType === 'persona'
-					? 'A named context for relevant people and saved content.'
+				>{newType === 'bookmark'
+					? 'Save a bookmark'
 					: newType === 'person'
-						? 'A real person. Names can be shared; connections stay distinct.'
-						: 'Give it a place in your library.'}</Dialog.Description
+						? editingPerson
+							? 'Edit person'
+							: 'Add person'
+						: newType === 'saved-search'
+							? 'Save search'
+							: `New ${newType}`}</Dialog.Title
+			><Dialog.Description class="sr-only"
+				>{newType === 'bookmark'
+					? 'Save a URL with an optional title, note and tags. Press Enter to save.'
+					: 'Add a name and optional details.'}</Dialog.Description
 			>
-			<form class="stack" onsubmit={submitCreate}>
-				{#if newType === 'bookmark'}<label for="capture-kind">Type</label><SelectField
-						label="Content type"
-						value={newKind}
-						options={[
-							{ value: 'page', label: 'Web page' },
-							{ value: 'social', label: 'Social post' },
-							{ value: 'image', label: 'Image reference' }
-						]}
-						id="capture-kind"
-						onValueChange={(value) => (newKind = value as typeof newKind)}
-					/><label for="capture-url">Source URL {newKind === 'image' ? '(optional)' : ''}</label
+			<form class="stack capture-form" onsubmit={submitCreate}>
+				<fieldset disabled={busy}>
+					{#if newType === 'bookmark'}<label for="capture-url" class="sr-only">URL</label><input
+							id="capture-url"
+							type="url"
+							bind:value={newUrl}
+							required
+							placeholder="Paste a URL…"
+						/>{/if}
+					<label for="capture-title" class="sr-only"
+						>{newType === 'bookmark' ? 'Title' : 'Name'}</label
 					><input
-						id="capture-url"
-						type="url"
-						bind:value={newUrl}
-						required={newKind !== 'image'}
-						placeholder="https://…"
-					/>{/if}<label for="capture-title">{newType === 'bookmark' ? 'Title' : 'Name'}</label
-				><input
-					id="capture-title"
-					bind:value={newTitle}
-					required={newType !== 'bookmark' || !newUrl}
-					maxlength={newType === 'bookmark' ? 500 : newType === 'person' ? 200 : 64}
-					placeholder={newType === 'persona'
-						? 'Systems Engineering'
-						: 'Something worth remembering'}
-				/>{#if newType === 'bookmark'}<label for="capture-note">Note (optional)</label><textarea
-						id="capture-note"
-						bind:value={newNote}
-						rows="4"
-						placeholder="Why is this worth keeping?"></textarea>{/if}{#if formError}<p
-						class="form-error"
-						role="alert"
-					>
-						{formError}
-					</p>{/if}<button type="submit" class="primary-button" disabled={busy}
-					>{busy ? 'Saving…' : 'Save'}</button
-				>
+						id="capture-title"
+						bind:value={newTitle}
+						required={newType !== 'bookmark'}
+						maxlength={newType === 'person' ? 200 : newType === 'bookmark' ? 500 : 64}
+						placeholder={newType === 'bookmark'
+							? 'Title (optional)'
+							: newType === 'person'
+								? 'Full name'
+								: 'Name'}
+					/>
+					{#if newType === 'person'}<label for="person-url" class="sr-only">Profile URL</label
+						><input
+							id="person-url"
+							type="url"
+							bind:value={personUrl}
+							placeholder="Twitter / website URL (optional)"
+						/>{/if}
+					{#if newType === 'bookmark' || newType === 'person'}<label
+							for="capture-note"
+							class="sr-only">{newType === 'person' ? 'About' : 'Note'}</label
+						><textarea
+							id="capture-note"
+							bind:value={newNote}
+							rows="2"
+							placeholder={newType === 'person'
+								? 'About this person (optional)'
+								: 'A note to yourself (optional)'}
+							onkeydown={(e) => {
+								if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+									e.preventDefault();
+									e.currentTarget.form?.requestSubmit();
+								}
+							}}></textarea>{/if}
+					{#if newType === 'bookmark'}<TokenInput
+							label="Bookmark tags"
+							placeholder="#tags, separated by commas"
+							allowCreate
+							items={[...new Set([...tags.map((t) => String(t.name)), ...newTags])].map((name) => ({
+								value: name,
+								label: name
+							}))}
+							selected={newTags}
+							onAdd={(value) => {
+								if (!newTags.includes(value)) newTags = [...newTags, value];
+							}}
+							onRemove={(value) => {
+								newTags = newTags.filter((n) => n !== value);
+							}}
+						/>{/if}
+					{#if formError}<p class="form-error" role="alert">{formError}</p>{/if}
+					<div class="capture-footer">
+						<span class="muted">Enter to save · Shift + Enter for a new line</span><button
+							type="submit"
+							class="primary-button"
+							disabled={busy}>{busy ? 'Saving…' : 'Save'}</button
+						>
+					</div>
+				</fieldset>
 			</form>
-			<Dialog.Close class="icon-button dialog-close" aria-label="Close creation form"
-				><IconXFill /></Dialog.Close
-			></Dialog.Content
-		></Dialog.Portal
+			<Dialog.Close
+				class="icon-button dialog-close"
+				disabled={busy}
+				aria-label="Close creation form"><IconXFill /></Dialog.Close
+			>
+		</Dialog.Content></Dialog.Portal
 	></Dialog.Root
 >
 <Dialog.Root bind:open={settings}
@@ -843,8 +1056,8 @@
 					Use this browser on a trusted device. Cached library data is not end-to-end encrypted.
 				</p>
 				<p class="muted">
-					Search: text, "phrases", #tag, @collection, person:"Name", author:"Name", persona:"Name",
-					is:page, is:person, is:trash, site:example.com, has:note and status:unread.
+					Search: text, "phrases", #tag, @collection, person:"Name", is:page, is:person, is:trash,
+					site:example.com, and has:note.
 				</p>
 			</div>
 			<p role="status">{toast || status?.error || ''}</p>

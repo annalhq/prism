@@ -74,7 +74,8 @@ export function authFor(event: RequestEvent) {
 				event.cookies.set(name, value, {
 					...options,
 					path: options.path ?? '/',
-					secure: settings.origin.startsWith('https:'),
+					// Neon's __Secure- cookie names require this attribute, including on localhost.
+					secure: true,
 					httpOnly: true,
 					sameSite: 'lax'
 				}),

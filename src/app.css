@@ -1925,3 +1925,355 @@ summary {
 	justify-content: flex-end;
 	margin-top: 25px;
 }
+
+/* Fast capture and connected reading. */
+.capture-dialog {
+	width: min(420px, calc(100vw - 28px));
+	padding: 23px;
+}
+.capture-dialog .dialog-title {
+	font-size: 18px;
+}
+.capture-form {
+	margin-top: 18px;
+}
+.capture-form fieldset {
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+	min-width: 0;
+	border: 0;
+	margin: 0;
+	padding: 0;
+}
+.capture-form input:not([type='checkbox']),
+.capture-form textarea {
+	font-size: 12px;
+	border-color: #e7ece4;
+	background: #fcfdfb;
+}
+.capture-form textarea {
+	min-height: 64px;
+}
+.capture-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 6px;
+}
+.capture-footer .muted {
+	font-size: 8px;
+}
+.capture-footer .primary-button {
+	font-size: 11px;
+	min-height: 33px;
+}
+.token-field {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 5px;
+	min-height: 39px;
+	border: 1px solid #e0e8dd;
+	background: #fff;
+	padding: 6px 8px;
+	border-radius: 6px;
+}
+.token-field:focus-within {
+	border-color: #9eb49b;
+	box-shadow: 0 0 0 2px var(--selection);
+}
+.token-field .token-search:not([type='checkbox']) {
+	flex: 1;
+	width: 100px;
+	min-width: 90px;
+	min-height: 25px;
+	padding: 3px 1px;
+	border: 0;
+	outline: 0;
+	box-shadow: none;
+	font-size: 11px;
+	background: transparent;
+}
+.token-field .chip {
+	font-size: 10px;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	max-width: 100%;
+}
+.token-editor .form-error {
+	margin-top: 7px;
+}
+.token-suggestions {
+	width: var(--bits-combobox-anchor-width, 300px);
+	min-width: min(260px, calc(100vw - 32px));
+}
+.token-suggestions small {
+	display: block;
+	font-size: 9px;
+	color: var(--secondary);
+}
+.picker-empty {
+	padding: 12px;
+	color: var(--secondary);
+	font-size: 11px;
+}
+.simple-editor #item-title {
+	min-height: 58px;
+}
+.simple-editor .inspector-section {
+	padding-block: 19px;
+}
+.simple-editor .note-section textarea {
+	min-height: 145px;
+}
+.simple-editor .later-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	align-self: flex-start;
+	font-size: 10px;
+}
+.later-toggle svg {
+	width: 13px;
+	height: 13px;
+}
+.later-toggle[aria-pressed='true'] {
+	color: var(--accent);
+}
+.bookmark-gesture {
+	position: relative;
+	overflow: hidden;
+	touch-action: pan-y;
+}
+.bookmark-gesture .library-row {
+	background: #fff;
+	min-width: 0;
+	transition: transform 120ms ease-out;
+	align-items: flex-start;
+	padding-block: 24px;
+}
+.bookmark-gesture .library-row.selected {
+	background: #f2f6ee;
+}
+.bookmark-content {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+}
+.bookmark-card-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 18px;
+	font-size: 9px;
+	color: #8b9989;
+}
+.bookmark-card-meta > span {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.bookmark-card-meta time {
+	flex-shrink: 0;
+}
+.bookmark-title {
+	font-size: 15px;
+	font-weight: 650;
+	letter-spacing: -0.02em;
+	line-height: 1.5;
+	text-align: left;
+	padding: 0;
+	overflow-wrap: anywhere;
+}
+.bookmark-title:hover {
+	color: var(--accent);
+}
+.bookmark-note {
+	font-size: 12px;
+	line-height: 1.85;
+	color: #7e8d7c;
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.bookmark-edit {
+	opacity: 0;
+	margin-top: 16px;
+	width: 28px;
+	height: 28px;
+}
+.library-row:hover .bookmark-edit,
+.library-row:focus-within .bookmark-edit {
+	opacity: 1;
+}
+.bookmark-edit svg {
+	width: 14px;
+	height: 14px;
+}
+.bookmark-gesture .ui-checkbox {
+	margin-top: 23px;
+}
+.later-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	align-self: flex-start;
+	font-size: 9px;
+	color: #7d9572;
+}
+.later-badge svg {
+	width: 10px;
+	height: 10px;
+}
+.swipe-hint {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	padding: 20px;
+	background: #eff4e9;
+	color: var(--accent);
+	font-size: 11px;
+}
+.swipe-hint.to-later {
+	justify-content: flex-end;
+	background: #e8f0e3;
+}
+.menu-item.danger-text {
+	color: var(--danger);
+}
+.person-card {
+	display: flex;
+	align-items: center;
+	gap: 15px;
+	width: 100%;
+	padding: 22px 12px;
+	text-align: left;
+	border-bottom: 1px solid var(--line);
+}
+.person-card:hover {
+	background: #f7faf4;
+}
+.person-initial {
+	display: grid;
+	place-items: center;
+	width: 39px;
+	height: 39px;
+	border-radius: 50%;
+	background: #edf2e7;
+	color: #829776;
+	font-size: 17px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+.person-card > span:last-child {
+	min-width: 0;
+}
+.person-card strong {
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+}
+.person-card small {
+	display: block;
+	font-size: 11px;
+	color: var(--secondary);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.person-heading {
+	align-items: flex-start;
+	padding-bottom: 20px;
+}
+.person-heading h1 {
+	font-size: 32px;
+}
+.person-bio {
+	margin-top: 9px;
+	font-size: 12px;
+	line-height: 1.8;
+	color: #84917f;
+	white-space: pre-line;
+}
+.person-heading .source-link {
+	margin-top: 10px;
+}
+.person-connect {
+	padding: 0 42px 18px;
+}
+.person-timeline {
+	padding: 16px 42px 32px;
+	max-width: 850px;
+	width: 100%;
+	align-self: center;
+}
+.timeline-card {
+	border: 1px solid #e4eadf;
+	border-radius: 9px;
+	margin-bottom: 15px;
+}
+.timeline-card .library-row {
+	border: 0;
+	padding: 21px;
+}
+.timeline-card .bookmark-note {
+	-webkit-line-clamp: 10;
+}
+.bulk-bar .token-editor {
+	min-width: 160px;
+	flex: 1;
+}
+@media (max-width: 650px) {
+	.capture-form input:not([type='checkbox']),
+	.capture-form textarea,
+	.token-field .token-search:not([type='checkbox']) {
+		font-size: 16px;
+	}
+	.capture-footer .muted {
+		max-width: 170px;
+		font-size: 8px;
+	}
+	.person-heading h1 {
+		font-size: 28px;
+	}
+	.person-connect {
+		padding-inline: 22px;
+	}
+	.person-timeline {
+		padding-inline: 18px;
+	}
+	.bookmark-title {
+		font-size: 14px;
+	}
+	.bookmark-edit {
+		opacity: 1;
+		width: 28px;
+	}
+	.bookmark-card-meta {
+		font-size: 9px;
+	}
+	.bookmark-gesture .library-row {
+		gap: 10px;
+	}
+	.simple-editor #item-description,
+	.simple-editor #item-url {
+		font-size: 16px;
+	}
+}
+[hidden] {
+	display: none !important;
+}
+.simple-editor .section-heading {
+	flex-direction: row;
+}
+.simple-editor [data-collapsible-trigger] {
+	text-align: left;
+}
