@@ -59,7 +59,7 @@ async function readablePerson(tx: Transaction, vaultId: string, id: string, allo
 		throw new ApiError(404, 'not_found', 'Person was not found.');
 	return entity;
 }
-const readSnapshot = { isolationLevel: 'repeatable read', readOnly: true } as const;
+const readSnapshot = { isolationLevel: 'repeatable read', accessMode: 'read only' } as const;
 export async function readPerson(owner: OwnerContext, id: string) {
 	return inTransaction(async (tx) => {
 		await readablePerson(tx, owner.vaultId, id, true);

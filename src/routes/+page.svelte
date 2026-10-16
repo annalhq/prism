@@ -1,5 +1,5 @@
 <script lang="ts">
-	import AppShell from '#lib/components/AppShell.svelte';
+	import LibraryWorkspace from '#lib/components/LibraryWorkspace.svelte';
 </script>
 
 <svelte:head>
@@ -7,4 +7,4 @@
 	<meta name="description" content="A personal space for saved content, people and connections." />
 </svelte:head>
 
-<AppShell />
+<LibraryWorkspace />

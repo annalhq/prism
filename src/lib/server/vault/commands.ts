@@ -1,3 +1,5 @@
+import { isPersonaCommand } from '#lib/domain/personas.js';
+import { applyPersonaCommand } from './personas.js';
 import { changePerson } from './people.js';
 import { changeIdentity } from './identities.js';
 import { changeContentPerson } from './relationships.js';
@@ -254,7 +256,9 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 				const seq = vault.changeSeq + 1n;
 				const now = new Date();
 				const changes: Change[] = [];
-				if (command.type === 'note.replace') {
+				if (isPersonaCommand(command)) {
+					changes.push(...(await applyPersonaCommand(mutation, owner.vaultId, command, seq, now)));
+				} else if (command.type === 'note.replace') {
 					changes.push(...(await replaceNote(mutation, owner.vaultId, command, seq, now)));
 				} else if (command.type === 'related-link.add' || command.type === 'related-link.remove') {
 					changes.push(...(await changeRelatedLink(mutation, owner.vaultId, command, seq, now)));
@@ -304,7 +308,8 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 					changes
 				};
 				const accepted = { protocolVersion: 1, operationId, status: 'accepted', frame } as const;
-				if (serializedBytes(accepted) > MAX_COMMAND_BYTES)
+				// Reserve space for the sync cursor/page wrapper around this whole frame.
+				if (serializedBytes(accepted) > MAX_COMMAND_BYTES - 1024)
 					reject(
 						'frame_too_large',
 						'The resulting change frame exceeds 1 MiB. Split the operation into smaller chunks.'

@@ -2,7 +2,7 @@
 
 A private personal knowledge library for saved content, people and connections across devices.
 
-The foundation provides an accessible, responsive SvelteKit shell with Bits UI, Phosphor Icons Svelte, a self-hosted font and system light/dark themes. Task 2 adds a server-only relational schema, guarded migration tools and an owner-only Neon Auth integration. The isolated Neon schema is migrated and its owner vault initialized. Task 3 adds authenticated transactional bookmark commands with revision checks, retry receipts and atomic change frames. Task 4 adds revisioned shared notes, safe Markdown references, related-link commands, recovery history and backlink reads. Task 5 adds organization commands for tags, collections, reading status, pin/archive, saved searches and activity. Task 20 adds people profiles, confirmed identities, explicit content roles and bounded profile-feed APIs. The saving/profile UI and synchronization are subsequent milestones; broader live verification remains deferred. The shell requires no credentials and performs no service calls.
+The browser workspace now supports saving content, notes, organization, people and personas as named knowledge contexts. It includes a durable local replica/outbox, basic synchronization and search, metadata import/export and manual profile cleanup. See [Prism v0](docs/v0.md) for what to try and the remaining gaps. B2 media, full backups and broader functional/browser/performance verification remain pending. The public welcome shell requires no credentials; private library features require the configured owner vault.
 
 ## Develop
 
@@ -13,7 +13,7 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
-Open the local URL printed by Vite. Copy `.env.example` to `.env` when configuring services in Task 2; all values can remain empty for the shell. Database/B2 keys must remain server-only, never `PUBLIC_` variables.
+Open the local URL printed by Vite. Copy `.env.example` to `.env` when configuring services; empty values allow only the public welcome shell. Database/B2 keys must remain server-only, never `PUBLIC_` variables.
 
 SvelteKit 3 configuration lives in `vite.config.ts`, local imports use `#lib`, and TypeScript extends `$app/tsconfig`. Application state uses Svelte 5 runes. Server-only implementation belongs under `src/lib/server/`; shared domain code must not import it.
 
@@ -36,7 +36,7 @@ SvelteKit 3 configuration lives in `vite.config.ts`, local imports use `#lib`, a
 | `bun run db:inventory`     | Read-only metadata and row counts from the direct database                                     |
 | `bun run db:migrate`       | Apply reviewed SQL to an explicitly isolated target after inventory                            |
 | `bun run db:init-owner`    | Explicitly initialize the configured owner vault after migration                               |
-| `bun run maintenance`      | Reserved for Task 16; currently exits nonzero with instructions                                |
+| `bun run maintenance`      | CLI placeholder; use library settings for bounded profile cleanup                              |
 
 The browser suite builds and starts the actual Node-adapter output with empty service credentials. When browser testing resumes, install its matching browser with `bunx playwright install chromium`. It includes desktop/mobile viewport, landmarks, keyboard skip navigation, dialog focus restoration and absence of external requests. It is configured but has not passed in this environment. Do not run builds concurrently: they share generated output.
 
@@ -48,7 +48,7 @@ Deploy `build/` and the runtime dependencies on a maintained Node host behind HT
 
 Later milestones require outbound access to NeonDB, Neon Auth and the correct B2 regional endpoint; bounded database pool concurrency; and a scheduled runner for the maintenance command. The host must support bounded image verification outside SQL transactions within its memory/request time limits. Database migrations use a separate direct connection and a reviewed deployment step. No infrastructure has been provisioned by the foundation.
 
-Future offline access is for trusted devices. Pending drafts/outbox data must survive failures; private API responses must not be generically cached. The Task 1 shell does not implement offline reload, local content storage or encryption.
+Offline access is for trusted devices. The v0 stores owner-scoped library data, drafts and pending commands in IndexedDB and caches the public shell separately. It does not end-to-end encrypt local content. Private API responses are excluded from shell caching. Sync requires Web Locks; see [v0 limits](docs/v0.md#limits-and-remaining-work).
 
 ## Design and progress
 
@@ -58,7 +58,7 @@ Future offline access is for trusted devices. Pending drafts/outbox data must su
 
 Follow [Task 2 setup and evidence](docs/task-2.md). The public shell remains credential-free; `/auth/sign-in` uses Neon Auth and `/api/v1/session` requires the configured owner and initialized vault. Configure `NEON_AUTH_COOKIE_SECRET` locally in addition to the existing environment keys. No public signup or first-visitor ownership is exposed.
 
-The owner-only `POST /api/v1/commands` supports bookmark create/update/trash/restore/purge and atomic bulk chunks. See [Task 3 contracts and pending verification](docs/task-3.md) for request examples, retry rules and the deferred media-cleanup worker. Task 4 extends the endpoint with `note.replace` and `related-link.add/remove`, plus owner-only history and backlink GET endpoints. See [Task 4 contracts and pending verification](docs/task-4.md). Task 5 adds organization and activity commands and extends bookmark bulk to organization/tag intents; see [Task 5 contracts and pending verification](docs/task-5.md). Task 20 adds person lifecycle, identity and role commands plus profile/feed/history GET endpoints; see [Task 20 contracts and pending verification](docs/task-20.md). No additional migration is needed for these slices.
+The owner-only `POST /api/v1/commands` supports bookmark create/update/trash/restore/purge and atomic bulk chunks. See [Task 3 contracts and pending verification](docs/task-3.md) for request examples, retry rules and the deferred media-cleanup worker. Task 4 extends the endpoint with `note.replace` and `related-link.add/remove`, plus owner-only history and backlink GET endpoints. See [Task 4 contracts and pending verification](docs/task-4.md). Task 5 adds organization and activity commands and extends bookmark bulk to organization/tag intents; see [Task 5 contracts and pending verification](docs/task-5.md). Task 20 adds person lifecycle, identity and role commands plus profile/feed/history GET endpoints; see [Task 20 contracts and pending verification](docs/task-20.md). The v0 also adds persona commands, bootstrap/change feeds, a local facade and their browser workflow; see [v0 scope and evidence](docs/v0.md). No additional migration is needed for these slices.
 
 ## Environment loading
 

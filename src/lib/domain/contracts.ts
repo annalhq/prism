@@ -46,6 +46,7 @@ export type RelatedLinkCommand = {
 	target: import('./notes.js').EntityReference;
 } & ({ type: 'related-link.add' } | { type: 'related-link.remove' });
 export type Command =
+	| import('./personas.js').PersonaCommand
 	| BookmarkCommand
 	| import('./people.js').PersonCommand
 	| import('./people.js').PersonIdentityCommand
@@ -83,6 +84,7 @@ export type BookmarkTombstone = {
 	purgedAt: string;
 };
 export type Change =
+	| import('./personas.js').PersonaChange
 	| { type: 'bookmark.upsert'; bookmark: BookmarkProjection }
 	| { type: 'entity.upsert'; entity: EntityProjection }
 	| { type: 'note.upsert'; note: NoteProjection }

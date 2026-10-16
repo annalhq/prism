@@ -1,3 +1,4 @@
+import { personaProjection } from './personas.js';
 import { and, eq } from 'drizzle-orm';
 import type {
 	BookmarkProjection,
@@ -47,7 +48,7 @@ export async function entityMetadataChange(
 		? { type: 'bookmark.upsert', bookmark: await bookmarkProjection(tx, vaultId, id) }
 		: kind === 'person'
 			? { type: 'person.upsert', person: await personProjection(tx, vaultId, id) }
-			: { type: 'entity.upsert', entity: await entityProjection(tx, vaultId, id) };
+			: { type: 'persona.upsert', persona: await personaProjection(tx, vaultId, id) };
 }
 
 export async function bookmarkProjection(
