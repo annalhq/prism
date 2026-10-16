@@ -1,3 +1,5 @@
+import { isPersonCommand, parsePersonCommand } from './people.js';
+import { parseContentPersonCommand } from './relationships.js';
 import {
 	MAX_BULK_BOOKMARKS,
 	type BookmarkCommand,
@@ -74,6 +76,9 @@ function bookmark(value: unknown): BookmarkCommand {
 }
 export function parseCommand(value: unknown): Command {
 	const c = object(value);
+	if (typeof c.type === 'string' && isPersonCommand({ type: c.type })) return parsePersonCommand(c);
+	if (c.type === 'content-person.add' || c.type === 'content-person.remove')
+		return parseContentPersonCommand(c);
 	if (typeof c.type === 'string' && isOrganizationCommand({ type: c.type }))
 		return parseOrganizationCommand(c);
 	if (c.type === 'note.replace') {

@@ -33,6 +33,9 @@ export async function closeDatabase() {
 export type Database = ReturnType<typeof database>;
 export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 
-export function inTransaction<T>(operation: (transaction: Transaction) => Promise<T>): Promise<T> {
-	return database().transaction(operation);
+export function inTransaction<T>(
+	operation: (transaction: Transaction) => Promise<T>,
+	config?: Parameters<Database['transaction']>[1]
+): Promise<T> {
+	return database().transaction(operation, config);
 }

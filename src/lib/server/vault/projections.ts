@@ -7,7 +7,8 @@ import type {
 	Sequence
 } from '#lib/domain/contracts.js';
 import type { Transaction } from '../db/connection.js';
-import { bookmarks, entities, entityTags } from '../db/schema.js';
+import type { PersonProjection } from '#lib/domain/people.js';
+import { bookmarks, entities, entityTags, people } from '../db/schema.js';
 
 export async function entityProjection(
 	tx: Transaction,
@@ -44,7 +45,9 @@ export async function entityMetadataChange(
 ): Promise<Change> {
 	return kind === 'bookmark'
 		? { type: 'bookmark.upsert', bookmark: await bookmarkProjection(tx, vaultId, id) }
-		: { type: 'entity.upsert', entity: await entityProjection(tx, vaultId, id) };
+		: kind === 'person'
+			? { type: 'person.upsert', person: await personProjection(tx, vaultId, id) }
+			: { type: 'entity.upsert', entity: await entityProjection(tx, vaultId, id) };
 }
 
 export async function bookmarkProjection(
@@ -87,4 +90,18 @@ export async function bookmarkProjection(
 		createdAt: e.createdAt.toISOString(),
 		updatedAt: e.updatedAt.toISOString()
 	};
+}
+
+export async function personProjection(
+	tx: Transaction,
+	vaultId: string,
+	id: string
+): Promise<PersonProjection> {
+	const entity = await entityProjection(tx, vaultId, id);
+	const [person] = await tx
+		.select({ displayName: people.displayName, bio: people.bio, website: people.website })
+		.from(people)
+		.where(and(eq(people.vaultId, vaultId), eq(people.id, id)));
+	if (!person || entity.kind !== 'person') throw new Error('Person projection invariant failed.');
+	return { ...entity, ...person, kind: 'person' };
 }

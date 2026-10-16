@@ -47,6 +47,9 @@ export type RelatedLinkCommand = {
 } & ({ type: 'related-link.add' } | { type: 'related-link.remove' });
 export type Command =
 	| BookmarkCommand
+	| import('./people.js').PersonCommand
+	| import('./people.js').PersonIdentityCommand
+	| import('./relationships.js').ContentPersonCommand
 	| import('./organization.js').OrganizationCommand
 	| NoteCommand
 	| RelatedLinkCommand
@@ -88,6 +91,14 @@ export type Change =
 	| { type: 'collection.upsert'; collection: TaxonomyProjection }
 	| { type: 'saved-search.upsert'; savedSearch: SavedSearchProjection }
 	| { type: 'activity.upsert'; activity: ActivityProjection }
+	| { type: 'person.upsert'; person: import('./people.js').PersonProjection }
+	| { type: 'person-identity.upsert'; identity: import('./people.js').PersonIdentityProjection }
+	| {
+			type: 'content-person.upsert';
+			relationship: import('./relationships.js').ContentPersonProjection;
+	  }
+	// Clears owned profile data and hides its relationships; incoming note links retain identity.
+	| { type: 'person.purge'; tombstone: import('./people.js').PersonTombstone }
 	// Removes the bookmark, its note/history, outgoing links, tags, activity, media,
 	// content-person relations and persona memberships. Incoming links retain the tombstone.
 	| { type: 'bookmark.purge'; tombstone: BookmarkTombstone };
@@ -156,6 +167,9 @@ export type CommandErrorCode =
 	| 'purged'
 	| 'duplicate_url'
 	| 'url_hash_collision'
+	| 'identity_limit'
+	| 'duplicate_identity'
+	| 'identity_hash_collision'
 	| 'duplicate_name'
 	| 'in_use'
 	| 'tag_limit'

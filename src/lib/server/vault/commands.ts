@@ -1,3 +1,6 @@
+import { changePerson } from './people.js';
+import { changeIdentity } from './identities.js';
+import { changeContentPerson } from './relationships.js';
 import { createHash } from 'node:crypto';
 import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import {
@@ -255,6 +258,24 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 					changes.push(...(await replaceNote(mutation, owner.vaultId, command, seq, now)));
 				} else if (command.type === 'related-link.add' || command.type === 'related-link.remove') {
 					changes.push(...(await changeRelatedLink(mutation, owner.vaultId, command, seq, now)));
+				} else if (
+					command.type === 'person-identity.add' ||
+					command.type === 'person-identity.remove'
+				) {
+					changes.push(...(await changeIdentity(mutation, owner.vaultId, command, seq, now)));
+				} else if (
+					command.type === 'content-person.add' ||
+					command.type === 'content-person.remove'
+				) {
+					changes.push(...(await changeContentPerson(mutation, owner.vaultId, command, seq, now)));
+				} else if (
+					command.type === 'person.create' ||
+					command.type === 'person.update' ||
+					command.type === 'person.trash' ||
+					command.type === 'person.restore' ||
+					command.type === 'person.purge'
+				) {
+					changes.push(...(await changePerson(mutation, owner.vaultId, command, seq, now)));
 				} else if (isOrganizationCommand(command)) {
 					changes.push(...(await applyOrganization(mutation, owner.vaultId, command, seq, now)));
 				} else {

@@ -5,8 +5,9 @@ import type { Root, Nodes } from 'mdast';
 
 export const MAX_NOTE_BYTES = 102_400;
 export const MAX_NOTE_REFERENCES = 200;
-export type EntityKind = 'bookmark' | 'person' | 'persona';
-export type EntityReference = { kind: EntityKind; id: string };
+import type { EntityKind, EntityRef } from './entities.js';
+export type { EntityKind } from './entities.js';
+export type EntityReference = EntityRef;
 export class NoteValidationError extends Error {}
 
 export function parseReference(destination: string): EntityReference | null {

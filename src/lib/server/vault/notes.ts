@@ -8,6 +8,7 @@ import {
 	type Revision,
 	type Sequence
 } from '#lib/domain/contracts.js';
+import type { EntityKind } from '#lib/domain/entities.js';
 import { extractReferences } from '#lib/domain/notes.js';
 import type { OwnerContext } from '../auth.js';
 import { inTransaction, type Transaction } from '../db/connection.js';
@@ -17,7 +18,7 @@ import { findEntity, requireEntity, requireTargetKind } from './entities.js';
 import { linkProjection } from './links.js';
 import { reject } from './rejections.js';
 
-function projection(row: typeof notes.$inferSelect): NoteProjection {
+export function noteProjection(row: typeof notes.$inferSelect): NoteProjection {
 	return {
 		entityId: row.entityId,
 		bodyMarkdown: row.bodyMarkdown,
@@ -128,16 +129,21 @@ export async function replaceNote(
 			}))
 		);
 	return [
-		{ type: 'note.upsert', note: projection(saved) },
+		{ type: 'note.upsert', note: noteProjection(saved) },
 		{ type: 'links.replace', links: await linkProjection(tx, vaultId, command.id, seq) }
 	];
 }
 
-export async function readNoteHistory(owner: OwnerContext, id: string, before?: Revision) {
+export async function readNoteHistory(
+	owner: OwnerContext,
+	id: string,
+	before?: Revision,
+	expectedKind: EntityKind = 'bookmark'
+) {
 	return inTransaction(async (tx) => {
 		const entity = await findEntity(tx, owner.vaultId, id);
-		if (!entity || entity.kind !== 'bookmark' || entity.purgedAt)
-			throw new ApiError(404, 'not_found', 'Bookmark note history was not found.');
+		if (!entity || entity.kind !== expectedKind || entity.purgedAt)
+			throw new ApiError(404, 'not_found', 'Note history was not found.');
 		const rows = await tx
 			.select()
 			.from(noteRevisions)

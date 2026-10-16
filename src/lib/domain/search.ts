@@ -171,3 +171,31 @@ export function inspectSearchReferences(
 	const missing = searchTargets(filter).filter((target) => !isAvailable(target));
 	return { valid: missing.length === 0, missing };
 }
+
+// The search worker consumes profiles and role rows separately; mentions/tags never
+// synthesize authorship. Imports and replica bootstrap must preserve these IDs.
+export type PersonSearchDocument = Pick<
+	import('./people.js').PersonProjection,
+	| 'id'
+	| 'kind'
+	| 'displayName'
+	| 'bio'
+	| 'website'
+	| 'tagIds'
+	| 'deletedAt'
+	| 'purgedAt'
+	| 'lastSeq'
+> & { noteText: string; tagNames: string[] };
+export type PersonSearchRelationship = Pick<
+	import('./relationships.js').ContentPersonProjection,
+	'bookmarkId' | 'personId' | 'role' | 'deletedAt' | 'lastSeq'
+>;
+export function personSearchFields(person: PersonSearchDocument): string[] {
+	return [
+		person.displayName,
+		person.bio,
+		person.website ?? '',
+		person.noteText,
+		...person.tagNames
+	].map(normalizeSearchText);
+}
