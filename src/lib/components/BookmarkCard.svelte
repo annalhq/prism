@@ -186,6 +186,9 @@
 							<DropdownMenu.Item class="menu-item" onSelect={onEdit}
 								><PencilIcon />Edit</DropdownMenu.Item
 							>
+							{#if source}<DropdownMenu.Item class="menu-item" onSelect={copy}
+									><CopyIcon />Copy link</DropdownMenu.Item
+								>{/if}
 							{#if item.deletedAt}<DropdownMenu.Item
 									class="menu-item"
 									onSelect={() => onAction('restore')}>Restore</DropdownMenu.Item

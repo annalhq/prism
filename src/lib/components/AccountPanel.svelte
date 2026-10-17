@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { Dialog, Tabs } from 'bits-ui';
+	import { Collapsible, Dialog, Tabs } from 'bits-ui';
 	import { resolve } from '$app/paths';
 	import {
-		UserRound,
 		RefreshCw,
 		Cloud,
 		CloudOff,
 		ChevronRight,
+		ChevronDown,
 		Download,
 		Upload,
 		LogOut,
@@ -14,14 +14,12 @@
 		Plus,
 		Search,
 		X,
-		Keyboard,
 		Folder,
 		Hash,
 		Check,
 		AlertCircle
 	} from '@lucide/svelte';
 	import type { LibraryClient, LibraryState } from '#lib/client/vault/library.js';
-	import KeyboardHelp from './KeyboardHelp.svelte';
 	type Row = Record<string, unknown>;
 	type Entry = { table: 'tags' | 'collections' | 'savedSearches'; row: Row };
 	let {
@@ -57,6 +55,28 @@
 	} = $props();
 	let tab = $state('account'),
 		query = $state('');
+	let resolving = $state<string[]>([]),
+		conflictError = $state('');
+	function changeLabel(type: string) {
+		if (type.startsWith('person-identity.')) return 'Profile connection';
+		if (type.startsWith('bookmark.')) return 'Bookmark change';
+		if (type.startsWith('note.')) return 'Note change';
+		if (type.startsWith('person.')) return 'Person change';
+		return 'Library change';
+	}
+	async function keepSaved(operationId: string) {
+		if (!library || resolving.includes(operationId)) return;
+		resolving = [...resolving, operationId];
+		conflictError = '';
+		try {
+			await library.resolveConflict(operationId, 'remote');
+			feedback('Kept the saved version. Note drafts are preserved.');
+		} catch (error) {
+			conflictError = (error as Error).message;
+		} finally {
+			resolving = resolving.filter((id) => id !== operationId);
+		}
+	}
 	const entries = $derived(
 		[
 			...tags.map((row) => ({ table: 'tags' as const, row })),
@@ -70,6 +90,7 @@
 		if (!open) {
 			query = '';
 			tab = 'account';
+			conflictError = '';
 		}
 	});
 	function create(type: string) {
@@ -88,19 +109,18 @@
 			}}
 		>
 			<header class="account-panel-header">
-				<div class="profile-avatar"><UserRound /></div>
 				<div>
 					<Dialog.Title class="dialog-title">Account & settings</Dialog.Title><Dialog.Description
-						class="dialog-description">Your personal space in Prism.</Dialog.Description
+						class="sr-only">Manage your account, sync, and library.</Dialog.Description
 					>
 				</div>
 				<Dialog.Close class="icon-button" aria-label="Close library settings"><X /></Dialog.Close>
 			</header>
-			<Tabs.Root bind:value={tab}>
+			<Tabs.Root bind:value={tab} class="account-body">
 				<Tabs.List class="account-tabs" aria-label="Account sections"
 					><Tabs.Trigger value="account">Account</Tabs.Trigger><Tabs.Trigger value="library"
 						>Library</Tabs.Trigger
-					><Tabs.Trigger value="shortcuts"><Keyboard /> Shortcuts</Tabs.Trigger></Tabs.List
+					></Tabs.List
 				>
 				<div class="account-scroll">
 					<Tabs.Content value="account">
@@ -116,7 +136,7 @@
 											>{status?.loading
 												? 'Syncing your library'
 												: status?.conflicts.length
-													? 'Some changes need attention'
+													? 'Sync needs review'
 													: !status?.online
 														? 'Working offline'
 														: status?.pending
@@ -134,47 +154,53 @@
 										</p>
 									</div>
 								</div>
+								<button
+									class="text-button sync-button"
+									disabled={!status?.online || status?.loading}
+									onclick={() => library?.sync()}
+									><RefreshCw class={status?.loading ? 'spinning' : ''} />{status?.loading
+										? 'Syncing…'
+										: 'Sync now'}</button
+								>
 								{#if status?.error}<p class="sync-error"><AlertCircle />{status.error}</p>{/if}
-								<div class="sync-footer">
-									<span
-										><span class="status-dot" class:offline={!status?.online}></span>{status?.online
-											? 'Connected'
-											: 'Offline'}</span
-									><button
-										class="secondary-button"
-										disabled={!status?.online || status?.loading}
-										onclick={() => library?.sync()}
-										><RefreshCw class={status?.loading ? 'spinning' : ''} />{status?.loading
-											? 'Syncing…'
-											: 'Sync now'}</button
-									>
-								</div>
 							</div>
 						</section>
-						{#if status?.conflicts.length}<section class="settings-group">
-								<h3>Needs attention</h3>
-								{#each status.conflicts as conflict (conflict.operationId)}<div
-										class="settings-card conflict-entry"
-									>
-										<strong>{conflict.envelope.command.type}</strong>
-										<p>{conflict.error?.message}</p>
-										<p class="muted">Your original change and note draft are preserved.</p>
-										<button
-											onclick={() =>
-												library
-													?.resolveConflict(conflict.operationId, 'remote')
-													.catch((error: Error) => feedback(error.message))}
-											>Keep server version; preserve draft</button
-										>
-									</div>{/each}
-							</section>{/if}
+						{#if status?.conflicts.length}<Collapsible.Root class="settings-group conflict-review">
+								<Collapsible.Trigger class="conflict-trigger">
+									<AlertCircle /><span
+										>{status.conflicts.length}
+										{status.conflicts.length === 1 ? 'change needs' : 'changes need'} review</span
+									><ChevronDown />
+								</Collapsible.Trigger>
+								<Collapsible.Content class="conflict-content">
+									<ul class="conflict-list">
+										{#each status.conflicts as conflict (conflict.operationId)}<li
+												class="conflict-entry"
+											>
+												<strong>{changeLabel(conflict.envelope.command.type)}</strong>
+												<p>{conflict.error?.message ?? 'This change could not be synced.'}</p>
+												<button
+													class="text-button"
+													disabled={resolving.includes(conflict.operationId)}
+													onclick={() => keepSaved(conflict.operationId)}
+													>{resolving.includes(conflict.operationId)
+														? 'Updating…'
+														: 'Keep saved version'}</button
+												>
+											</li>{/each}
+									</ul>
+									<p class="conflict-help">
+										Keeping the saved version discards that pending change. Note drafts are kept.
+									</p>
+									{#if conflictError}<p class="form-error" role="alert">{conflictError}</p>{/if}
+								</Collapsible.Content>
+							</Collapsible.Root>{/if}
 						<section class="settings-group">
 							<h3>Personal account</h3>
 							<div class="settings-card">
 								<a class="setting-row" href={resolve('/auth/sign-in')}
 									><span class="setting-icon"><LockKeyhole /></span><span
-										><strong>Sign-in & password</strong><small>Manage access to your library</small
-										></span
+										><strong>Sign-in & password</strong></span
 									><ChevronRight /></a
 								>
 								<form method="POST" action={`${resolve('/auth/sign-in')}?/signOut`}>
@@ -185,9 +211,6 @@
 								</form>
 							</div>
 						</section>
-						<p class="account-footnote">
-							<LockKeyhole /> Private library · stored on this trusted device
-						</p>
 					</Tabs.Content>
 					<Tabs.Content value="library">
 						<section class="settings-group">
@@ -264,19 +287,22 @@
 								>
 							</div>
 						</section>
-						<details class="settings-advanced">
-							<summary>Advanced</summary><button
-								class="secondary-button"
-								disabled={!status?.online || !status?.ready}
-								onclick={onMaintenance}>Run pending profile cleanup</button
-							>
-							<p class="muted">
-								Exports contain metadata, not media files. Cached library data is not end-to-end
-								encrypted.
-							</p>
-						</details>
+						<Collapsible.Root class="settings-advanced">
+							<Collapsible.Trigger class="advanced-trigger"
+								>Advanced <ChevronDown /></Collapsible.Trigger
+							><Collapsible.Content class="stack"
+								><button
+									class="secondary-button"
+									disabled={!status?.online || !status?.ready}
+									onclick={onMaintenance}>Run pending profile cleanup</button
+								>
+								<p class="muted">
+									Exports contain metadata, not media files. Cached library data is not end-to-end
+									encrypted.
+								</p>
+							</Collapsible.Content></Collapsible.Root
+						>
 					</Tabs.Content>
-					<Tabs.Content value="shortcuts"><KeyboardHelp /></Tabs.Content>
 				</div>
 			</Tabs.Root>
 			{#if toast}<p class="account-message" role="status"><Check />{toast}</p>{/if}

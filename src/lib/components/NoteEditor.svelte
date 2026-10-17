@@ -266,15 +266,18 @@
 			}
 		}}
 		placeholder="Your thoughts, in your own words…"
-		rows="6"></textarea>
-	<TokenInput
-		label="Link saved content"
-		placeholder="Link content or people…"
-		items={referenceChoices}
-		selected={references}
-		onAdd={(value) => insertReference(value)}
-		onRemove={removeReference}
-	/>
+		rows="4"></textarea>
+	<div class="linked-content-field">
+		<span class="field-label">Linked content</span>
+		<TokenInput
+			label="Link saved content"
+			placeholder="Link content or people…"
+			items={referenceChoices}
+			selected={references}
+			onAdd={(value) => insertReference(value)}
+			onRemove={removeReference}
+		/>
+	</div>
 	{#if error}<p class="form-error" role="alert">{error}</p>
 		<button class="text-button" onclick={save}>Try saving again</button>{/if}
 </section>
