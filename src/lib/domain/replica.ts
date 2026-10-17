@@ -1,5 +1,7 @@
 import type { ChangeFrame, Sequence } from './contracts.js';
 
+export type VaultIdentity = Readonly<{ subject: string; vaultId: string }>;
+
 export const REPLICA_TABLES = [
 	'bookmarks',
 	'entities',

@@ -10,7 +10,7 @@
 	<meta name="description" content="A personal space for saved content, people and connections." />
 </svelte:head>
 
-{#if data.signedIn || offline}<LibraryWorkspace openOffline={offline} />{:else}<AuthScreen
-		{data}
-		openOffline={() => (offline = true)}
-	/>{/if}
+{#if data.signedIn || offline}<LibraryWorkspace
+		openOffline={offline}
+		identity={data.identity}
+	/>{:else}<AuthScreen {data} openOffline={() => (offline = true)} />{/if}

@@ -10,4 +10,5 @@
 {#if data.signedIn || offline}<LibraryWorkspace
 		personSlug={page.params.slug}
 		openOffline={offline}
+		identity={data.identity}
 	/>{:else}<AuthScreen {data} openOffline={() => (offline = true)} />{/if}

@@ -57,6 +57,7 @@
 		"eslint": "9.39.5",
 		"eslint-config-prettier": "10.1.8",
 		"eslint-plugin-svelte": "3.23.1",
+		"fake-indexeddb": "6.2.6",
 		"globals": "17.4.0",
 		"prettier": "3.9.10",
 		"prettier-plugin-svelte": "4.1.1",

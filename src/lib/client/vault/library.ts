@@ -7,7 +7,12 @@ import {
 	type CommandResult,
 	type Revision
 } from '#lib/domain/contracts.js';
-import type { BootstrapStart, ReplicaRecord, ReplicaTable } from '#lib/domain/replica.js';
+import type {
+	BootstrapStart,
+	ReplicaRecord,
+	ReplicaTable,
+	VaultIdentity
+} from '#lib/domain/replica.js';
 import { applyFrame, overlay, putRecord, type Records } from './projections.js';
 import { VaultStorage, recordKey, type Draft, type PendingOperation } from './storage.js';
 
@@ -17,6 +22,8 @@ export type SaveOutcome = {
 	existingId?: string;
 };
 export type LibraryState = {
+	// Status and draft updates must not invalidate cached list/search results.
+	contentVersion: number;
 	ready: boolean;
 	loading: boolean;
 	online: boolean;
@@ -24,7 +31,7 @@ export type LibraryState = {
 	error: string | null;
 	pending: number;
 	conflicts: PendingOperation[];
-	identity: { subject: string; vaultId: string } | null;
+	identity: VaultIdentity | null;
 };
 class HttpFailure extends Error {
 	constructor(
@@ -59,6 +66,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export function createLibraryClient(notify: () => void) {
 	const state: LibraryState = {
+		contentVersion: 0,
 		ready: false,
 		loading: false,
 		online: typeof navigator !== 'undefined' ? navigator.onLine : true,
@@ -78,6 +86,10 @@ export function createLibraryClient(notify: () => void) {
 	let syncing: Promise<void> | undefined;
 	let timer: ReturnType<typeof setInterval> | undefined;
 	let scope = '';
+	let published: Records = new Map();
+	let publishedOwner = '';
+	let publishedOperations = '';
+	const tables = new Map<ReplicaTable, Record<string, unknown>[]>();
 	const outcomes = new Map<string, SaveOutcome>();
 	async function enqueue(envelope: CommandEnvelope, supersededOperationId?: string) {
 		const db = database!;
@@ -101,9 +113,29 @@ export function createLibraryClient(notify: () => void) {
 		});
 	}
 	function refresh() {
-		visible = new Map(confirmed);
-		for (const item of pending)
-			if (item.status === 'pending') overlay(visible, item.envelope.command);
+		const operations = pending.map((item) => `${item.operationId}:${item.status}`).join('|');
+		const owner = state.identity ? scope : '';
+		if (
+			owner !== publishedOwner ||
+			operations !== publishedOperations ||
+			(confirmed !== published &&
+				(confirmed.size !== published.size ||
+					[...confirmed].some(([key, row]) => published.get(key) !== row)))
+		) {
+			visible = new Map(confirmed);
+			for (const item of pending)
+				if (item.status === 'pending') overlay(visible, item.envelope.command);
+			tables.clear();
+			for (const row of visible.values()) {
+				let values = tables.get(row.table);
+				if (!values) tables.set(row.table, (values = []));
+				values.push(row.value);
+			}
+			state.contentVersion++;
+			published = confirmed;
+			publishedOwner = owner;
+			publishedOperations = operations;
+		}
 		state.pending = pending.filter((item) => item.status === 'pending').length;
 		state.conflicts = pending.filter((item) => item.status === 'conflict');
 		notify();
@@ -125,16 +157,23 @@ export function createLibraryClient(notify: () => void) {
 					db.meta.get('cursor')
 				])
 		);
-		confirmed = new Map(records.map((row) => [row.storageKey, row]));
+		confirmed = new Map(
+			records.map((row) => {
+				const prior = confirmed.get(row.storageKey);
+				return [row.storageKey, prior?.lastSeq === row.lastSeq ? prior : row];
+			})
+		);
 		pending = operations;
 		drafts = new Map(storedDrafts.map((row) => [row.id, row]));
 		cursor = position?.value;
 		refresh();
 	}
-	async function authenticate() {
-		const identity = await request<{ subject: string; vaultId: string }>('/api/v1/session');
+	async function authenticate(verifiedIdentity?: VaultIdentity) {
+		// The initial identity may come from this navigation's authenticated server load.
+		// Subsequent syncs always verify the session again; localStorage is never authority.
+		const identity = verifiedIdentity ?? (await request<VaultIdentity>('/api/v1/session'));
 		const nextScope = `${location.origin}:${identity.vaultId}:${identity.subject}`;
-		if (nextScope !== scope) {
+		if (nextScope !== scope || !database?.isOpen()) {
 			database?.close();
 			confirmed = new Map();
 			visible = new Map();
@@ -150,6 +189,10 @@ export function createLibraryClient(notify: () => void) {
 			await reload();
 		}
 		state.identity = identity;
+		// A committed cursor marks a complete replica, including an empty library.
+		// Publish it before waiting for the sync lock, network, or queued commands.
+		state.ready = !!cursor;
+		refresh();
 		try {
 			localStorage.setItem(
 				`prism-v0:last-owner:${location.origin}`,
@@ -159,13 +202,30 @@ export function createLibraryClient(notify: () => void) {
 			/* Cache hints are optional when browser storage is restricted. */
 		}
 	}
-	async function persist(records: Records, nextCursor: string | undefined) {
+	async function persist(
+		records: Records,
+		nextCursor: string | undefined,
+		{ replace = false, operationId }: { replace?: boolean; operationId?: string } = {}
+	) {
 		const db = database!;
-		await db.transaction('rw', db.records, db.meta, async () => {
-			await db.records.clear();
-			await db.records.bulkPut([...records].map(([storageKey, row]) => ({ ...row, storageKey })));
-			if (nextCursor) await db.meta.put({ key: 'cursor', value: nextCursor });
-		});
+		// applyFrame replaces changed records and preserves references for untouched rows.
+		const changed = [...records]
+			.filter(([key, row]) => replace || confirmed.get(key) !== row)
+			.map(([storageKey, row]) => ({ ...row, storageKey }));
+		const removed = replace ? [] : [...confirmed.keys()].filter((key) => !records.has(key));
+		if (replace || changed.length || removed.length || nextCursor !== cursor || operationId) {
+			await db.transaction('rw', db.records, db.meta, db.outbox, async () => {
+				if (replace) await db.records.clear();
+				else if (removed.length) await db.records.bulkDelete(removed);
+				if (changed.length) await db.records.bulkPut(changed);
+				if (nextCursor !== cursor) {
+					if (nextCursor) await db.meta.put({ key: 'cursor', value: nextCursor });
+					else await db.meta.delete('cursor');
+				}
+				// Acknowledgement and confirmed records must survive or roll back together.
+				if (operationId) await db.outbox.delete(operationId);
+			});
+		}
 		confirmed = records;
 		cursor = nextCursor;
 	}
@@ -202,7 +262,7 @@ export function createLibraryClient(notify: () => void) {
 					after = page.nextAfter;
 				} while (after);
 			}
-			await persist(staging, await pullInto(staging, start.cursor));
+			await persist(staging, await pullInto(staging, start.cursor), { replace: true });
 		} finally {
 			await fetch(`/api/v1/sync/bootstrap/${encodeURIComponent(start.token)}`, {
 				method: 'DELETE',
@@ -223,6 +283,7 @@ export function createLibraryClient(notify: () => void) {
 	async function sendPending() {
 		const db = database!;
 		const operations = await db.outbox.orderBy('createdAt').toArray();
+		let sent = false;
 		for (const item of operations) {
 			if (!active || !navigator.onLine) break;
 			if (item.status === 'conflict') continue;
@@ -232,15 +293,12 @@ export function createLibraryClient(notify: () => void) {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(item.envelope)
 			});
+			sent = true;
 			if (result.status === 'accepted') {
 				const next = new Map(confirmed);
 				applyFrame(next, result.frame);
-				await db.transaction('rw', db.records, db.outbox, async () => {
-					await db.records.clear();
-					await db.records.bulkPut([...next].map(([storageKey, row]) => ({ ...row, storageKey })));
-					await db.outbox.delete(item.operationId);
-				});
-				confirmed = next;
+				// Command receipts can arrive ahead of the contiguous feed cursor.
+				await persist(next, cursor, { operationId: item.operationId });
 				outcomes.set(item.operationId, { status: 'accepted' });
 			} else if (result.status === 'already_exists') {
 				await db.outbox.delete(item.operationId);
@@ -272,8 +330,9 @@ export function createLibraryClient(notify: () => void) {
 			}
 			await reload();
 		}
+		return sent;
 	}
-	async function performSync() {
+	async function performSync(verifiedIdentity?: VaultIdentity) {
 		state.online = navigator.onLine;
 		if (!state.online) {
 			state.status = 'Offline — changes stay on this device';
@@ -285,7 +344,7 @@ export function createLibraryClient(notify: () => void) {
 		state.status = 'Syncing';
 		notify();
 		try {
-			await authenticate();
+			await authenticate(verifiedIdentity);
 			if (!navigator.locks)
 				throw new Error(
 					'This browser does not support Web Locks. Sync is paused to protect changes across tabs. Use a browser with Web Locks support; drafts and pending work remain on this device.'
@@ -294,27 +353,31 @@ export function createLibraryClient(notify: () => void) {
 				await reload();
 				await pull();
 				refresh();
-				await sendPending();
-				await pull();
+				if (await sendPending()) await pull();
 				await reload();
 			};
 			await navigator.locks.request(`prism-sync:${scope}`, { ifAvailable: true }, async (lock) => {
 				if (lock) await work();
 				else await reload();
 			});
-			state.ready = true;
-			state.status = state.conflicts.length
-				? 'Needs attention'
-				: state.pending
-					? 'Changes queued'
-					: 'Up to date';
+			state.ready = !!cursor;
+			state.status = !state.ready
+				? 'Waiting for library sync in another tab'
+				: state.conflicts.length
+					? 'Needs attention'
+					: state.pending
+						? 'Changes queued'
+						: 'Up to date';
 		} catch (error) {
 			state.error = error instanceof Error ? error.message : String(error);
 			state.status = 'Sync paused';
-			if (database && confirmed.size) state.ready = true;
+			if (database && state.identity && cursor) state.ready = true;
 			if (error instanceof HttpFailure && [401, 403].includes(error.status)) {
 				// Do not expose a cached owner's private content after the session becomes unknown.
 				visible = new Map();
+				tables.clear();
+				publishedOwner = '';
+				state.contentVersion++;
 				state.identity = null;
 				state.conflicts = [];
 				state.pending = 0;
@@ -325,9 +388,9 @@ export function createLibraryClient(notify: () => void) {
 			notify();
 		}
 	}
-	function sync(): Promise<void> {
+	function sync(verifiedIdentity?: VaultIdentity): Promise<void> {
 		if (!syncing)
-			syncing = performSync().finally(() => {
+			syncing = performSync(verifiedIdentity).finally(() => {
 				syncing = undefined;
 			});
 		return syncing;
@@ -386,7 +449,7 @@ export function createLibraryClient(notify: () => void) {
 			state.status = 'Cached library — owner will be checked when reconnected';
 			notify();
 		},
-		async start() {
+		async start(verifiedIdentity?: VaultIdentity) {
 			if (active) return;
 			active = true;
 			window.addEventListener('online', reconnect);
@@ -395,7 +458,7 @@ export function createLibraryClient(notify: () => void) {
 			timer = setInterval(() => {
 				if (document.visibilityState === 'visible') void sync();
 			}, 30_000);
-			await sync();
+			await sync(verifiedIdentity);
 		},
 		stop() {
 			active = false;
@@ -404,11 +467,9 @@ export function createLibraryClient(notify: () => void) {
 			window.removeEventListener('offline', reconnect);
 			document.removeEventListener('visibilitychange', visibility);
 		},
-		sync,
+		sync: () => sync(),
 		list<T>(table: ReplicaTable): T[] {
-			return [...visible.values()]
-				.filter((row) => row.table === table)
-				.map((row) => row.value as T);
+			return [...(tables.get(table) ?? [])] as T[];
 		},
 		get<T>(table: ReplicaTable, key: string): T | undefined {
 			return visible.get(recordKey(table, key))?.value as T | undefined;

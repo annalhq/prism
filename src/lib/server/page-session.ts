@@ -1,4 +1,4 @@
-import { authConfigured, ownerSession } from '#lib/server/auth.js';
+import { authConfigured, requireOwner } from '#lib/server/auth.js';
 import { ApiError } from '#lib/server/http.js';
 import type { RequestEvent } from '@sveltejs/kit';
 
@@ -9,14 +9,22 @@ export const loadLibrarySession = async (event: RequestEvent) => {
 			? 'no-store'
 			: 'public, max-age=0, must-revalidate'
 	});
-	if (!authConfigured()) return { configured: false, signedIn: false, message: null };
+	if (!authConfigured())
+		return { configured: false, signedIn: false, identity: null, message: null };
 	try {
-		return { configured: true, signedIn: !!(await ownerSession(event)), message: null };
+		const identity = event.request.headers.get('cookie') ? await requireOwner(event) : null;
+		return { configured: true, signedIn: !!identity, identity, message: null };
 	} catch (error) {
 		return {
 			configured: true,
 			signedIn: false,
-			message: error instanceof ApiError ? error.message : 'Sign-in is temporarily unavailable.'
+			identity: null,
+			message:
+				error instanceof ApiError
+					? error.status === 401
+						? null
+						: error.message
+					: 'Sign-in is temporarily unavailable.'
 		};
 	}
 };

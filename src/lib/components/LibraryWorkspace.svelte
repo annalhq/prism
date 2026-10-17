@@ -35,12 +35,14 @@
 		type ImportResult
 	} from '#lib/client/vault/portability.js';
 	import type { EntityRef } from '#lib/domain/entities.js';
+	import type { VaultIdentity } from '#lib/domain/replica.js';
 	import type { BookmarkCommand, Command, Revision } from '#lib/domain/contracts.js';
 	import LibraryInspector from './LibraryInspector.svelte';
 	let {
 		openOffline = false,
+		identity = null,
 		personSlug: profileSlug = ''
-	}: { openOffline?: boolean; personSlug?: string } = $props();
+	}: { openOffline?: boolean; identity?: VaultIdentity | null; personSlug?: string } = $props();
 
 	type Row = Record<string, unknown>;
 	// The facade owns its mutable state and notifies via version; do not proxy its snapshots.
@@ -103,6 +105,8 @@
 		void version;
 		return library ? { ...library.state } : null;
 	});
+	const contentVersion = $derived(status?.contentVersion ?? 0);
+	const libraryReady = $derived(status?.ready ?? false);
 	const personId = $derived(personIdFromSlug(profileSlug));
 	const view = $derived(
 		profileSlug
@@ -167,10 +171,10 @@
 	);
 	let query = $derived(page.url.searchParams.get('q') ?? '');
 	$effect(() => {
-		void version;
+		void contentVersion;
 		const current = library,
 			search = searcher;
-		if (!current || !status?.ready || !search) return;
+		if (!current || !libraryReady || !search) return;
 		const n = ++generation;
 		const profile = personId;
 		const connected = new Set(
@@ -200,7 +204,7 @@
 			version++;
 		});
 		library = client;
-		void client.start().then(() => {
+		void client.start(identity ?? undefined).then(() => {
 			if (openOffline) return client.openCached().catch((error: Error) => feedback(error.message));
 		});
 		const key = libraryKeyboard({

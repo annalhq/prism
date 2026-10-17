@@ -50,6 +50,8 @@ Later milestones require outbound access to NeonDB, Neon Auth and the correct B2
 
 Offline access is for trusted devices. The v0 stores owner-scoped library data, drafts and pending commands in IndexedDB and caches the public shell separately. It does not end-to-end encrypt local content. Private API responses are excluded from shell caching. Sync requires Web Locks; see [v0 limits](docs/v0.md#limits-and-remaining-work).
 
+After the server verifies the owner, an initialized browser opens its cached library without waiting for background synchronization. Refreshes and subsequent sign-ins reuse that owner's replica; first-device setup and expired sync history still require a complete download. A committed sync cursor identifies a complete cache, including an empty library. Delta sync updates only changed records and leaves drafts and pending work intact. Unchanged syncs do not rewrite records or invalidate list/search results. Authorization failures hide cached private content until the owner is verified again; explicit offline access remains available on trusted devices.
+
 ## Design and progress
 
 [Architecture](ARCHITECTURE.md) describes the intended system. [Implementation plan](plan.md) tracks completed work and deferred verification. Web clipper design/research remains deferred at the user's request.
