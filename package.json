@@ -31,9 +31,9 @@
 		"db:init-owner": "bun scripts/db/init-owner.ts"
 	},
 	"dependencies": {
-		"@fontsource-variable/manrope": "5.3.0",
-		"@fontsource/instrument-serif": "5.3.0",
+		"@fontsource-variable/geist": "5.3.0",
 		"@internationalized/date": "3.12.4",
+		"@lucide/svelte": "1.59.0",
 		"@neondatabase/auth": "0.6.0-beta",
 		"bits-ui": "2.19.5",
 		"dexie": "4.4.6",
@@ -42,7 +42,6 @@
 		"mdast-util-from-markdown": "2.1.0",
 		"mdast-util-to-hast": "13.2.1",
 		"pg": "8.23.1",
-		"phosphor-icons-svelte": "2.1.0",
 		"unicode-case-folding": "1.1.2"
 	},
 	"devDependencies": {

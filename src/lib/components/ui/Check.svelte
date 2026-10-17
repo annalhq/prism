@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { Check as CheckIcon } from '@lucide/svelte';
 	import { Checkbox } from 'bits-ui';
-	import IconCheckFill from 'phosphor-icons-svelte/IconCheckFill.svelte';
 	let {
 		checked = $bindable(false),
 		label,
@@ -24,5 +24,5 @@
 	aria-label={label}
 	{onCheckedChange}
 >
-	{#if checked}<IconCheckFill />{/if}
+	{#if checked}<CheckIcon />{/if}
 </Checkbox.Root>

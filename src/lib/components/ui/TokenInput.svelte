@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { X as XIcon } from '@lucide/svelte';
 	import { Combobox } from 'bits-ui';
 	import { tick } from 'svelte';
-	import IconXFill from 'phosphor-icons-svelte/IconXFill.svelte';
 	import { tagNames } from '#lib/client/workflows.js';
 	export type TokenOption = { value: string; label: string; detail?: string; search?: string };
 	let {
@@ -95,7 +95,7 @@
 								.catch((e) => {
 									error = e.message;
 								});
-						}}><IconXFill /></button
+						}}><XIcon /></button
 					>{/if}</span
 			>{/each}
 		{#key reset}<Combobox.Root

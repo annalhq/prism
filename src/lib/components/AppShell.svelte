@@ -1,15 +1,17 @@
 <script lang="ts">
+	import {
+		Archive as ArchiveIcon,
+		Bookmark as BookmarkIcon,
+		Circle as CircleIcon,
+		Info as InfoIcon,
+		LayoutGrid as LayoutGridIcon,
+		Users as UsersIcon,
+		Inbox as InboxIcon,
+		X as XIcon
+	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { Dialog } from 'bits-ui';
-	import IconArchiveRegular from 'phosphor-icons-svelte/IconArchiveRegular.svelte';
-	import IconBookmarkSimpleRegular from 'phosphor-icons-svelte/IconBookmarkSimpleRegular.svelte';
-	import IconCircleRegular from 'phosphor-icons-svelte/IconCircleRegular.svelte';
-	import IconInfoRegular from 'phosphor-icons-svelte/IconInfoRegular.svelte';
-	import IconSquaresFourRegular from 'phosphor-icons-svelte/IconSquaresFourRegular.svelte';
-	import IconUsersRegular from 'phosphor-icons-svelte/IconUsersRegular.svelte';
-	import IconTrayRegular from 'phosphor-icons-svelte/IconTrayRegular.svelte';
-	import IconXRegular from 'phosphor-icons-svelte/IconXRegular.svelte';
 
 	onMount(() => {
 		const frame = requestAnimationFrame(() => {
@@ -30,7 +32,7 @@
 		<a class="foundation-badge" href={resolve('/auth/sign-in')}>Account</a>
 		<Dialog.Root>
 			<Dialog.Trigger class="icon-button" aria-label="About this foundation">
-				<IconInfoRegular />
+				<InfoIcon />
 			</Dialog.Trigger>
 			<Dialog.Portal>
 				<Dialog.Overlay class="dialog-overlay" />
@@ -42,7 +44,7 @@
 						shell.
 					</Dialog.Description>
 					<Dialog.Close class="icon-button dialog-close" aria-label="Close about dialog">
-						<IconXRegular />
+						<XIcon />
 					</Dialog.Close>
 				</Dialog.Content>
 			</Dialog.Portal>
@@ -53,16 +55,16 @@
 		<nav class="sidebar" aria-label="Library navigation">
 			<p class="section-label">Library</p>
 			<a href={resolve('/')} aria-current="page" class="nav-item active">
-				<IconTrayRegular /> <span>Inbox</span>
+				<InboxIcon /> <span>Inbox</span>
 			</a>
 			<button class="nav-item" disabled title="Available in a later milestone">
-				<IconBookmarkSimpleRegular /> <span>All content</span>
+				<BookmarkIcon /> <span>All content</span>
 			</button>
 			<button class="nav-item" disabled title="Available in a later milestone">
-				<IconUsersRegular /> <span>People</span>
+				<UsersIcon /> <span>People</span>
 			</button>
 			<button class="nav-item" disabled title="Available in a later milestone">
-				<IconSquaresFourRegular /> <span>Personas</span>
+				<LayoutGridIcon /> <span>Personas</span>
 			</button>
 			<p class="navigation-note">More views will become available as your library takes shape.</p>
 		</nav>
@@ -73,7 +75,7 @@
 				<span class="subtle-label">Your starting point</span>
 			</div>
 			<section class="empty-state" aria-labelledby="empty-heading">
-				<div class="empty-icon"><IconArchiveRegular /></div>
+				<div class="empty-icon"><ArchiveIcon /></div>
 				<p class="eyebrow">A little space for everything you learn</p>
 				<h2 id="empty-heading">Your library starts here</h2>
 				<p>
@@ -87,7 +89,7 @@
 		<aside class="inspector" aria-labelledby="inspector-heading">
 			<div class="pane-header"><h2 id="inspector-heading">Inspector</h2></div>
 			<div class="inspector-empty">
-				<IconBookmarkSimpleRegular />
+				<BookmarkIcon />
 				<p>A closer look</p>
 				<span>Notes, people and backlinks will appear here when you select an item.</span>
 			</div>
@@ -95,7 +97,7 @@
 	</div>
 
 	<footer class="status-bar">
-		<span class="connection-state"><IconCircleRegular /> Not connected</span>
+		<span class="connection-state"><CircleIcon /> Not connected</span>
 		<span>Personal knowledge, connected.</span>
 	</footer>
 </div>

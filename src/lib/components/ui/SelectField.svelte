@@ -1,7 +1,6 @@
 <script lang="ts">
+	import { ChevronDown as ChevronDownIcon, Check as CheckIcon } from '@lucide/svelte';
 	import { Select } from 'bits-ui';
-	import IconCaretDownFill from 'phosphor-icons-svelte/IconCaretDownFill.svelte';
-	import IconCheckFill from 'phosphor-icons-svelte/IconCheckFill.svelte';
 	let {
 		value = $bindable(''),
 		options,
@@ -34,8 +33,8 @@
 	{onValueChange}
 >
 	<Select.Trigger {id} aria-label={label} class="select-trigger">
-		<span>{options.find((option) => option.value === value)?.label ?? label}</span
-		><IconCaretDownFill />
+		<span>{options.find((option) => option.value === value)?.label ?? label}</span><ChevronDownIcon
+		/>
 	</Select.Trigger>
 	<Select.Portal
 		><Select.Content class="select-content" sideOffset={6}>
@@ -47,7 +46,7 @@
 						disabled={option.disabled}
 						class="select-item"
 					>
-						<span>{option.label}</span>{#if value === option.value}<IconCheckFill />{/if}
+						<span>{option.label}</span>{#if value === option.value}<CheckIcon />{/if}
 					</Select.Item>
 				{/each}
 			</Select.Viewport>

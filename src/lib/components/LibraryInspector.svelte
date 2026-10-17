@@ -1,4 +1,9 @@
 <script lang="ts">
+	import {
+		X as XIcon,
+		ArrowUpRight as ArrowUpRightIcon,
+		Clock3 as Clock3Icon
+	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links are validated external HTTP URLs. */
 	import { SvelteSet } from 'svelte/reactivity';
 	import { Collapsible, AlertDialog } from 'bits-ui';
@@ -12,9 +17,6 @@
 	import NoteEditor from './NoteEditor.svelte';
 	import TokenInput from './ui/TokenInput.svelte';
 	import SelectField from './ui/SelectField.svelte';
-	import IconXFill from 'phosphor-icons-svelte/IconXFill.svelte';
-	import IconArrowUpRightFill from 'phosphor-icons-svelte/IconArrowUpRightFill.svelte';
-	import IconClockFill from 'phosphor-icons-svelte/IconClockFill.svelte';
 	let {
 		library,
 		entity,
@@ -174,7 +176,7 @@
 		<span class="eyebrow">Edit bookmark</span><button
 			class="icon-button"
 			onclick={close}
-			aria-label="Close editor"><IconXFill /></button
+			aria-label="Close editor"><XIcon /></button
 		>
 	</div>
 	{#if !row}<p class="panel-message">This bookmark is unavailable.</p>{:else}
@@ -204,13 +206,13 @@
 					target="_blank"
 					rel="noopener noreferrer"
 					onclick={() => void library.save({ type: 'activity.open', id: entity.id })}
-					>{new URL(safeSource).hostname}<IconArrowUpRightFill /></a
+					>{new URL(safeSource).hostname}<ArrowUpRightIcon /></a
 				>{/if}
 			{#if !row.deletedAt}<button
 					class="text-button later-toggle"
 					aria-pressed={isReadLater(row)}
 					onclick={() => organize({ readingStatus: isReadLater(row) ? 'unread' : 'reading' })}
-					><IconClockFill />{isReadLater(row) ? 'Saved for later' : 'Read later'}</button
+					><Clock3Icon />{isReadLater(row) ? 'Saved for later' : 'Read later'}</button
 				>{/if}
 		</section>
 		{#if error}<p class="form-error inset" role="alert">{error}</p>

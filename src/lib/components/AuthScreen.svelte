@@ -1,14 +1,16 @@
 <script lang="ts">
+	import {
+		ArrowRight as ArrowRightIcon,
+		Eye as EyeIcon,
+		EyeOff as EyeOffIcon,
+		LockKeyhole as LockKeyholeIcon,
+		ChevronDown as ChevronDownIcon,
+		ArrowUpRight as ArrowUpRightIcon
+	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { enhance, applyAction } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { Collapsible } from 'bits-ui';
-	import IconArrowRightFill from 'phosphor-icons-svelte/IconArrowRightFill.svelte';
-	import IconEyeFill from 'phosphor-icons-svelte/IconEyeFill.svelte';
-	import IconEyeSlashFill from 'phosphor-icons-svelte/IconEyeSlashFill.svelte';
-	import IconLockKeyFill from 'phosphor-icons-svelte/IconLockKeyFill.svelte';
-	import IconCaretDownFill from 'phosphor-icons-svelte/IconCaretDownFill.svelte';
-	import IconArrowUpRightFill from 'phosphor-icons-svelte/IconArrowUpRightFill.svelte';
 	import Brand from './ui/Brand.svelte';
 	let {
 		data,
@@ -59,41 +61,26 @@
 <a class="skip-link" href="#auth-main">Skip to content</a>
 <main id="auth-main" class="auth-page" tabindex="-1">
 	<header class="auth-header">
-		<Brand auth /><span class="auth-header-note">A little more clarity.</span>
+		<Brand auth /><span class="auth-header-note">Your private library</span>
 	</header>
 	<div class="auth-layout">
-		<section class="auth-story" aria-label="About Prism">
-			<span class="auth-kicker"><span class="sage-dot"></span> Your personal knowledge space</span>
-			<h2>Good ideas<br />deserve a <em>home.</em></h2>
-			<p>Keep the things that move you.<br />Make room for what comes next.</p>
-			<div class="story-index" aria-hidden="true">
-				<span>01 / Collect</span><span>02 / Connect</span><span>03 / Rediscover</span>
-			</div>
-			<div class="story-art" aria-hidden="true">
-				<div class="art-orbit orbit-one"></div>
-				<div class="art-orbit orbit-two"></div>
-				<div class="art-orbit orbit-three"></div>
-				<span class="orbit-center"></span>
-			</div>
-			<span class="story-footnote">Your library. Your perspective.</span>
-		</section>
 		<section class="auth-form-panel" aria-labelledby="auth-heading">
 			<div class="auth-card">
 				<span class="auth-form-kicker">{data.signedIn ? 'YOUR ACCOUNT' : 'WELCOME TO PRISM'}</span>
 				<h1 id="auth-heading">
-					{data.signedIn ? 'Make yourself at home.' : 'A clearer mind starts here.'}
+					{data.signedIn ? 'Your account' : 'Your bookmarks, together.'}
 				</h1>
 				<p class="auth-intro">
 					{data.signedIn
 						? 'You’re signed in to your private library.'
-						: 'Sign in to your personal library.'}
+						: 'Save a link. Add context. Find it when you need it.'}
 				</p>
 				{#if !data.configured}<p class="notice">
 						Sign-in is not configured yet. Connect the owner account to open this library.
 					</p>
 				{:else if data.signedIn}
 					<a href={resolve('/')} class="primary-button auth-submit"
-						>Open your library <IconArrowRightFill /></a
+						>Open your library <ArrowRightIcon /></a
 					>
 					<form method="POST" action={`${resolve('/auth/sign-in')}?/signOut`}>
 						<button class="text-button auth-signout">Sign out of this account</button>
@@ -144,17 +131,17 @@
 									aria-label={showPassword ? 'Hide password' : 'Show password'}
 									aria-pressed={showPassword}
 									onclick={() => (showPassword = !showPassword)}
-									>{#if showPassword}<IconEyeSlashFill />{:else}<IconEyeFill />{/if}</button
+									>{#if showPassword}<EyeOffIcon />{:else}<EyeIcon />{/if}</button
 								>
 							</div>
 						</div>
 						<button class="primary-button auth-submit" disabled={!!pending}
-							>{pending === 'signin' ? 'Signing in…' : 'Sign in'}<IconArrowRightFill /></button
+							>{pending === 'signin' ? 'Signing in…' : 'Sign in'}<ArrowRightIcon /></button
 						>
 					</form>
 					<Collapsible.Root bind:open={resetOpen} class="password-help">
 						<Collapsible.Trigger class="recovery-trigger"
-							>First time here? Set up your password <IconCaretDownFill /></Collapsible.Trigger
+							>First time here? Set up your password <ChevronDownIcon /></Collapsible.Trigger
 						>
 						<Collapsible.Content class="recovery-content"
 							><p>We’ll email a password link to your existing account.</p>
@@ -176,9 +163,8 @@
 									/>
 								</div>
 								<button class="secondary-button" disabled={!!pending}
-									>{pending === 'reset'
-										? 'Sending link…'
-										: 'Send password link'}<IconArrowUpRightFill /></button
+									>{pending === 'reset' ? 'Sending link…' : 'Send password link'}<ArrowUpRightIcon
+									/></button
 								>
 							</form></Collapsible.Content
 						>
@@ -195,13 +181,11 @@
 						class="secondary-button offline-access"
 						onclick={openOffline}>Open cached library on this trusted device</button
 					>{/if}
-				<p class="auth-private"><IconLockKeyFill /> A private space, just for you.</p>
+				<p class="auth-private"><LockKeyholeIcon /> A private space, just for you.</p>
 			</div>
 		</section>
 	</div>
 	<footer class="auth-footer">
-		<span>Thoughtfully collected. Beautifully connected.</span><span
-			>Prism / Your private library</span
-		>
+		<span>Less searching. More finding.</span><span>Prism / Your private library</span>
 	</footer>
 </main>

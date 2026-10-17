@@ -4,6 +4,7 @@ import { version } from '$app/env';
 
 const worker = self as unknown as ServiceWorkerGlobalScope;
 const cacheName = `prism-shell-${version}`;
+const faviconCache = 'prism-favicons-v1';
 const assetUrls = new Set(
 	[...immutable, ...assets].map(({ path }) => new URL(path, worker.location.origin).href)
 );
@@ -44,6 +45,38 @@ worker.addEventListener('activate', (event) => {
 worker.addEventListener('fetch', (event) => {
 	const request = event.request;
 	const url = new URL(request.url);
+	// Browser-local icons, fetched directly from the bookmarked site without a
+	// third-party icon service, cookies, or the private bookmark path/referrer.
+	if (
+		request.method === 'GET' &&
+		request.destination === 'image' &&
+		url.pathname === '/favicon.ico' &&
+		!url.search
+	) {
+		event.respondWith(
+			(async () => {
+				const cache = await caches.open(faviconCache);
+				const cached = await cache.match(request.url);
+				if (cached) return cached;
+				try {
+					const response = await fetch(request.url, {
+						mode: 'no-cors',
+						credentials: 'omit',
+						referrerPolicy: 'no-referrer'
+					});
+					if (response.ok || response.type === 'opaque') {
+						const keys = await cache.keys();
+						if (keys.length >= 256) await cache.delete(keys[0]);
+						await cache.put(request.url, response.clone());
+					}
+					return response;
+				} catch {
+					return Response.error();
+				}
+			})()
+		);
+		return;
+	}
 	if (
 		request.method !== 'GET' ||
 		url.origin !== worker.location.origin ||

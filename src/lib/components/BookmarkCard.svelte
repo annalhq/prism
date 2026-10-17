@@ -1,14 +1,19 @@
 <script lang="ts">
+	import {
+		Copy as CopyIcon,
+		Ellipsis as EllipsisIcon,
+		Pencil as PencilIcon,
+		Clock3 as Clock3Icon,
+		Archive as ArchiveIcon,
+		Trash2 as Trash2Icon,
+		RotateCcw as RotateCcwIcon
+	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
-	import { ContextMenu } from 'bits-ui';
+	import { ContextMenu, DropdownMenu } from 'bits-ui';
+	import Favicon from './ui/Favicon.svelte';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { isReadLater, type Row } from '#lib/client/workflows.js';
 	import Check from './ui/Check.svelte';
-	import IconPencilSimpleFill from 'phosphor-icons-svelte/IconPencilSimpleFill.svelte';
-	import IconClockFill from 'phosphor-icons-svelte/IconClockFill.svelte';
-	import IconArchiveFill from 'phosphor-icons-svelte/IconArchiveFill.svelte';
-	import IconTrashFill from 'phosphor-icons-svelte/IconTrashFill.svelte';
-	import IconArrowCounterClockwiseFill from 'phosphor-icons-svelte/IconArrowCounterClockwiseFill.svelte';
 	let {
 		item,
 		note = '',
@@ -19,7 +24,8 @@
 		onEdit,
 		onAction,
 		onOpen,
-		onDisconnect
+		onDisconnect,
+		feedback = () => {}
 	}: {
 		item: Row;
 		note?: string;
@@ -31,6 +37,7 @@
 		onAction: (action: 'later' | 'archive' | 'trash' | 'restore') => void;
 		onOpen: () => void;
 		onDisconnect?: () => void;
+		feedback?: (message: string) => void;
 	} = $props();
 	let offset = $state(0),
 		menuOpen = $state(false);
@@ -41,6 +48,15 @@
 			return null;
 		}
 	});
+	async function copy() {
+		if (!source) return;
+		try {
+			await navigator.clipboard.writeText(source);
+			feedback('Link copied.');
+		} catch {
+			feedback('Could not copy. Open the bookmark and copy its address.');
+		}
+	}
 	function swipe(node: HTMLElement) {
 		let start: { x: number; y: number } | null = null,
 			tracking = false,
@@ -107,7 +123,12 @@
 	}
 </script>
 
-<div class="bookmark-gesture" class:timeline-card={timeline} use:swipe>
+<div
+	class="bookmark-gesture"
+	data-bookmark-id={String(item.id)}
+	class:timeline-card={timeline}
+	use:swipe
+>
 	{#if offset}<span class="swipe-hint" class:to-later={offset < 0}
 			>{offset < 0 ? 'Read later' : 'Edit'}</span
 		>{/if}
@@ -116,55 +137,97 @@
 			class={`library-row ${selected ? 'selected' : ''}`}
 			style={`transform:translateX(${offset}px)`}
 		>
-			{#if onCheck && !item.deletedAt}<Check
-					label={`Select ${item.title}`}
-					{checked}
-					onCheckedChange={onCheck}
-				/>{/if}
+			<div class="row-leading" class:is-checked={checked}>
+				<Favicon url={source} />{#if onCheck && !item.deletedAt}<Check
+						label={`Select ${item.title}`}
+						{checked}
+						onCheckedChange={onCheck}
+					/>{/if}
+			</div>
+
 			<div class="bookmark-content">
-				<div class="bookmark-card-meta">
-					<span>{item.domain ?? (source ? new URL(source).hostname : 'Saved bookmark')}</span><time
-						datetime={String(item.createdAt)}
-						>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
-							month: 'short',
-							day: 'numeric'
-						})}</time
-					>
-				</div>
 				{#if source}<a
 						class="bookmark-title"
+						title={String(item.title)}
 						href={source}
 						target="_blank"
 						rel="noopener noreferrer"
 						onclick={onOpen}>{item.title}</a
 					>{:else}<button class="bookmark-title" onclick={onEdit}>{item.title}</button>{/if}
-				{#if note}<p class="bookmark-note">{note}</p>{/if}
-				{#if isReadLater(item)}<span class="later-badge"><IconClockFill />Read later</span>{/if}
+				<span class="bookmark-domain"
+					>{item.domain ?? (source ? new URL(source).hostname : '')}</span
+				>
+				{#if isReadLater(item)}<span class="later-badge" title="Read later"
+						><Clock3Icon /><span class="sr-only">Read later</span></span
+					>{/if}
 			</div>
-			<button class="icon-button bookmark-edit" onclick={onEdit} aria-label={`Edit ${item.title}`}
-				><IconPencilSimpleFill /></button
+			{#if timeline && note}<p class="bookmark-note">{note}</p>{/if}
+			<time class="bookmark-date" datetime={String(item.createdAt)}
+				>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
+					month: 'short',
+					day: 'numeric'
+				})}</time
 			>
+			<div class="row-actions">
+				<button class="icon-button bookmark-edit" onclick={onEdit} aria-label={`Edit ${item.title}`}
+					><PencilIcon /></button
+				>
+				{#if source}<button
+						class="icon-button bookmark-copy"
+						aria-label={`Copy link for ${item.title}`}
+						onclick={copy}><CopyIcon /></button
+					>{/if}
+				<DropdownMenu.Root
+					><DropdownMenu.Trigger
+						class="icon-button bookmark-menu"
+						aria-label={`Actions for ${item.title}`}><EllipsisIcon /></DropdownMenu.Trigger
+					><DropdownMenu.Portal
+						><DropdownMenu.Content class="menu-content" align="end" sideOffset={4}>
+							<DropdownMenu.Item class="menu-item" onSelect={onEdit}
+								><PencilIcon />Edit</DropdownMenu.Item
+							>
+							{#if item.deletedAt}<DropdownMenu.Item
+									class="menu-item"
+									onSelect={() => onAction('restore')}>Restore</DropdownMenu.Item
+								>{:else}
+								<DropdownMenu.Item class="menu-item" onSelect={() => onAction('later')}
+									><Clock3Icon />{isReadLater(item)
+										? 'Remove from Read later'
+										: 'Read later'}</DropdownMenu.Item
+								>
+								<DropdownMenu.Item class="menu-item" onSelect={() => onAction('archive')}
+									><ArchiveIcon />{item.archivedAt ? 'Unarchive' : 'Archive'}</DropdownMenu.Item
+								>
+								{#if onDisconnect}<DropdownMenu.Item class="menu-item" onSelect={onDisconnect}
+										>Disconnect from person</DropdownMenu.Item
+									>{/if}
+								<DropdownMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
+									><Trash2Icon />Move to trash</DropdownMenu.Item
+								>
+							{/if}
+						</DropdownMenu.Content></DropdownMenu.Portal
+					></DropdownMenu.Root
+				>
+			</div>
 		</ContextMenu.Trigger><ContextMenu.Portal
 			><ContextMenu.Content class="menu-content">
-				<ContextMenu.Item class="menu-item" onSelect={onEdit}
-					><IconPencilSimpleFill />Edit</ContextMenu.Item
-				>
+				<ContextMenu.Item class="menu-item" onSelect={onEdit}><PencilIcon />Edit</ContextMenu.Item>
 				{#if item.deletedAt}<ContextMenu.Item class="menu-item" onSelect={() => onAction('restore')}
-						><IconArrowCounterClockwiseFill />Restore</ContextMenu.Item
+						><RotateCcwIcon />Restore</ContextMenu.Item
 					>{:else}
 					<ContextMenu.Item class="menu-item" onSelect={() => onAction('later')}
-						><IconClockFill />{isReadLater(item)
+						><Clock3Icon />{isReadLater(item)
 							? 'Remove from Read later'
 							: 'Read later'}</ContextMenu.Item
 					>
 					<ContextMenu.Item class="menu-item" onSelect={() => onAction('archive')}
-						><IconArchiveFill />{item.archivedAt ? 'Unarchive' : 'Archive'}</ContextMenu.Item
+						><ArchiveIcon />{item.archivedAt ? 'Unarchive' : 'Archive'}</ContextMenu.Item
 					>
 					{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
 							>Disconnect from this person</ContextMenu.Item
 						>{/if}<ContextMenu.Separator class="menu-separator" />
 					<ContextMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
-						><IconTrashFill />Delete</ContextMenu.Item
+						><Trash2Icon />Delete</ContextMenu.Item
 					>
 				{/if}
 			</ContextMenu.Content></ContextMenu.Portal

@@ -1,29 +1,30 @@
 <script lang="ts">
+	import {
+		Bookmark as BookmarkIcon,
+		ChevronDown as ChevronDownIcon,
+		X as XIcon
+	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { UserRound, Keyboard } from '@lucide/svelte';
+	import ViewPicker from './ViewPicker.svelte';
+	import AccountPanel from './AccountPanel.svelte';
+	import KeyboardHelp from './KeyboardHelp.svelte';
+	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
 	import { SvelteURL } from 'svelte/reactivity';
 	import { normalizeUrl } from '#lib/domain/urls.js';
-	import IconCaretDownFill from 'phosphor-icons-svelte/IconCaretDownFill.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { Dialog, DropdownMenu } from 'bits-ui';
+	import Omnibar from './Omnibar.svelte';
 	import Brand from './ui/Brand.svelte';
 	import SelectField from './ui/SelectField.svelte';
 	import TokenInput from './ui/TokenInput.svelte';
 	import BookmarkCard from './BookmarkCard.svelte';
 	import { notePreview } from '#lib/client/reference-edits.js';
-	import {
-		ensureTag,
-		inferBookmarkKind,
-		isReadLater,
-		personSlug,
-		personIdFromSlug
-	} from '#lib/client/workflows.js';
-	import IconPlusFill from 'phosphor-icons-svelte/IconPlusFill.svelte';
-	import IconMagnifyingGlassFill from 'phosphor-icons-svelte/IconMagnifyingGlassFill.svelte';
-	import IconBookmarkSimpleFill from 'phosphor-icons-svelte/IconBookmarkSimpleFill.svelte';
-	import IconUsersFill from 'phosphor-icons-svelte/IconUsersFill.svelte';
+	import { ensureTag, isReadLater, personSlug, personIdFromSlug } from '#lib/client/workflows.js';
+
 	import { createLibraryClient, type LibraryClient } from '#lib/client/vault/library.js';
 	import { createSearchClient } from '#lib/client/search-client.js';
 	import { emptySearch, type searchLibrary } from '#lib/client/search.js';
@@ -36,16 +37,6 @@
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { BookmarkCommand, Command, Revision } from '#lib/domain/contracts.js';
 	import LibraryInspector from './LibraryInspector.svelte';
-	import IconClockFill from 'phosphor-icons-svelte/IconClockFill.svelte';
-	import IconPushPinFill from 'phosphor-icons-svelte/IconPushPinFill.svelte';
-	import IconFolderFill from 'phosphor-icons-svelte/IconFolderFill.svelte';
-	import IconHashFill from 'phosphor-icons-svelte/IconHashFill.svelte';
-	import IconArchiveFill from 'phosphor-icons-svelte/IconArchiveFill.svelte';
-	import IconTrashFill from 'phosphor-icons-svelte/IconTrashFill.svelte';
-	import IconDotsThreeFill from 'phosphor-icons-svelte/IconDotsThreeFill.svelte';
-	import IconUserCircleFill from 'phosphor-icons-svelte/IconUserCircleFill.svelte';
-	import IconGearSixFill from 'phosphor-icons-svelte/IconGearSixFill.svelte';
-	import IconXFill from 'phosphor-icons-svelte/IconXFill.svelte';
 	let {
 		openOffline = false,
 		personSlug: profileSlug = ''
@@ -60,16 +51,12 @@
 		creating = $state(false),
 		busy = $state(false),
 		formError = $state('');
-	let newType = $state('bookmark'),
+	let newType = $state('person'),
 		newTitle = $state(''),
-		newUrl = $state(''),
 		newNote = $state(''),
-		newTags = $state<string[]>([]),
 		personUrl = $state(''),
 		editingPerson = $state<Row | null>(null);
-	let captureId = '',
-		captureCreated = false,
-		captureNoteSaved = false;
+	let captureId = '';
 	let results = $state<ReturnType<typeof searchLibrary>>({ items: [], filter: emptySearch() }),
 		limit = $state(100),
 		selectedIds = $state<string[]>([]),
@@ -83,8 +70,34 @@
 	let settings = $state(false),
 		manage = $state<{ table: 'tags' | 'collections' | 'savedSearches'; row: Row } | null>(null),
 		rename = $state('');
-	let searchInput: HTMLInputElement | undefined = $state(),
-		searcher: ReturnType<typeof createSearchClient> | undefined,
+	let omnibar: Omnibar | undefined = $state();
+	let viewPicker: ViewPicker | undefined = $state();
+	let helpOpen = $state(false);
+	let lastRow: HTMLElement | null = null;
+	let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
+	let pendingResults: Promise<void> | undefined;
+	async function focusLibrary() {
+		const initial = lastRow?.isConnected
+			? lastRow
+			: document.querySelector<HTMLElement>('.bookmark-title, .person-card');
+		const fallback = document.getElementById('library-main');
+		(initial ?? fallback)?.focus({ preventScroll: true });
+		await tick();
+		await pendingResults;
+		await tick();
+		// A search may finish after Escape. Restore a row only if the user has
+		// not already moved focus elsewhere while those results were loading.
+		if (document.activeElement !== fallback && document.activeElement !== document.body) return;
+		const row = lastRow?.isConnected
+			? lastRow
+			: document.querySelector<HTMLElement>('.bookmark-title, .person-card');
+		(row ?? document.getElementById('library-main'))?.focus({ preventScroll: true });
+	}
+	let editorReturnId = '';
+	$effect(() => {
+		if (selected) editorReturnId = selected.id;
+	});
+	let searcher: ReturnType<typeof createSearchClient> | undefined,
 		generation = 0;
 	const status = $derived.by(() => {
 		void version;
@@ -137,7 +150,7 @@
 		(view === 'person' ? (person?.displayName ?? 'Person') : undefined) ??
 			(
 				{
-					all: 'All content',
+					all: 'All bookmarks',
 					later: 'Read later',
 					pinned: 'Pinned',
 					archive: 'Archive',
@@ -166,7 +179,7 @@
 				.filter((r) => !r.deletedAt && r.personId === profile)
 				.map((r) => r.bookmarkId)
 		);
-		void search
+		pendingResults = search
 			.query(current, view, query, sort)
 			.then((value) => {
 				if (n === generation)
@@ -190,32 +203,30 @@
 		void client.start().then(() => {
 			if (openOffline) return client.openCached().catch((error: Error) => feedback(error.message));
 		});
-		const key = (event: KeyboardEvent) => {
+		const key = libraryKeyboard({
+			insert: () => void omnibar?.focusInsert(),
+			filter: () => viewPicker?.show(),
+			account: () => (settings = true),
+			help: () => (helpOpen = true)
+		});
+		const remember = (event: FocusEvent) => {
 			const target = event.target as HTMLElement;
-			if (target.closest('input,textarea,select,[contenteditable]') || event.isComposing) return;
-			if (
-				event.key === '/' ||
-				((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')
-			) {
-				event.preventDefault();
-				searchInput?.focus();
-			}
-			if (
-				event.key === 'Escape' &&
-				!event.defaultPrevented &&
-				!document.querySelector('[role=dialog],[role=menu],[role=listbox]')
-			)
-				void navigate(null);
+			if (target.matches('.bookmark-title, .person-card')) lastRow = target;
 		};
 		window.addEventListener('keydown', key);
+		window.addEventListener('focusin', remember);
 		return () => {
+			window.removeEventListener('keydown', key);
+			window.removeEventListener('focusin', remember);
+			clearTimeout(feedbackTimer);
 			client.stop();
 			searcher?.stop();
-			window.removeEventListener('keydown', key);
 		};
 	});
 	function feedback(message: string) {
 		toast = message;
+		clearTimeout(feedbackTimer);
+		feedbackTimer = setTimeout(() => (toast = ''), 6500);
 	}
 	async function navigate(target: EntityRef | null, nextView?: string) {
 		if (target?.kind === 'person') {
@@ -246,15 +257,15 @@
 	}
 	function create(type: string) {
 		if (busy) return;
+		if (type === 'bookmark') {
+			void omnibar?.focusInsert();
+			return;
+		}
 		newType = type;
-		newTags = [];
 		personUrl = '';
 		editingPerson = null;
 		captureId = crypto.randomUUID();
-		captureCreated = false;
-		captureNoteSaved = false;
 		newTitle = '';
-		newUrl = '';
 		newNote = '';
 		formError = '';
 		creating = true;
@@ -274,88 +285,37 @@
 		formError = '';
 		const id = editingPerson ? String(editingPerson.id) : captureId;
 		try {
-			if (!captureCreated) {
-				const command: Command =
-					newType === 'bookmark'
+			const command: Command =
+				newType === 'person'
+					? editingPerson
 						? {
-								type: 'bookmark.create',
+								type: 'person.update',
 								id,
-								kind: inferBookmarkKind(newUrl),
-								title: newTitle.trim() || newUrl,
-								url: newUrl
+								expectedRevision: String(editingPerson.revision) as Revision,
+								patch: { displayName: newTitle, website: personUrl || null, bio: newNote }
 							}
-						: newType === 'person'
-							? editingPerson
-								? {
-										type: 'person.update',
-										id,
-										expectedRevision: String(editingPerson.revision) as Revision,
-										patch: { displayName: newTitle, website: personUrl || null, bio: newNote }
-									}
-								: {
-										type: 'person.create',
-										id,
-										displayName: newTitle,
-										website: personUrl || null,
-										bio: newNote
-									}
-							: newType === 'saved-search'
-								? {
-										type: 'saved-search.create',
-										id,
-										name: newTitle,
-										filter: results.filter,
-										sort: sort as 'newest'
-									}
-								: ({ type: `${newType}.create`, id, name: newTitle } as Command);
-				const result = await library.save(command);
-				if (result.status === 'rejected') throw new Error(result.message ?? 'Could not save.');
-				if (result.status === 'already_exists') {
-					formError =
-						'This URL is already saved. Your note and tags are still here; open the existing bookmark to review them.';
-					return;
-				}
-				captureCreated = true;
-			}
-			if (newType === 'bookmark') {
-				if (newNote && !captureNoteSaved) {
-					await library.setDraft(id, newNote, '0');
-					const result = await library.save({
-						type: 'note.replace',
-						id,
-						expectedRevision: '0',
-						bodyMarkdown: newNote
-					});
-					if (result.status === 'rejected')
-						throw new Error(result.message ?? 'Bookmark saved; note remains as a draft.');
-					captureNoteSaved = true;
-					if (result.status === 'accepted') await library.clearDraft(id);
-				}
-				for (const name of newTags) {
-					const tagId = await ensureTag(library, name);
-					if (((library.get<Row>('bookmarks', id)?.tagIds as string[]) ?? []).includes(tagId))
-						continue;
-					const result = await library.save({ type: 'tag.add', id, tagId });
-					if (result.status === 'rejected')
-						throw new Error(result.message ?? 'Could not save tag.');
-				}
-				if (personId) {
-					const result = await library.save({
-						type: 'content-person.add',
-						bookmarkId: id,
-						personId,
-						role: 'related',
-						provenance: 'manual'
-					});
-					if (result.status === 'rejected')
-						throw new Error(result.message ?? 'Could not connect person.');
-				}
-			}
+						: {
+								type: 'person.create',
+								id,
+								displayName: newTitle,
+								website: personUrl || null,
+								bio: newNote
+							}
+					: newType === 'saved-search'
+						? {
+								type: 'saved-search.create',
+								id,
+								name: newTitle,
+								filter: results.filter,
+								sort: sort as 'newest'
+							}
+						: ({ type: `${newType}.create`, id, name: newTitle } as Command);
+			const result = await library.save(command);
+			if (result.status === 'rejected') throw new Error(result.message ?? 'Could not save.');
 			creating = false;
 			feedback(status?.online ? 'Saved.' : 'Saved on this device.');
 			if (newType === 'person') await navigate({ kind: 'person', id });
-			else if (newType !== 'bookmark')
-				await navigate(null, `${newType === 'saved-search' ? 'saved' : newType}:${id}`);
+			else await navigate(null, `${newType === 'saved-search' ? 'saved' : newType}:${id}`);
 		} catch (e) {
 			formError = (e as Error).message;
 		} finally {
@@ -598,487 +558,325 @@
 	>{#if profileSlug}<title>{person?.displayName ?? 'Person'} · Prism</title>{/if}</svelte:head
 >
 <a class="skip-link" href="#library-main">Skip to content</a>
-<div class="v0-shell">
-	<header class="v0-header">
-		<Brand />
-		<div class="global-search">
-			<IconMagnifyingGlassFill /><input
-				bind:this={searchInput}
-				bind:value={query}
-				aria-label="Search library"
-				placeholder="Search anything in your library…"
-				disabled={!status?.ready}
+<div class="library-shell">
+	<header class="library-header">
+		<Brand compact />
+		<span class="header-divider" aria-hidden="true">/</span>
+		<nav aria-label="Library navigation">
+			<ViewPicker
+				bind:this={viewPicker}
+				{title}
+				{view}
+				{tags}
+				{collections}
+				{saved}
+				onSelect={(value) => void navigate(null, value)}
 			/>
-			<kbd>⌘ K</kbd>
-		</div>
-		<button
-			class="primary-button new-button"
-			disabled={!status?.ready || busy}
-			onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
-			><IconPlusFill /><span>{view === 'people' ? 'Add person' : 'Add bookmark'}</span></button
-		>
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger class="account-button" aria-label="Account and library settings"
-				><IconUserCircleFill /><IconCaretDownFill /></DropdownMenu.Trigger
-			>
-			<DropdownMenu.Portal
-				><DropdownMenu.Content class="menu-content" sideOffset={8} align="end">
-					<DropdownMenu.Group
-						><DropdownMenu.GroupHeading class="menu-heading"
-							>Your personal space</DropdownMenu.GroupHeading
-						>
-						<DropdownMenu.Item class="menu-item" onSelect={() => (settings = true)}
-							><IconGearSixFill />Library settings</DropdownMenu.Item
-						>
-						<DropdownMenu.Item class="menu-item" onSelect={() => goto(resolve('/auth/sign-in'))}
-							><IconUserCircleFill />Account & sign out</DropdownMenu.Item
-						>
-					</DropdownMenu.Group>
-				</DropdownMenu.Content></DropdownMenu.Portal
-			>
-		</DropdownMenu.Root>
-	</header>
-	<div class:has-selection={!!selected} class="v0-workspace">
-		<nav class="v0-sidebar" aria-label="Library navigation">
-			<p class="section-label">Library</p>
-			{#each [{ id: 'all', name: 'All content', icon: IconBookmarkSimpleFill }, { id: 'later', name: 'Read later', icon: IconClockFill }, { id: 'pinned', name: 'Pinned', icon: IconPushPinFill }, { id: 'people', name: 'People', icon: IconUsersFill }] as item (item.id)}<button
-					class:active={view === item.id}
-					class="nav-item"
-					onclick={() => navigate(null, item.id)}
-					aria-current={view === item.id ? 'page' : undefined}
-					><item.icon /><span>{item.name}</span></button
-				>{/each}
-			<div class="sidebar-heading">
-				<p class="section-label">Collections</p>
-				<button
-					class="text-button"
-					aria-label="New collection"
-					onclick={() => create('collection')}
-					disabled={!status?.ready}><IconPlusFill /></button
-				>
-			</div>
-			{#each collections as item (item.id)}<div class="sidebar-row">
-					<button
-						class:active={view === `collection:${item.id}`}
-						class="nav-item"
-						onclick={() => navigate(null, `collection:${item.id}`)}
-						><IconFolderFill /><span>{item.name}</span></button
-					><button
-						aria-label={`Manage ${item.name}`}
-						class="quiet-button"
-						onclick={() => {
-							manage = { table: 'collections', row: item };
-							rename = String(item.name);
-						}}><IconDotsThreeFill /></button
-					>
-				</div>{:else}<p class="sidebar-hint">A place for a focused reading list.</p>{/each}
-			<div class="sidebar-heading">
-				<p class="section-label">Tags</p>
-				<button
-					class="text-button"
-					aria-label="New tag"
-					onclick={() => create('tag')}
-					disabled={!status?.ready}><IconPlusFill /></button
-				>
-			</div>
-			{#each tags as item (item.id)}<div class="sidebar-row">
-					<button
-						class:active={view === `tag:${item.id}`}
-						class="nav-item"
-						onclick={() => navigate(null, `tag:${item.id}`)}
-						><IconHashFill /><span>{item.name}</span></button
-					><button
-						aria-label={`Manage ${item.name}`}
-						class="quiet-button"
-						onclick={() => {
-							manage = { table: 'tags', row: item };
-							rename = String(item.name);
-						}}><IconDotsThreeFill /></button
-					>
-				</div>{/each}
-			{#if saved.length}<p class="section-label sidebar-heading">Saved searches</p>
-				{#each saved as item (item.id)}<div class="sidebar-row">
-						<button
-							class="nav-item"
-							class:active={view === `saved:${item.id}`}
-							onclick={() => navigate(null, `saved:${item.id}`)}
-							><IconMagnifyingGlassFill /><span>{item.name}</span></button
-						><button
-							aria-label={`Manage ${item.name}`}
-							class="quiet-button"
-							onclick={() => {
-								manage = { table: 'savedSearches', row: item };
-								rename = String(item.name);
-							}}><IconDotsThreeFill /></button
-						>
-					</div>{/each}{/if}
-			<div class="sidebar-bottom">
-				<button
-					class="nav-item"
-					class:active={view === 'archive'}
-					onclick={() => navigate(null, 'archive')}><IconArchiveFill /><span>Archive</span></button
-				><button
-					class="nav-item"
-					class:active={view === 'trash'}
-					onclick={() => navigate(null, 'trash')}><IconTrashFill /><span>Trash</span></button
-				>
-			</div>
 		</nav>
-		<main id="library-main" class="library-main" tabindex="-1">
-			<div class="library-heading" class:person-heading={!!profileSlug}>
+		<button
+			class="account-button"
+			aria-label="Account and library settings"
+			onclick={() => (settings = true)}><span class="account-avatar"><UserRound /></span></button
+		>
+	</header>
+	<main id="library-main" class="library-main" tabindex="-1">
+		<h1 class="sr-only">{title}</h1>
+		<Omnibar
+			bind:this={omnibar}
+			{library}
+			ready={!!status?.ready}
+			{tags}
+			{people}
+			bind:query
+			{personId}
+			{feedback}
+			onNormal={focusLibrary}
+		/>
+		{#if profileSlug && person}<div class="person-profile">
 				<div>
-					<p class="eyebrow">{profileSlug ? 'PEOPLE' : 'YOUR LIBRARY'}</p>
-					<h1>{title}</h1>
-					{#if person?.bio}<p class="person-bio">{person.bio}</p>{/if}{#if personWebsite}<a
+					<h2>{person.displayName}</h2>
+					{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}{#if personWebsite}<a
 							class="source-link"
 							href={personWebsite}
 							target="_blank"
 							rel="noopener noreferrer">{personWebsite}</a
 						>{/if}
 				</div>
-				{#if profileSlug && person}<button class="secondary-button" onclick={editPerson}
-						>Edit profile</button
-					>{:else if status?.ready}<SelectField
-						label="Sort results"
-						bind:value={sort}
-						options={[
-							{ value: 'newest', label: 'Newest first' },
-							{ value: 'title', label: 'Title A–Z' },
-							{ value: 'recently_opened', label: 'Recently opened' }
-						]}
-					/>{/if}
-			</div>
-			{#if profileSlug && status?.ready && person}<section class="person-connect">
-					<TokenInput
-						label="Connect existing bookmarks"
-						placeholder="Connect saved content to this person…"
-						showSelected={false}
-						items={contentChoices}
-						selected={connectedIds}
-						onAdd={connectContent}
-						onRemove={disconnectContent}
-					/>
-				</section>{/if}
+				<button class="text-button" onclick={editPerson}>Edit profile</button>
+			</div>{/if}
 
-			{#if !status?.ready}<section class="welcome-panel">
-					<div class="empty-icon"><IconBookmarkSimpleFill /></div>
-					<h2>
-						{status?.loading
-							? 'Opening your library…'
-							: 'Keep what matters. Connect what you learn.'}
-					</h2>
-					<p>
-						A quiet home for saved content, your own notes, and the people and ideas around them.
-					</p>
-					{#if status?.error}<p class="form-error" role="alert">
-							{status.error}
-						</p>{/if}{#if !status?.loading}<a class="primary-button" href={resolve('/auth/sign-in')}
-							>Sign in to your library</a
-						><button onclick={() => library?.sync()}>Try connecting again</button
-						>{#if status && !status.online}<button
-								onclick={() =>
-									library?.openCached().catch((error: Error) => feedback(error.message))}
-								>Open cached library on this trusted device</button
-							>{/if}{/if}
-				</section>
-			{:else}
-				<div class="list-toolbar">
-					<span class="muted"
-						>{results.items.length} {results.items.length === 1 ? 'item' : 'items'}</span
-					>{#if query && !results.error}<button
-							class="text-button"
-							onclick={() => create('saved-search')}>Save search</button
-						>{/if}<span class="toolbar-spacer"
-					></span>{#if view === 'people' || view === 'personas'}<button
-							class="text-button"
-							onclick={() => create(view === 'people' ? 'person' : 'persona')}
-							>+ Add {view === 'people' ? 'person' : 'persona'}</button
-						>{/if}
-				</div>
-				{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
-				{#if selectedIds.length}<div class="bulk-bar">
-						<strong>{selectedIds.length} selected</strong><TokenInput
-							label="Bulk tags"
-							placeholder="Tag selected bookmarks…"
-							allowCreate
-							items={tags.map((t) => ({ value: String(t.id), label: String(t.name) }))}
-							onAdd={async (value, create) => {
-								if (!library) return;
-								bulkTag = create ? await ensureTag(library, value) : value;
-								await bulk('tag');
-							}}
-						/>
-						<SelectField
-							label="Bulk collection"
-							bind:value={bulkCollection}
-							options={[
-								{ value: '', label: 'No collection' },
-								...collections.map((r) => ({ value: String(r.id), label: String(r.name) }))
-							]}
-						/><button onclick={() => bulk('collection')} disabled={busy}>Move</button><button
-							onclick={() => bulk('archive')}
-							disabled={busy}>Archive</button
-						><button onclick={() => bulk('trash')} disabled={busy}>Trash</button>
-					</div>{/if}
-				<div
-					class="bookmark-list"
-					class:person-timeline={!!profileSlug}
-					onDisconnect={profileSlug
-						? () => void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
-						: undefined}
+		{#if profileSlug && status?.ready && person}<section class="person-connect">
+				<TokenInput
+					label="Connect existing bookmarks"
+					placeholder="Connect saved content to this person…"
+					showSelected={false}
+					items={contentChoices}
+					selected={connectedIds}
+					onAdd={connectContent}
+					onRemove={disconnectContent}
+				/>
+			</section>{/if}
+
+		{#if !status?.ready}<section class="welcome-panel">
+				<div class="empty-icon"><BookmarkIcon /></div>
+				<h2>
+					{status?.loading ? 'Opening your library…' : 'Your bookmarks, together.'}
+				</h2>
+				<p>Save links, add context, find them when you need them.</p>
+				{#if status?.error}<p class="form-error" role="alert">
+						{status.error}
+					</p>{/if}{#if !status?.loading}<a class="primary-button" href={resolve('/auth/sign-in')}
+						>Sign in to your library</a
+					><button onclick={() => library?.sync()}>Try connecting again</button
+					>{#if status && !status.online}<button
+							onclick={() => library?.openCached().catch((error: Error) => feedback(error.message))}
+							>Open cached library on this trusted device</button
+						>{/if}{/if}
+			</section>
+		{:else}
+			<div class="list-toolbar">
+				<button
+					class="column-sort"
+					onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
+					aria-label="Sort by title"
+					>{view === 'people' ? 'Name' : 'Title'}{sort === 'title' ? ' ↑' : ''}</button
 				>
-					{#if profileSlug && !person}<p class="panel-message">
-							This person is unavailable.
-						</p>{:else}
-						{#each results.items.slice(0, limit) as item (String(item.id))}
-							{#if item.entityKind === 'person'}<button
-									class="person-card"
-									onclick={() => navigate({ kind: 'person', id: String(item.id) })}
-									><span class="person-initial">{String(item.displayName).slice(0, 1)}</span><span
-										><strong>{item.displayName}</strong><small
-											>{item.bio || item.website || 'Open profile'}</small
-										></span
-									></button
-								>
-							{:else}<BookmarkCard
-									{item}
-									note={notePreview(
-										noteBodies.get(String(item.id)) ?? String(item.description ?? '')
-									)}
-									timeline={!!profileSlug}
-									onDisconnect={profileSlug
-										? () =>
-												void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
-										: undefined}
-									selected={selected?.id === item.id}
-									checked={selectedIds.includes(String(item.id))}
-									onCheck={profileSlug
-										? undefined
-										: (checked) =>
-												(selectedIds = checked
-													? [...selectedIds, String(item.id)]
-													: selectedIds.filter((id) => id !== item.id))}
-									onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
-									onAction={(action) => void bookmarkAction(item, action)}
-									onOpen={() => void library?.save({ type: 'activity.open', id: String(item.id) })}
-								/>{/if}
-						{:else}{#if !results.error}<section class="welcome-panel compact">
-									<div class="empty-state-mark"><IconBookmarkSimpleFill /></div>
-									<h2>
-										{query
-											? 'Nothing matched this search.'
-											: view === 'people'
-												? 'Keep the people behind the ideas.'
-												: profileSlug
-													? 'Their saved content appears here.'
-													: 'Your next good idea belongs here.'}
-									</h2>
-									<p>
-										{query
-											? 'Try a title, note or #tag.'
-											: profileSlug
-												? 'Connect an existing bookmark above, or save a new one here.'
-												: 'Save a link, add a thought, and come back to it anytime.'}
-									</p>
-									{#if !query && view !== 'trash' && view !== 'archive'}<button
-											class="primary-button"
-											onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
-											>Add {view === 'people' ? 'person' : 'bookmark'}</button
-										>{/if}
-								</section>{/if}{/each}{/if}
-				</div>
-
-				{#if results.items.length > limit}<button class="load-more" onclick={() => (limit += 100)}
-						>Show more</button
+				{#if query}<span class="muted">{results.items.length} found</span><button
+						class="text-button"
+						onclick={() => create('saved-search')}>Save search</button
+					>{:else if view === 'people'}<button class="text-button" onclick={() => create('person')}
+						>Add person</button
+					>{:else}<button
+						class="list-shortcuts"
+						aria-label="Keyboard shortcuts"
+						onclick={() => (helpOpen = true)}
+						><kbd>j</kbd><kbd>k</kbd> navigate <span>·</span><kbd>?</kbd> shortcuts</button
 					>{/if}
-			{/if}
-		</main>
-		{#if library && selected}{#key `${selected.kind}/${selected.id}`}<LibraryInspector
-					{library}
-					entity={selected}
-					{version}
-					navigate={(target) => void navigate(target)}
-					{feedback}
-					close={() => void navigate(null)}
-				/>{/key}{/if}
-	</div>
-	<footer class="v0-status">
-		<span class:offline={!status?.online}
-			><span class="status-dot"></span>{status?.status ?? 'Connecting'}{status?.pending
-				? ` · ${status.pending} pending`
-				: ''}</span
-		><span class="status-message" role="status" aria-live="polite"
-			>{toast || status?.error || ''}</span
-		>{#if status?.ready}<button
-				class="text-button"
-				onclick={() => library?.sync()}
-				disabled={status.loading}>Refresh</button
-			>{/if}
-	</footer>
+				<DropdownMenu.Root
+					><DropdownMenu.Trigger class="column-sort date-sort" aria-label="Sort results"
+						>{sort === 'recently_opened' ? 'Last opened' : 'Created at'}<ChevronDownIcon
+						/></DropdownMenu.Trigger
+					><DropdownMenu.Portal
+						><DropdownMenu.Content class="menu-content" align="end" sideOffset={5}>
+							{#each [{ value: 'newest', label: 'Newest first' }, { value: 'title', label: 'Title A–Z' }, { value: 'recently_opened', label: 'Recently opened' }] as option (option.value)}<DropdownMenu.Item
+									class="menu-item"
+									onSelect={() => (sort = option.value)}>{option.label}</DropdownMenu.Item
+								>{/each}
+						</DropdownMenu.Content></DropdownMenu.Portal
+					></DropdownMenu.Root
+				>
+			</div>
+
+			{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
+			{#if selectedIds.length}<div class="bulk-bar">
+					<strong>{selectedIds.length} selected</strong><TokenInput
+						label="Bulk tags"
+						placeholder="Tag selected bookmarks…"
+						allowCreate
+						items={tags.map((t) => ({ value: String(t.id), label: String(t.name) }))}
+						onAdd={async (value, create) => {
+							if (!library) return;
+							bulkTag = create ? await ensureTag(library, value) : value;
+							await bulk('tag');
+						}}
+					/>
+					<SelectField
+						label="Bulk collection"
+						bind:value={bulkCollection}
+						options={[
+							{ value: '', label: 'No collection' },
+							...collections.map((r) => ({ value: String(r.id), label: String(r.name) }))
+						]}
+					/><button onclick={() => bulk('collection')} disabled={busy}>Move</button><button
+						onclick={() => bulk('archive')}
+						disabled={busy}>Archive</button
+					><button onclick={() => bulk('trash')} disabled={busy}>Trash</button>
+				</div>{/if}
+			<div class="bookmark-list" class:person-timeline={!!profileSlug}>
+				{#if profileSlug && !person}<p class="panel-message">This person is unavailable.</p>{:else}
+					{#each results.items.slice(0, limit) as item (String(item.id))}
+						{#if item.entityKind === 'person'}<button
+								class="person-card"
+								onclick={() => navigate({ kind: 'person', id: String(item.id) })}
+								><span class="person-initial">{String(item.displayName).slice(0, 1)}</span><span
+									><strong>{item.displayName}</strong><small
+										>{item.bio || item.website || 'Open profile'}</small
+									></span
+								></button
+							>
+						{:else}<BookmarkCard
+								{item}
+								{feedback}
+								note={notePreview(
+									noteBodies.get(String(item.id)) ?? String(item.description ?? '')
+								)}
+								timeline={!!profileSlug}
+								onDisconnect={profileSlug
+									? () => void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
+									: undefined}
+								selected={selected?.id === item.id}
+								checked={selectedIds.includes(String(item.id))}
+								onCheck={profileSlug
+									? undefined
+									: (checked) =>
+											(selectedIds = checked
+												? [...selectedIds, String(item.id)]
+												: selectedIds.filter((id) => id !== item.id))}
+								onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
+								onAction={(action) => void bookmarkAction(item, action)}
+								onOpen={() => void library?.save({ type: 'activity.open', id: String(item.id) })}
+							/>{/if}
+					{:else}{#if !results.error}<section class="welcome-panel compact">
+								<div class="empty-state-mark"><BookmarkIcon /></div>
+								<h2>
+									{query
+										? 'Nothing matched this search.'
+										: view === 'people'
+											? 'People behind your bookmarks.'
+											: profileSlug
+												? 'Their saved content appears here.'
+												: 'No bookmarks here yet.'}
+								</h2>
+								<p>
+									{query
+										? 'Try a title, note or #tag.'
+										: profileSlug
+											? 'Connect an existing bookmark above, or save a new one here.'
+											: 'Paste a link above to save your first bookmark.'}
+								</p>
+								{#if !query && view !== 'trash' && view !== 'archive'}<button
+										class="primary-button"
+										onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
+										>Add {view === 'people' ? 'person' : 'bookmark'}</button
+									>{/if}
+							</section>{/if}{/each}{/if}
+			</div>
+
+			{#if results.items.length > limit}<button class="load-more" onclick={() => (limit += 100)}
+					>Show more</button
+				>{/if}
+		{/if}
+	</main>
+	{#if toast && !settings}<div class="action-toast" role="status">
+			<span>{toast}</span><button
+				class="icon-button"
+				aria-label="Dismiss message"
+				onclick={() => (toast = '')}><XIcon /></button
+			>
+		</div>{/if}
 </div>
+
+<Dialog.Root
+	open={!!selected}
+	onOpenChange={(open) => {
+		if (!open) void navigate(null);
+	}}
+>
+	<Dialog.Portal
+		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content
+			class="dialog-content editor-dialog"
+			onCloseAutoFocus={(event) => {
+				event.preventDefault();
+				document
+					.querySelector<HTMLElement>(`[data-bookmark-id="${editorReturnId}"] .bookmark-title`)
+					?.focus();
+			}}
+		>
+			<Dialog.Title class="sr-only">Edit bookmark</Dialog.Title>
+			<Dialog.Description class="sr-only"
+				>Edit your bookmark, notes, tags, and connected people. Changes save automatically.</Dialog.Description
+			>
+			{#if library && selected}{#key selected.id}<LibraryInspector
+						{library}
+						entity={selected}
+						{version}
+						navigate={(target) => void navigate(target)}
+						{feedback}
+						close={() => void navigate(null)}
+					/>{/key}{/if}
+		</Dialog.Content></Dialog.Portal
+	>
+</Dialog.Root>
 
 <Dialog.Root bind:open={creating}
 	><Dialog.Portal
-		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content
-			class="dialog-content v0-dialog capture-dialog"
-			><Dialog.Title class="dialog-title"
-				>{newType === 'bookmark'
-					? 'Save a bookmark'
-					: newType === 'person'
-						? editingPerson
-							? 'Edit person'
-							: 'Add person'
-						: newType === 'saved-search'
-							? 'Save search'
-							: `New ${newType}`}</Dialog.Title
-			><Dialog.Description class="sr-only"
-				>{newType === 'bookmark'
-					? 'Save a URL with an optional title, note and tags. Press Enter to save.'
-					: 'Add a name and optional details.'}</Dialog.Description
+		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content capture-dialog">
+			<Dialog.Title class="dialog-title"
+				>{newType === 'person'
+					? editingPerson
+						? 'Edit person'
+						: 'Add person'
+					: newType === 'saved-search'
+						? 'Save search'
+						: `New ${newType}`}</Dialog.Title
 			>
+			<Dialog.Description class="sr-only">Add a name and optional details.</Dialog.Description>
 			<form class="stack capture-form" onsubmit={submitCreate}>
 				<fieldset disabled={busy}>
-					{#if newType === 'bookmark'}<label for="capture-url" class="sr-only">URL</label><input
-							id="capture-url"
-							type="url"
-							bind:value={newUrl}
-							required
-							placeholder="Paste a URL…"
-						/>{/if}
-					<label for="capture-title" class="sr-only"
-						>{newType === 'bookmark' ? 'Title' : 'Name'}</label
-					><input
+					<label for="capture-title">Name</label><input
 						id="capture-title"
 						bind:value={newTitle}
-						required={newType !== 'bookmark'}
-						maxlength={newType === 'person' ? 200 : newType === 'bookmark' ? 500 : 64}
-						placeholder={newType === 'bookmark'
-							? 'Title (optional)'
-							: newType === 'person'
-								? 'Full name'
-								: 'Name'}
+						required
+						maxlength={newType === 'person' ? 200 : 64}
+						placeholder={newType === 'person' ? 'Full name' : 'Name'}
 					/>
-					{#if newType === 'person'}<label for="person-url" class="sr-only">Profile URL</label
-						><input
+					{#if newType === 'person'}
+						<label for="person-url">Website (optional)</label><input
 							id="person-url"
 							type="url"
 							bind:value={personUrl}
-							placeholder="Twitter / website URL (optional)"
-						/>{/if}
-					{#if newType === 'bookmark' || newType === 'person'}<label
-							for="capture-note"
-							class="sr-only">{newType === 'person' ? 'About' : 'Note'}</label
-						><textarea
+							placeholder="https://…"
+						/>
+						<label for="capture-note">About (optional)</label><textarea
 							id="capture-note"
 							bind:value={newNote}
 							rows="2"
-							placeholder={newType === 'person'
-								? 'About this person (optional)'
-								: 'A note to yourself (optional)'}
-							onkeydown={(e) => {
-								if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-									e.preventDefault();
-									e.currentTarget.form?.requestSubmit();
-								}
-							}}></textarea>{/if}
-					{#if newType === 'bookmark'}<TokenInput
-							label="Bookmark tags"
-							placeholder="#tags, separated by commas"
-							allowCreate
-							items={[...new Set([...tags.map((t) => String(t.name)), ...newTags])].map((name) => ({
-								value: name,
-								label: name
-							}))}
-							selected={newTags}
-							onAdd={(value) => {
-								if (!newTags.includes(value)) newTags = [...newTags, value];
-							}}
-							onRemove={(value) => {
-								newTags = newTags.filter((n) => n !== value);
-							}}
-						/>{/if}
+							placeholder="A little context about this person"></textarea>
+					{/if}
 					{#if formError}<p class="form-error" role="alert">{formError}</p>{/if}
-					<div class="capture-footer">
-						<span class="muted">Enter to save · Shift + Enter for a new line</span><button
-							type="submit"
-							class="primary-button"
-							disabled={busy}>{busy ? 'Saving…' : 'Save'}</button
-						>
-					</div>
+					<button type="submit" class="primary-button" disabled={busy}
+						>{busy ? 'Saving…' : 'Save'}</button
+					>
 				</fieldset>
 			</form>
 			<Dialog.Close
 				class="icon-button dialog-close"
 				disabled={busy}
-				aria-label="Close creation form"><IconXFill /></Dialog.Close
+				aria-label="Close creation form"><XIcon /></Dialog.Close
 			>
 		</Dialog.Content></Dialog.Portal
 	></Dialog.Root
 >
-<Dialog.Root bind:open={settings}
+<AccountPanel
+	bind:open={settings}
+	{library}
+	{status}
+	{tags}
+	{collections}
+	{saved}
+	{toast}
+	{feedback}
+	onCreate={create}
+	onManage={(entry) => {
+		manage = entry;
+		rename = String(entry.row.name);
+	}}
+	onExport={exportData}
+	onImport={pickImport}
+	onExportPending={async () => {
+		if (library) download(await library.exportPending(), 'prism-pending-work.json');
+	}}
+	onMaintenance={runMaintenance}
+/>
+<Dialog.Root bind:open={helpOpen}
 	><Dialog.Portal
-		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content v0-dialog"
-			><Dialog.Title class="dialog-title">Your library</Dialog.Title><Dialog.Description
-				class="dialog-description"
-				>Metadata and drafts stay private to this vault. This v0 supports local work and
-				synchronization; provider media and full backups follow later.</Dialog.Description
-			>
-			<div class="stack">
-				<div class="button-row">
-					<button
-						onclick={() => {
-							settings = false;
-							create('tag');
-						}}>New tag</button
-					><button
-						onclick={() => {
-							settings = false;
-							create('collection');
-						}}>New collection</button
-					>
-				</div>
-				<button onclick={exportData} disabled={!status?.ready}>Export library metadata</button
-				><label class="file-input"
-					>Import a Prism metadata export<input
-						type="file"
-						accept="application/json,.json"
-						onchange={pickImport}
-						disabled={!status?.ready}
-					/></label
-				><button
-					onclick={async () => {
-						if (library) download(await library.exportPending(), 'prism-pending-work.json');
-					}}>Export pending work and drafts</button
-				><button onclick={runMaintenance} disabled={!status?.online || !status?.ready}
-					>Run pending profile cleanup</button
-				>
-				<p class="muted">
-					Use this browser on a trusted device. Cached library data is not end-to-end encrypted.
-				</p>
-				<p class="muted">
-					Search: text, "phrases", #tag, @collection, person:"Name", is:page, is:person, is:trash,
-					site:example.com, and has:note.
-				</p>
-			</div>
-			<p role="status">{toast || status?.error || ''}</p>
-			{#if status?.conflicts.length}<h3>Needs attention</h3>
-				{#each status.conflicts as conflict (conflict.operationId)}<div class="conflict-entry">
-						<strong>{conflict.envelope.command.type}</strong>
-						<p>{conflict.error?.message}</p>
-						<p class="muted">
-							Your original change and note draft are preserved. Open the item to review its current
-							data.
-						</p>
-						<button
-							onclick={() =>
-								library
-									?.resolveConflict(conflict.operationId, 'remote')
-									.catch((error: Error) => feedback(error.message))}
-							>Keep server version; preserve draft</button
-						>
-					</div>{/each}{/if}<Dialog.Close
+		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content keyboard-dialog"
+			><Dialog.Title class="dialog-title"><Keyboard /> Keyboard shortcuts</Dialog.Title
+			><Dialog.Description class="dialog-description"
+				>A little muscle memory goes a long way.</Dialog.Description
+			><KeyboardHelp /><Dialog.Close
 				class="icon-button dialog-close"
-				aria-label="Close library settings"><IconXFill /></Dialog.Close
+				aria-label="Close keyboard shortcuts"><XIcon /></Dialog.Close
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root
@@ -1120,7 +918,7 @@
 					</p>{/if}{/if}<Dialog.Close
 				class="icon-button dialog-close"
 				aria-label="Close import"
-				disabled={busy}><IconXFill /></Dialog.Close
+				disabled={busy}><XIcon /></Dialog.Close
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root
@@ -1148,7 +946,7 @@
 			</div>
 			<p role="status">{toast}</p>
 			<Dialog.Close class="icon-button dialog-close" aria-label="Close management"
-				><IconXFill /></Dialog.Close
+				><XIcon /></Dialog.Close
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root

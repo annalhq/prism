@@ -1,10 +1,12 @@
 <script lang="ts">
+	import {
+		ArrowLeft as ArrowLeftIcon,
+		ArrowRight as ArrowRightIcon,
+		LockKeyhole as LockKeyholeIcon
+	} from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import Brand from '#lib/components/ui/Brand.svelte';
-	import IconArrowLeftFill from 'phosphor-icons-svelte/IconArrowLeftFill.svelte';
-	import IconArrowRightFill from 'phosphor-icons-svelte/IconArrowRightFill.svelte';
-	import IconLockKeyFill from 'phosphor-icons-svelte/IconLockKeyFill.svelte';
 	let { data, form } = $props();
 	let pending = $state(false);
 </script>
@@ -70,13 +72,13 @@
 						/>
 					</div>
 					<button class="primary-button auth-submit" disabled={pending}
-						>{pending ? 'Saving password…' : 'Save password'}<IconArrowRightFill /></button
+						>{pending ? 'Saving password…' : 'Save password'}<ArrowRightIcon /></button
 					>
 				</form>
 			{/if}
 			{#if form?.message}<p role="alert" class="auth-error">{form.message}</p>{/if}
-			<a class="auth-back" href={resolve('/auth/sign-in')}><IconArrowLeftFill />Back to sign in</a>
-			<p class="auth-private"><IconLockKeyFill /> A private space, just for you.</p>
+			<a class="auth-back" href={resolve('/auth/sign-in')}><ArrowLeftIcon />Back to sign in</a>
+			<p class="auth-private"><LockKeyholeIcon /> A private space, just for you.</p>
 		</div>
 	</section>
 	<footer class="auth-footer">
