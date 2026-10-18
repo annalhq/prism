@@ -40,6 +40,10 @@
 		void version;
 		return library.get<NoteProjection>('notes', entity.id);
 	});
+	const confirmed = $derived.by(() => {
+		void version;
+		return library.getConfirmed<NoteProjection>('notes', entity.id);
+	});
 	const choices = $derived.by(() => {
 		void version;
 		const rows: (Record<string, unknown> & { entityKind: string })[] = [
@@ -88,14 +92,14 @@
 			body = current.bodyMarkdown;
 			base = current.revision;
 		}
-		if (queued && !library.state.pending && current?.bodyMarkdown === queuedBody) {
-			base = current.revision;
+		if (queued && confirmed?.bodyMarkdown === queuedBody) {
+			base = confirmed.revision;
 			queued = false;
 			queuedBody = null;
 			untrack(() => {
 				if (dirty) scheduleSave();
 			});
-			if (body === current.bodyMarkdown) {
+			if (body === confirmed.bodyMarkdown) {
 				dirty = false;
 				untrack(() => {
 					void library.clearDraft(entity.id);
@@ -128,7 +132,7 @@
 	function scheduleSave() {
 		clearTimeout(autoSave);
 		autoSave = setTimeout(() => {
-			if (!busy && !queued && dirty && !destroyed) void save();
+			if (!busy && dirty && !destroyed) void save();
 		}, 700);
 	}
 	function edited() {
@@ -178,7 +182,7 @@
 			error = (e as Error).message;
 		} finally {
 			busy = false;
-			if (dirty && !queued && !error && !destroyed) scheduleSave();
+			if (dirty && !error && !destroyed) scheduleSave();
 		}
 	}
 	function useCurrent() {
@@ -257,7 +261,7 @@
 			edited();
 		}}
 		onblur={() => {
-			if (dirty && !busy && !queued) void save();
+			if (dirty && !busy) void save();
 		}}
 		onkeydown={(event) => {
 			if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {

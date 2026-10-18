@@ -340,7 +340,7 @@ export async function importLibrary(
 			result.progress.phase = phase;
 			result.progress.sourceId = sourceId;
 			emit();
-			const outcome = await client.save(parseCommand(raw));
+			const outcome = await client.save(parseCommand(raw), { waitForSync: true });
 			if (outcome.status !== 'accepted')
 				throw new Error(
 					`${phase}: ${outcome.message ?? outcome.status}. Import stopped; accepted earlier commands remain. Queued intent must be resolved before another import.`

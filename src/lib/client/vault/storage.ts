@@ -7,6 +7,7 @@ export type PendingOperation = {
 	envelope: CommandEnvelope;
 	createdAt: string;
 	status: 'pending' | 'conflict';
+	dependencies?: Record<string, string>;
 	error?: { code: string; message: string };
 	remote?: Record<string, unknown>;
 };

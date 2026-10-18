@@ -459,3 +459,270 @@ describe('incremental cache persistence', () => {
 		});
 	}
 });
+
+describe('nonblocking saves', () => {
+	it('commits and displays a save while the network sync is stalled', async () => {
+		await seed();
+		const remote = deferredResponse();
+		fetcher.mockImplementation(async (path) =>
+			path === '/api/v1/session' ? Response.json(identity) : remote.promise
+		);
+		const value = client();
+		start(value);
+		await vi.waitFor(() => expect(value.state.ready).toBe(true));
+		let outcome: unknown;
+		work.push(
+			value
+				.save({
+					type: 'bookmark.update',
+					id: 'cached',
+					expectedRevision: '1',
+					patch: { title: 'First edit' }
+				})
+				.then((result) => {
+					outcome = result;
+				})
+		);
+		await vi.waitFor(() => expect(outcome).toMatchObject({ status: 'queued' }), { timeout: 500 });
+		expect(value.get<BookmarkProjection>('bookmarks', 'cached')?.title).toBe('First edit');
+	});
+	it('durably queues repeated edits to the same item while offline', async () => {
+		await seed();
+		const value = client();
+		await start(value);
+		Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+		for (const title of ['First edit', 'Latest edit']) {
+			expect(
+				await value.save({
+					type: 'bookmark.update',
+					id: 'cached',
+					expectedRevision: '1',
+					patch: { title }
+				})
+			).toMatchObject({ status: 'queued' });
+		}
+		expect(value.get<BookmarkProjection>('bookmarks', 'cached')?.title).toBe('Latest edit');
+		expect((await value.exportPending()).operations).toHaveLength(2);
+	});
+});
+
+describe('ordered background delivery', () => {
+	async function offlineQueue() {
+		await seed();
+		const value = client();
+		await start(value);
+		Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+		for (const title of ['First edit', 'Latest edit'])
+			await value.save({
+				type: 'bookmark.update',
+				id: 'cached',
+				expectedRevision: '1',
+				patch: { title }
+			});
+		return value;
+	}
+	function server(rejectFirst = false, loseFirstResponse = false) {
+		const requests: {
+			operationId: string;
+			command: { expectedRevision: string; patch: { title: string } };
+		}[] = [];
+		const receipts = new Map<string, ChangeFrame>();
+		let revision = 1;
+		fetcher.mockImplementation(async (path, init) => {
+			if (path === '/api/v1/session') return Response.json(identity);
+			if (path !== '/api/v1/commands') return changes();
+			const input = JSON.parse(String(init?.body));
+			requests.push(input);
+			if (rejectFirst)
+				return Response.json({
+					status: 'rejected',
+					error: { code: 'revision_conflict', message: 'Changed remotely' }
+				});
+			let frame = receipts.get(input.operationId);
+			if (!frame) {
+				expect(input.command.expectedRevision).toBe(String(revision));
+				revision++;
+				frame = {
+					protocolVersion: 1,
+					operationId: input.operationId,
+					seq: String(revision) as `${bigint}`,
+					changes: [
+						{
+							type: 'bookmark.upsert',
+							bookmark: {
+								...bookmark(),
+								title: input.command.patch.title,
+								revision: String(revision) as `${bigint}`,
+								lastSeq: String(revision) as `${bigint}`
+							}
+						}
+					]
+				};
+				receipts.set(input.operationId, frame);
+				if (loseFirstResponse) {
+					loseFirstResponse = false;
+					throw new Error('Lost response');
+				}
+			}
+			return Response.json({ status: 'accepted', frame });
+		});
+		Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+		return requests;
+	}
+	it('delivers persisted dependent edits after reopening using the predecessor receipt revision', async () => {
+		const previous = await offlineQueue();
+		previous.stop();
+		const requests = server();
+		const value = client();
+		await start(value);
+		expect(requests.map((r) => r.command.expectedRevision)).toEqual(['1', '2']);
+		expect(value.state.pending).toBe(0);
+		expect(value.get<BookmarkProjection>('bookmarks', 'cached')?.title).toBe('Latest edit');
+	});
+	it('replays an immutable envelope after a lost response before sending its dependent', async () => {
+		const value = await offlineQueue();
+		const requests = server(false, true);
+		await value.sync();
+		expect(value.state.pending).toBe(2);
+		await value.sync();
+		expect(requests[0]).toEqual(requests[1]);
+		expect(requests[2].command.expectedRevision).toBe('2');
+		expect(value.state.pending).toBe(0);
+	});
+	it('automatically retries a failed delivery without another user action', async () => {
+		const value = await offlineQueue();
+		const requests = server(false, true);
+		await value.sync();
+		await vi.waitFor(() => expect(value.state.pending).toBe(0), { timeout: 2500 });
+		expect(requests).toHaveLength(3);
+	});
+	it('drains an edit queued while an earlier command is in flight', async () => {
+		const value = await offlineQueue();
+		const requests = server();
+		const deliver = fetcher.getMockImplementation()!;
+		const delayed = deferredResponse();
+		let firstResponse: Response | undefined;
+		fetcher.mockImplementation(async (path, init) => {
+			const response = await deliver(path, init);
+			if (path === '/api/v1/commands' && !firstResponse) {
+				firstResponse = response;
+				return delayed.promise;
+			}
+			return response;
+		});
+		const syncing = value.sync();
+		work.push(syncing);
+		await vi.waitFor(() => expect(firstResponse).toBeDefined());
+		expect(
+			await value.save({
+				type: 'bookmark.update',
+				id: 'cached',
+				expectedRevision: '1',
+				patch: { title: 'Third edit' }
+			})
+		).toMatchObject({ status: 'queued' });
+		delayed.resolve(firstResponse!);
+		await syncing;
+		expect(requests.map((r) => r.command.expectedRevision)).toEqual(['1', '2', '3']);
+		expect(value.state.pending).toBe(0);
+		expect(value.get<BookmarkProjection>('bookmarks', 'cached')?.title).toBe('Third edit');
+	});
+	it('allows import callers to explicitly await server confirmation', async () => {
+		await seed();
+		const value = client();
+		await start(value);
+		server();
+		expect(
+			await value.save(
+				{
+					type: 'bookmark.update',
+					id: 'cached',
+					expectedRevision: '1',
+					patch: { title: 'Imported title' }
+				},
+				{ waitForSync: true }
+			)
+		).toEqual({ status: 'accepted' });
+	});
+	it('preserves later edits for review if their predecessor conflicts remotely', async () => {
+		const value = await offlineQueue();
+		const requests = server(true);
+		await value.sync();
+		expect(requests).toHaveLength(1);
+		expect(value.state.conflicts).toHaveLength(2);
+		expect((await value.exportPending()).operations).toHaveLength(2);
+	});
+});
+
+describe('independent revision streams', () => {
+	it('queues note revisions independently from bookmark metadata revisions', async () => {
+		await seed();
+		const value = client();
+		await start(value);
+		Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+		await value.save({
+			type: 'note.replace',
+			id: 'cached',
+			expectedRevision: '0',
+			bodyMarkdown: 'First note'
+		});
+		await value.save({
+			type: 'bookmark.update',
+			id: 'cached',
+			expectedRevision: '1',
+			patch: { title: 'Metadata edit' }
+		});
+		await value.save({
+			type: 'note.replace',
+			id: 'cached',
+			expectedRevision: '0',
+			bodyMarkdown: 'Latest note'
+		});
+		const revisions: string[] = [];
+		let seq = 1;
+		fetcher.mockImplementation(async (path, init) => {
+			if (path === '/api/v1/session') return Response.json(identity);
+			if (path !== '/api/v1/commands') return changes();
+			const { operationId, command } = JSON.parse(String(init?.body));
+			revisions.push(command.expectedRevision);
+			const revision = String(BigInt(command.expectedRevision) + 1n);
+			const frame = {
+				protocolVersion: 1,
+				operationId,
+				seq: String(++seq),
+				changes:
+					command.type === 'note.replace'
+						? [
+								{
+									type: 'note.upsert',
+									note: {
+										entityId: 'cached',
+										bodyMarkdown: command.bodyMarkdown,
+										revision,
+										lastSeq: String(seq)
+									}
+								}
+							]
+						: [
+								{
+									type: 'bookmark.upsert',
+									bookmark: {
+										...bookmark(),
+										title: command.patch.title,
+										revision,
+										lastSeq: String(seq)
+									}
+								}
+							]
+			};
+			return Response.json({ status: 'accepted', frame });
+		});
+		Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+		await value.sync();
+		expect(revisions).toEqual(['0', '1', '1']);
+		expect(value.state.pending).toBe(0);
+		expect(value.get<{ bodyMarkdown: string }>('notes', 'cached')?.bodyMarkdown).toBe(
+			'Latest note'
+		);
+	});
+});

@@ -15,6 +15,7 @@ import type {
 } from '#lib/domain/replica.js';
 import { applyFrame, overlay, putRecord, type Records } from './projections.js';
 import { VaultStorage, recordKey, type Draft, type PendingOperation } from './storage.js';
+import { acknowledge, dependencies } from './queue.js';
 
 export type SaveOutcome = {
 	status: 'accepted' | 'queued' | 'rejected' | 'already_exists';
@@ -42,7 +43,12 @@ class HttpFailure extends Error {
 	}
 }
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-	const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', ...init });
+	const response = await fetch(path, {
+		credentials: 'same-origin',
+		cache: 'no-store',
+		signal: AbortSignal.timeout(20_000),
+		...init
+	});
 	if (response.status === 401 || response.status === 403)
 		throw new HttpFailure(
 			response.status,
@@ -85,29 +91,46 @@ export function createLibraryClient(notify: () => void) {
 	let active = false;
 	let syncing: Promise<void> | undefined;
 	let timer: ReturnType<typeof setInterval> | undefined;
+	let retryTimer: ReturnType<typeof setTimeout> | undefined;
+	let retryDelay = 1_000;
 	let scope = '';
 	let published: Records = new Map();
 	let publishedOwner = '';
 	let publishedOperations = '';
 	const tables = new Map<ReplicaTable, Record<string, unknown>[]>();
-	const outcomes = new Map<string, SaveOutcome>();
+	let syncRequested = false;
+	const awaitedOutcomes = new Map<string, SaveOutcome>();
 	async function enqueue(envelope: CommandEnvelope, supersededOperationId?: string) {
 		const db = database!;
 		await db.transaction('rw', db.meta, db.outbox, async () => {
 			// A shared transaction gives dependent commands a durable total order across tabs.
 			const last = await db.meta.get('lastEnqueuedAt');
-			const latest = await db.outbox.orderBy('createdAt').last();
+			const queued = await db.outbox.orderBy('createdAt').toArray();
+			const latest = queued.at(-1);
 			const timestamp = Math.max(
 				Date.now(),
 				(Number(last?.value) || 0) + 1,
 				(latest ? Date.parse(latest.createdAt) : 0) + 1
 			);
 			await db.meta.put({ key: 'lastEnqueuedAt', value: String(timestamp) });
+			const waitsFor = supersededOperationId ? {} : dependencies(envelope.command, queued);
+			const blocked = queued.some(
+				(item) => item.status === 'conflict' && Object.values(waitsFor).includes(item.operationId)
+			);
 			await db.outbox.add({
 				operationId: envelope.operationId,
 				envelope,
 				createdAt: new Date(timestamp).toISOString(),
-				status: 'pending'
+				status: blocked ? 'conflict' : 'pending',
+				dependencies: waitsFor,
+				...(blocked
+					? {
+							error: {
+								code: 'dependency_conflict',
+								message: 'An earlier change needs review. This change is preserved on this device.'
+							}
+						}
+					: {})
 			});
 			if (supersededOperationId) await db.outbox.delete(supersededOperationId);
 		});
@@ -139,6 +162,11 @@ export function createLibraryClient(notify: () => void) {
 		state.pending = pending.filter((item) => item.status === 'pending').length;
 		state.conflicts = pending.filter((item) => item.status === 'conflict');
 		notify();
+	}
+	async function reloadOutbox() {
+		if (!database) return;
+		pending = await database.outbox.orderBy('createdAt').toArray();
+		refresh();
 	}
 	async function reload() {
 		if (!database) return;
@@ -205,7 +233,11 @@ export function createLibraryClient(notify: () => void) {
 	async function persist(
 		records: Records,
 		nextCursor: string | undefined,
-		{ replace = false, operationId }: { replace?: boolean; operationId?: string } = {}
+		{
+			replace = false,
+			operationId,
+			receipt
+		}: { replace?: boolean; operationId?: string; receipt?: Records } = {}
 	) {
 		const db = database!;
 		// applyFrame replaces changed records and preserves references for untouched rows.
@@ -223,7 +255,15 @@ export function createLibraryClient(notify: () => void) {
 					else await db.meta.delete('cursor');
 				}
 				// Acknowledgement and confirmed records must survive or roll back together.
-				if (operationId) await db.outbox.delete(operationId);
+				if (operationId) {
+					if (receipt) {
+						for (const item of await db.outbox.toArray()) {
+							if (Object.values(item.dependencies ?? {}).includes(operationId))
+								await db.outbox.put(acknowledge(item, operationId, receipt));
+						}
+					}
+					await db.outbox.delete(operationId);
+				}
 			});
 		}
 		confirmed = records;
@@ -284,7 +324,27 @@ export function createLibraryClient(notify: () => void) {
 		const db = database!;
 		const operations = await db.outbox.orderBy('createdAt').toArray();
 		let sent = false;
-		for (const item of operations) {
+		for (const queued of operations) {
+			const item = await db.outbox.get(queued.operationId);
+			if (!item) continue;
+			if (Object.keys(item.dependencies ?? {}).length) {
+				const predecessors = await db.outbox.bulkGet(Object.values(item.dependencies!));
+				if (
+					item.status === 'pending' &&
+					predecessors.some((prior) => !prior || prior.status === 'conflict')
+				) {
+					await db.outbox.put({
+						...item,
+						status: 'conflict',
+						error: {
+							code: 'dependency_conflict',
+							message:
+								'An earlier change needs review. This later change is preserved on this device.'
+						}
+					});
+				}
+				continue;
+			}
 			if (!active || !navigator.onLine) break;
 			if (item.status === 'conflict') continue;
 			// An immutable envelope is resent after any transport failure, including a lost response.
@@ -294,18 +354,23 @@ export function createLibraryClient(notify: () => void) {
 				body: JSON.stringify(item.envelope)
 			});
 			sent = true;
+
 			if (result.status === 'accepted') {
 				const next = new Map(confirmed);
 				applyFrame(next, result.frame);
 				// Command receipts can arrive ahead of the contiguous feed cursor.
-				await persist(next, cursor, { operationId: item.operationId });
-				outcomes.set(item.operationId, { status: 'accepted' });
+				const receipt: Records = new Map();
+				applyFrame(receipt, result.frame);
+				await persist(next, cursor, { operationId: item.operationId, receipt });
 			} else if (result.status === 'already_exists') {
-				await db.outbox.delete(item.operationId);
-				outcomes.set(item.operationId, {
-					status: 'already_exists',
-					existingId: result.bookmark.id,
-					message: 'This URL is already saved.'
+				await db.outbox.put({
+					...item,
+					status: 'conflict',
+					error: {
+						code: 'duplicate_url',
+						message: 'This URL is already saved. Your local changes are preserved for review.'
+					},
+					remote: result.bookmark
 				});
 			} else {
 				const command = item.envelope.command as unknown as { id?: string };
@@ -322,13 +387,37 @@ export function createLibraryClient(notify: () => void) {
 						)?.value
 					: undefined;
 				await db.outbox.put({ ...item, status: 'conflict', error: result.error, remote });
-				outcomes.set(item.operationId, {
-					status: 'rejected',
-					message: result.error.message,
-					existingId: result.error.existingId
+			}
+			if (result.status !== 'accepted') {
+				const blocked = new Set([item.operationId]);
+				await db.transaction('rw', db.outbox, async () => {
+					for (const dependent of await db.outbox.orderBy('createdAt').toArray()) {
+						if (!Object.values(dependent.dependencies ?? {}).some((id) => blocked.has(id)))
+							continue;
+						blocked.add(dependent.operationId);
+						await db.outbox.put({
+							...dependent,
+							status: 'conflict',
+							error: {
+								code: 'dependency_conflict',
+								message:
+									'An earlier change needs review. This later change is preserved on this device.'
+							}
+						});
+					}
 				});
 			}
-			await reload();
+			await reloadOutbox();
+			if (awaitedOutcomes.has(item.operationId)) {
+				awaitedOutcomes.set(
+					item.operationId,
+					result.status === 'rejected'
+						? { status: 'rejected', message: result.error.message }
+						: result.status === 'already_exists'
+							? { status: 'already_exists', existingId: result.bookmark.id }
+							: { status: 'accepted' }
+				);
+			}
 		}
 		return sent;
 	}
@@ -351,9 +440,10 @@ export function createLibraryClient(notify: () => void) {
 				);
 			const work = async () => {
 				await reload();
-				await pull();
-				refresh();
-				if (await sendPending()) await pull();
+				const initialized = !!cursor;
+				if (!initialized) await bootstrap();
+				const sent = await sendPending();
+				if (initialized || sent) await pull();
 				await reload();
 			};
 			await navigator.locks.request(`prism-sync:${scope}`, { ifAvailable: true }, async (lock) => {
@@ -389,10 +479,24 @@ export function createLibraryClient(notify: () => void) {
 		}
 	}
 	function sync(verifiedIdentity?: VaultIdentity): Promise<void> {
-		if (!syncing)
-			syncing = performSync(verifiedIdentity).finally(() => {
+		if (!syncing) {
+			clearTimeout(retryTimer);
+			syncing = (async () => {
+				do {
+					syncRequested = false;
+					await performSync(verifiedIdentity);
+					verifiedIdentity = undefined;
+				} while (active && syncRequested && state.pending > 0 && !state.error && navigator.onLine);
+			})().finally(() => {
 				syncing = undefined;
+				if (active && state.identity && navigator.onLine && state.pending) {
+					retryTimer = setTimeout(() => {
+						void sync();
+					}, retryDelay);
+					retryDelay = Math.min(retryDelay * 2, 30_000);
+				} else retryDelay = 1_000;
 			});
+		}
 		return syncing;
 	}
 	const reconnect = () => {
@@ -463,6 +567,7 @@ export function createLibraryClient(notify: () => void) {
 		stop() {
 			active = false;
 			if (timer) clearInterval(timer);
+			clearTimeout(retryTimer);
 			window.removeEventListener('online', reconnect);
 			window.removeEventListener('offline', reconnect);
 			document.removeEventListener('visibilitychange', visibility);
@@ -474,34 +579,22 @@ export function createLibraryClient(notify: () => void) {
 		get<T>(table: ReplicaTable, key: string): T | undefined {
 			return visible.get(recordKey(table, key))?.value as T | undefined;
 		},
+		getConfirmed<T>(table: ReplicaTable, key: string): T | undefined {
+			return state.identity
+				? (confirmed.get(recordKey(table, key))?.value as T | undefined)
+				: undefined;
+		},
 		listConfirmed<T>(table: ReplicaTable): T[] {
 			return state.identity
 				? [...confirmed.values()].filter((row) => row.table === table).map((row) => row.value as T)
 				: [];
 		},
-		async save(command: Command): Promise<SaveOutcome> {
+		async save(
+			command: Command,
+			{ waitForSync = false }: { waitForSync?: boolean } = {}
+		): Promise<SaveOutcome> {
 			if (!database || !state.identity)
 				return { status: 'rejected', message: 'Sign in and load this vault before saving.' };
-			const input = command as unknown as { id?: string; expectedRevision?: Revision };
-			const queued = await database.outbox.toArray();
-			if (
-				input.expectedRevision !== undefined &&
-				queued.some((item) => {
-					if (item.status !== 'pending') return false;
-					const prior = item.envelope.command as unknown as { id?: string };
-					return (
-						prior.id === input.id &&
-						(command.type === 'note.replace'
-							? item.envelope.command.type === 'note.replace'
-							: item.envelope.command.type !== 'note.replace')
-					);
-				})
-			)
-				return {
-					status: 'rejected',
-					message:
-						'Sync the previous change to this item before saving another revision. Your note draft stays on this device.'
-				};
 			const operationId = crypto.randomUUID();
 			const envelope = {
 				protocolVersion: 1 as const,
@@ -510,18 +603,26 @@ export function createLibraryClient(notify: () => void) {
 			};
 			if (serializedBytes(envelope) > MAX_COMMAND_BYTES)
 				return { status: 'rejected', message: 'This command exceeds 1 MiB.' };
+			if (waitForSync) awaitedOutcomes.set(operationId, { status: 'queued' });
 			try {
 				await enqueue(envelope);
-				await reload();
-				if (navigator.onLine) await sync();
-				const result = outcomes.get(operationId);
-				outcomes.delete(operationId);
-				return result ?? { status: 'queued', message: 'Saved on this device; waiting for sync.' };
+				await reloadOutbox();
+				syncRequested = true;
+				if (navigator.onLine) {
+					if (waitForSync) {
+						await sync();
+						return awaitedOutcomes.get(operationId) ?? { status: 'queued' };
+					}
+					void sync();
+				}
+				return { status: 'queued', message: 'Saved on this device; syncing in the background.' };
 			} catch (error) {
 				return {
 					status: 'rejected',
 					message: error instanceof Error ? error.message : String(error)
 				};
+			} finally {
+				awaitedOutcomes.delete(operationId);
 			}
 		},
 		getDraft(id: string) {
@@ -567,7 +668,10 @@ export function createLibraryClient(notify: () => void) {
 				await enqueue(envelope, operationId);
 			} else await database!.outbox.delete(operationId);
 			await reload();
-			if (choice === 'retry') await sync();
+			if (choice === 'retry') {
+				syncRequested = true;
+				void sync();
+			}
 		}
 	};
 }
