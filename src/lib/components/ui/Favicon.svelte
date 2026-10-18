@@ -1,6 +1,39 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { discoverFavicons, faviconSources, isBlankFavicon } from '#lib/client/favicons.js';
 	let { url }: { url: string | null } = $props();
-	let failed = $state(false);
+	let element: HTMLSpanElement;
+	let visible = $state(false);
+	let icons = $state<{ url: string | null; sources: string[]; failed: string[] }>({
+		url: null,
+		sources: [],
+		failed: []
+	});
+	const sources = $derived(icons.url === url ? icons.sources : faviconSources(url));
+	const source = $derived(
+		sources.find((candidate) => icons.url !== url || !icons.failed.includes(candidate))
+	);
+	function skipIcon(candidate: string | null, page: string | null) {
+		if (candidate && page === url && candidate === source)
+			icons = { url, sources, failed: [...(icons.url === url ? icons.failed : []), candidate] };
+	}
+	onMount(() => {
+		if (typeof IntersectionObserver === 'undefined') {
+			visible = true;
+			return;
+		}
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) {
+					visible = true;
+					observer.disconnect();
+				}
+			},
+			{ rootMargin: '100px' }
+		);
+		observer.observe(element);
+		return () => observer.disconnect();
+	});
 	const origin = $derived.by(() => {
 		try {
 			const parsed = new URL(url ?? '');
@@ -18,21 +51,38 @@
 			: 'B'
 	);
 	$effect(() => {
-		void origin;
-		failed = false;
+		const currentUrl = url;
+		icons = { url: currentUrl, sources: faviconSources(currentUrl), failed: [] };
+		if (!visible || !currentUrl) return;
+		let cancelled = false;
+		void discoverFavicons(currentUrl).then((sources) => {
+			if (!cancelled) icons = { ...icons, sources };
+		});
+		return () => {
+			cancelled = true;
+		};
 	});
 </script>
 
-<span class="favicon" aria-hidden="true">
-	{#if origin && !failed}
-		<img
-			src={`${origin}/favicon.ico`}
-			alt=""
-			width="20"
-			height="20"
-			loading="lazy"
-			referrerpolicy="no-referrer"
-			onerror={() => (failed = true)}
-		/>
+<span bind:this={element} class="favicon" aria-hidden="true">
+	{#if source}
+		{#key source}
+			<img
+				src={source}
+				alt=""
+				width="20"
+				height="20"
+				loading="lazy"
+				referrerpolicy="no-referrer"
+				onload={async (event) => {
+					const loaded = event.currentTarget.getAttribute('src');
+					const page = url;
+					if (loaded && (await isBlankFavicon(loaded))) skipIcon(loaded, page);
+				}}
+				onerror={(event) => {
+					skipIcon(event.currentTarget.getAttribute('src'), url);
+				}}
+			/>
+		{/key}
 	{:else}{letter}{/if}
 </span>
