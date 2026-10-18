@@ -190,7 +190,8 @@ label {
 	display: inline-flex;
 	color: var(--accent);
 }
-.brand-symbol svg {
+.brand-symbol svg,
+.brand-symbol img {
 	width: 25px;
 	height: 25px;
 }
@@ -292,7 +293,8 @@ kbd {
 .compact-brand .brand-symbol {
 	color: var(--ink);
 }
-.compact-brand .brand-symbol svg {
+.compact-brand .brand-symbol svg,
+.compact-brand .brand-symbol img {
 	width: 25px;
 	height: 25px;
 }
