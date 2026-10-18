@@ -307,6 +307,8 @@
 		formError = '';
 		const id = editingPerson ? String(editingPerson.id) : captureId;
 		try {
+			// The outbox clones commands; reactive avatar proxies must become plain data first.
+			const savedAvatar = $state.snapshot(avatarConfig);
 			const command: Command =
 				newType === 'person'
 					? editingPerson
@@ -318,7 +320,7 @@
 									displayName: newTitle,
 									website: personUrl || null,
 									bio: newNote,
-									avatarConfig
+									avatarConfig: savedAvatar
 								}
 							}
 						: {
@@ -327,7 +329,7 @@
 								displayName: newTitle,
 								website: personUrl || null,
 								bio: newNote,
-								avatarConfig
+								avatarConfig: savedAvatar
 							}
 					: { type: 'tag.create', id, name: newTitle };
 			const result = await library.save(command);
