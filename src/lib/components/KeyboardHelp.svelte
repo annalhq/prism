@@ -6,7 +6,7 @@
 				['j / k', 'Next / previous bookmark'],
 				['gg / G', 'First / last visible bookmark'],
 				['Ctrl d / Ctrl u', 'Half a page down / up'],
-				['f', 'Find a view, tag or collection']
+				['f', 'Focus sidebar navigation']
 			]
 		},
 		{
@@ -23,8 +23,7 @@
 			rows: [
 				['o / Enter', 'Open the link'],
 				['e / Space', 'Edit bookmark'],
-				['y', 'Copy the link'],
-				['x', 'Select / deselect']
+				['y', 'Copy the link']
 			]
 		},
 		{

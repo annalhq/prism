@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Collapsible, Dialog, Tabs } from 'bits-ui';
 	import { soundPreference, setSounds, cue } from '#lib/client/sounds.svelte.js';
-	import { Volume2, VolumeX, Sparkles } from '@lucide/svelte';
+	import { Volume2, VolumeX } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import {
 		RefreshCw,
@@ -22,14 +22,12 @@
 	} from '@lucide/svelte';
 	import type { LibraryClient, LibraryState } from '#lib/client/vault/library.js';
 	type Row = Record<string, unknown>;
-	type Entry = { table: 'tags' | 'collections' | 'savedSearches'; row: Row };
+	type Entry = { table: 'tags'; row: Row };
 	let {
 		open = $bindable(false),
 		library,
 		status,
 		tags,
-		collections,
-		saved,
 		toast,
 		feedback,
 		onCreate,
@@ -43,8 +41,6 @@
 		library: LibraryClient | null;
 		status: LibraryState | null;
 		tags: Row[];
-		collections: Row[];
-		saved: Row[];
 		toast: string;
 		feedback: (message: string) => void;
 		onCreate: (type: string) => void;
@@ -79,14 +75,13 @@
 		}
 	}
 	const entries = $derived(
-		[
-			...tags.map((row) => ({ table: 'tags' as const, row })),
-			...collections.map((row) => ({ table: 'collections' as const, row })),
-			...saved.map((row) => ({ table: 'savedSearches' as const, row }))
-		].filter((e) =>
-			String(e.row.name).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
-		)
+		tags
+			.map((row) => ({ table: 'tags' as const, row }))
+			.filter((entry) =>
+				String(entry.row.name).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+			)
 	);
+
 	$effect(() => {
 		if (!open) {
 			query = '';
@@ -125,16 +120,8 @@
 				>
 				<div class="account-scroll">
 					<Tabs.Content value="account">
-						<div class="account-identity">
-							<span class="account-monogram"><Sparkles /></span>
-							<div>
-								<p class="eyebrow">A SPACE OF YOUR OWN</p>
-								<h2>Your private library</h2>
-								<p>Good ideas deserve a place to stay.</p>
-							</div>
-						</div>
 						<section class="settings-group">
-							<h3>Make yourself at home</h3>
+							<h3>Preferences</h3>
 							<div class="settings-card">
 								<button
 									class="setting-row"
@@ -154,16 +141,10 @@
 										><span></span></span
 									></button
 								>
-								<div class="setting-row appearance-summary">
-									<span class="palette-swatch"></span><span
-										><strong>Charcoal</strong><small>Soft surfaces. A little breathing room.</small
-										></span
-									>
-								</div>
 							</div>
 						</section>
 						<section class="settings-group">
-							<h3>Synchronization</h3>
+							<h3>Connection & sync</h3>
 							<div class="settings-card sync-card">
 								<div class="sync-heading">
 									<span class="setting-icon"
@@ -187,7 +168,7 @@
 											{status?.pending
 												? `${status.pending} ${status.pending === 1 ? 'change' : 'changes'} saved on this device`
 												: status?.online
-													? 'Your library stays in sync across devices.'
+													? 'Connected · Your library stays in sync across devices.'
 													: 'Your changes will sync when you reconnect.'}
 										</p>
 									</div>
@@ -259,18 +240,14 @@
 										class="text-button"
 										onclick={() => create('tag')}
 										disabled={!status?.ready}><Plus /> Tag</button
-									><button
-										class="text-button"
-										onclick={() => create('collection')}
-										disabled={!status?.ready}><Plus /> Collection</button
 									>
 								</div>
 							</div>
 							<div class="settings-card">
 								<div class="filter-search">
 									<Search /><input
-										aria-label="Find tags, collections or saved searches"
-										placeholder="Find tags & collections…"
+										aria-label="Find tags"
+										placeholder="Find tags…"
 										bind:value={query}
 									/>
 								</div>
@@ -281,15 +258,10 @@
 												open = false;
 												onManage(entry);
 											}}
-											><span class="setting-icon"
-												>{#if entry.table === 'tags'}<Folder
-													/>{:else if entry.table === 'collections'}<Folder />{:else}<Search
-													/>{/if}</span
-											><span>{entry.row.name}</span><ChevronRight /></button
+											><span class="setting-icon"><Folder /></span><span>{entry.row.name}</span
+											><ChevronRight /></button
 										>{:else}<p class="picker-empty">
-											{query
-												? 'No matching names.'
-												: 'Create a tag or collection to organize your links.'}
+											{query ? 'No matching names.' : 'Create a tag to organize your links.'}
 										</p>{/each}
 								</div>
 								{#if entries.length > 12}<p class="filter-footer">

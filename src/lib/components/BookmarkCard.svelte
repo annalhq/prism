@@ -13,16 +13,13 @@
 	import Favicon from './ui/Favicon.svelte';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { isReadLater, type Row } from '#lib/client/workflows.js';
-	import Check from './ui/Check.svelte';
 	let {
 		item,
 		note = '',
 		timeline = false,
 		relation = '',
 		tagLabels = [],
-		checked = false,
 		selected = false,
-		onCheck,
 		onEdit,
 		onAction,
 		onOpen,
@@ -34,9 +31,7 @@
 		timeline?: boolean;
 		relation?: string;
 		tagLabels?: string[];
-		checked?: boolean;
 		selected?: boolean;
-		onCheck?: (checked: boolean) => void;
 		onEdit: () => void;
 		onAction: (action: 'later' | 'archive' | 'trash' | 'restore') => void;
 		onOpen: () => void;
@@ -66,11 +61,7 @@
 			tracking = false,
 			suppress = 0;
 		const down = (e: PointerEvent) => {
-			if (
-				e.pointerType !== 'touch' ||
-				(e.target as HTMLElement).closest('[role="checkbox"],button')
-			)
-				return;
+			if (e.pointerType !== 'touch' || (e.target as HTMLElement).closest('button')) return;
 			start = { x: e.clientX, y: e.clientY };
 			tracking = false;
 		};
@@ -141,13 +132,7 @@
 			class={`library-row ${selected ? 'selected' : ''}`}
 			style={`transform:translateX(${offset}px)`}
 		>
-			<div class="row-leading" class:is-checked={checked}>
-				<Favicon url={source} />{#if onCheck && !item.deletedAt}<Check
-						label={`Select ${item.title}`}
-						{checked}
-						onCheckedChange={onCheck}
-					/>{/if}
-			</div>
+			<div class="row-leading"><Favicon url={source} /></div>
 
 			<div class="bookmark-content">
 				{#if timeline && relation}<span class="post-relation">{relation}</span>{/if}

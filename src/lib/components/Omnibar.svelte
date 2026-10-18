@@ -5,14 +5,12 @@
 	import { ensureTag, inferBookmarkKind, type Row } from '#lib/client/workflows.js';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
-	import type { Revision } from '#lib/domain/contracts.js';
 	type Choice = { kind: 'tag' | 'person' | 'new-tag'; id: string; name: string };
 	let {
 		library,
 		ready,
 		tags,
 		people,
-		collections = [],
 		query = $bindable(''),
 		personId = null,
 		feedback,
@@ -22,7 +20,6 @@
 		ready: boolean;
 		tags: Row[];
 		people: Row[];
-		collections?: Row[];
 		query?: string;
 		personId?: string | null;
 		feedback: (message: string) => void;
@@ -33,7 +30,6 @@
 		title = $state(''),
 		url = $state(''),
 		organizer = $state(''),
-		collection = $state(''),
 		error = $state(''),
 		busy = $state(false);
 	let selected = $state<Choice[]>([]),
@@ -70,7 +66,6 @@
 		title = '';
 		url = '';
 		organizer = '';
-		collection = '';
 		selected = [];
 		completed = [];
 		captureId = '';
@@ -95,7 +90,6 @@
 				draft = typeof value.draft === 'string' ? value.draft : '';
 				title = typeof value.title === 'string' ? value.title : '';
 				url = typeof value.url === 'string' ? value.url : '';
-				collection = typeof value.collection === 'string' ? value.collection : '';
 				selected = Array.isArray(value.selected)
 					? value.selected.filter(
 							(choice: Choice) =>
@@ -120,7 +114,6 @@
 			draft,
 			title,
 			url,
-			collection,
 			selected,
 			completed,
 			captureId,
@@ -167,6 +160,9 @@
 		window.addEventListener('keydown', listener);
 		return () => window.removeEventListener('keydown', listener);
 	});
+	export async function focusSearch() {
+		await switchMode('search');
+	}
 	export async function focusInsert() {
 		await switchMode('insert');
 	}
@@ -246,25 +242,13 @@
 					throw new Error(result.message ?? 'Link saved. Retry to finish organizing.');
 				completed = [...completed, key(choice)];
 			}
-			if (collection && !completed.includes(`collection:${collection}`)) {
-				const row = library.get<Row>('bookmarks', captureId);
-				const result = await library.save({
-					type: 'bookmark.organize',
-					id: captureId,
-					expectedRevision: String(row?.revision ?? '0') as Revision,
-					patch: { collectionId: collection }
-				});
-				if (result.status === 'rejected')
-					throw new Error(result.message ?? 'Link saved. Retry to finish organizing.');
-				completed = [...completed, `collection:${collection}`];
-			}
+
 			feedback('Saved on this device.');
 			cue('success');
 			draft = '';
 			title = '';
 			url = '';
 			organizer = '';
-			collection = '';
 			selected = [];
 			completed = [];
 			created = false;
@@ -280,13 +264,6 @@
 </script>
 
 <section class="omnibar-section" aria-label="Search and save bookmarks">
-	<div class="capture-mode-tabs">
-		<button class:active={mode === 'search'} onclick={() => switchMode('search')}
-			><Search /> Search</button
-		><button class:active={mode === 'insert'} onclick={() => switchMode('insert')} data-cuelume-open
-			><Plus /> {draft || url ? 'Continue bookmark' : 'Add bookmark'}</button
-		>
-	</div>
 	<form class="omnibar" class:search-mode={mode === 'search'} onsubmit={prepare}>
 		{#if mode === 'search'}<Search />{:else}<Plus />{/if}
 		<input
@@ -386,14 +363,7 @@
 							}}><Plus /><span>Create tag “{tagName}”</span></button
 						>{/if}
 				</div>
-				<label for="capture-collection">Collection</label><select
-					id="capture-collection"
-					bind:value={collection}
-					><option value="">No collection</option
-					>{#each collections as item (String(item.id))}<option value={String(item.id)}
-							>{item.name}</option
-						>{/each}</select
-				>
+
 				<div class="capture-footer">
 					<span class="muted"
 						>{busy ? 'Saving on this device…' : 'Sync happens in the background.'}</span

@@ -34,7 +34,11 @@ export function libraryKeyboard(actions: {
 			event.preventDefault();
 			const step = Math.max(
 				1,
-				Math.floor(innerHeight / 2 / (row?.getBoundingClientRect().height || 52))
+				Math.floor(
+					(document.querySelector('.library-content')?.clientHeight || innerHeight) /
+						2 /
+						(row?.getBoundingClientRect().height || 52)
+				)
 			);
 			focus(items, Math.max(0, current) + (event.key === 'd' ? step : -step));
 			return;
@@ -94,12 +98,6 @@ export function libraryKeyboard(actions: {
 				if (row) {
 					event.preventDefault();
 					row.querySelector<HTMLButtonElement>('.bookmark-copy')?.click();
-				}
-				break;
-			case 'x':
-				if (row) {
-					event.preventDefault();
-					row.querySelector<HTMLButtonElement>('[role="checkbox"]')?.click();
 				}
 				break;
 		}

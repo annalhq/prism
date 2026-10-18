@@ -19,7 +19,6 @@
 	import { ensureTag, isReadLater, type Row } from '#lib/client/workflows.js';
 	import NoteEditor from './NoteEditor.svelte';
 	import TokenInput from './ui/TokenInput.svelte';
-	import SelectField from './ui/SelectField.svelte';
 	let {
 		library,
 		entity,
@@ -99,10 +98,6 @@
 			.filter((r) => !r.deletedAt && r.bookmarkId === entity.id);
 	});
 	const linkedPeople = $derived([...new Set(relationships.map((r) => String(r.personId)))]);
-	const collections = $derived.by(() => {
-		void version;
-		return library.list<Row>('collections').filter((c) => !c.deletedAt);
-	});
 	const incoming = $derived.by(() => {
 		void version;
 		const ids = new SvelteSet(
@@ -179,10 +174,7 @@
 			busy = false;
 		}
 	}
-	async function organize(patch: {
-		readingStatus?: 'unread' | 'reading';
-		collectionId?: string | null;
-	}) {
+	async function organize(patch: { readingStatus?: 'unread' | 'reading' }) {
 		try {
 			await act({
 				type: 'bookmark.organize',
@@ -320,7 +312,7 @@
 							>{/each}
 					</section>{/if}
 				<section class="inspector-section source-section">
-					<h3>Source & collection</h3>
+					<h3>Source</h3>
 					<div class="field">
 						<label for="item-url">Source URL</label><input
 							id="item-url"
@@ -328,18 +320,6 @@
 							bind:value={url}
 							oninput={(e) => edited('url', e.currentTarget.value)}
 							onblur={details}
-						/>
-					</div>
-					<div class="field">
-						<label for="item-collection">Collection</label><SelectField
-							id="item-collection"
-							label="Collection"
-							value={String(row.collectionId ?? '')}
-							options={[
-								{ value: '', label: 'No collection' },
-								...collections.map((c) => ({ value: String(c.id), label: String(c.name) }))
-							]}
-							onValueChange={(value) => organize({ collectionId: value || null })}
 						/>
 					</div>
 				</section>

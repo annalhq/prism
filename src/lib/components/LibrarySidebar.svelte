@@ -7,7 +7,6 @@
 		Archive,
 		Trash2,
 		Folder,
-		Search,
 		PanelLeftClose,
 		PanelLeftOpen,
 		Plus,
@@ -15,14 +14,12 @@
 		X
 	} from '@lucide/svelte';
 	import { Dialog } from 'bits-ui';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import Brand from './ui/Brand.svelte';
 	type Row = Record<string, unknown>;
 	let {
 		view,
 		tags,
-		collections,
-		saved,
 		mobileOpen = $bindable(false),
 		collapsed = $bindable(false),
 		onSelect,
@@ -31,8 +28,6 @@
 	}: {
 		view: string;
 		tags: Row[];
-		collections: Row[];
-		saved: Row[];
 		mobileOpen?: boolean;
 		collapsed?: boolean;
 		onSelect: (value: string) => void;
@@ -63,6 +58,17 @@
 			/* Optional preference. */
 		}
 	}
+	export async function focusNavigation() {
+		if (innerWidth < 768) mobileOpen = true;
+		else if (collapsed) toggle();
+		await tick();
+		document
+			.querySelector<HTMLButtonElement>(
+				`${mobileOpen ? '.mobile-navigation' : '.library-sidebar'} .sidebar-navigation button`
+			)
+			?.focus();
+	}
+
 	function select(value: string) {
 		mobileOpen = false;
 		onSelect(value);
@@ -81,6 +87,15 @@
 		>
 	</div>
 	<nav class="sidebar-navigation" aria-label="Library">
+		<button
+			class="sidebar-link"
+			title="Add bookmark · i"
+			onclick={() => {
+				mobileOpen = false;
+				onCreate('bookmark');
+			}}
+			data-cuelume-open><Plus /><span class="sidebar-label">Add bookmark</span></button
+		>
 		{#each views as item (item.id)}<button
 				class="sidebar-link"
 				class:active={view === item.id}
@@ -89,32 +104,26 @@
 				onclick={() => select(item.id)}
 				><item.icon /><span class="sidebar-label">{item.label}</span></button
 			>{/each}
-		{#each [{ label: 'Tags', type: 'tag', rows: tags }, { label: 'Collections', type: 'collection', rows: collections }, { label: 'Saved searches', type: 'saved', rows: saved }] as group (group.type)}
-			<section class="sidebar-group">
-				<div class="sidebar-section-heading">
-					<span>{group.label}</span>{#if group.type !== 'saved'}<button
-							class="icon-button"
-							aria-label={`Add ${group.type}`}
-							onclick={() => {
-								mobileOpen = false;
-								onCreate(group.type);
-							}}><Plus /></button
-						>{/if}
-				</div>
-				{#each group.rows as row (String(row.id))}<button
-						class="sidebar-link"
-						class:active={view === `${group.type}:${row.id}`}
-						aria-current={view === `${group.type}:${row.id}` ? 'page' : undefined}
-						title={String(row.name)}
-						onclick={() => select(`${group.type}:${row.id}`)}
-						>{#if group.type === 'saved'}<Search />{:else}<Folder />{/if}<span class="sidebar-label"
-							>{row.name}</span
-						></button
-					>{:else}<p class="sidebar-empty">
-						{group.type === 'saved' ? 'Save a search to revisit it.' : 'A little room to organize.'}
-					</p>{/each}
-			</section>
-		{/each}
+		<section class="sidebar-group">
+			<div class="sidebar-section-heading">
+				<span>Tags</span><button
+					class="icon-button"
+					aria-label="Add tag"
+					onclick={() => {
+						mobileOpen = false;
+						onCreate('tag');
+					}}><Plus /></button
+				>
+			</div>
+			{#each tags as row (String(row.id))}<button
+					class="sidebar-link"
+					class:active={view === `tag:${row.id}`}
+					aria-current={view === `tag:${row.id}` ? 'page' : undefined}
+					title={String(row.name)}
+					onclick={() => select(`tag:${row.id}`)}
+					><Folder /><span class="sidebar-label">{row.name}</span></button
+				>{:else}<p class="sidebar-empty">A little room to organize.</p>{/each}
+		</section>
 	</nav>
 	<button
 		class="sidebar-link sidebar-account account-button"
