@@ -4,13 +4,11 @@
 		Eye as EyeIcon,
 		EyeOff as EyeOffIcon,
 		LockKeyhole as LockKeyholeIcon,
-		ChevronDown as ChevronDownIcon,
 		ArrowUpRight as ArrowUpRightIcon
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { enhance, applyAction } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { Collapsible } from 'bits-ui';
 	import Brand from './ui/Brand.svelte';
 	let {
 		data,
@@ -28,9 +26,13 @@
 	} = $props();
 	let showPassword = $state(false),
 		pending = $state(''),
-		resetOpen = $state(false),
+		mode = $state<'signin' | 'reset'>('signin'),
 		offline = $state(false);
 	let response = $state<{ message?: string; resetRequested?: boolean } | null>(null);
+	function switchMode(next: 'signin' | 'reset') {
+		mode = next;
+		response = null;
+	}
 	const result = $derived(response ?? form);
 	const message = $derived(result?.message ?? data.message);
 	onMount(() => {
@@ -91,84 +93,66 @@
 						</p>{/if}
 					<form
 						method="POST"
-						action={`${resolve('/auth/sign-in')}?/signIn`}
+						action={`${resolve('/auth/sign-in')}?/${mode === 'reset' ? 'requestReset' : 'signIn'}`}
 						class="auth-form"
 						use:enhance={submit}
-						aria-busy={pending === 'signin'}
+						aria-busy={!!pending}
 					>
 						<div class="field">
 							<label for="email">Email address</label><input
 								id="email"
 								name="email"
 								type="email"
-								autocomplete="username"
+								autocomplete={mode === 'reset' ? 'email' : 'username'}
 								placeholder="you@example.com"
 								required
 								maxlength="320"
 							/>
 						</div>
-						<div class="field">
-							<div class="field-heading">
-								<label for="password">Password</label><button
-									type="button"
-									class="text-button"
-									onclick={() => (resetOpen = !resetOpen)}
-									aria-expanded={resetOpen}>Forgot password?</button
-								>
-							</div>
-							<div class="password-input">
-								<input
-									id="password"
-									name="password"
-									type={showPassword ? 'text' : 'password'}
-									autocomplete="current-password"
-									placeholder="Enter your password"
-									required
-									maxlength="128"
-								/><button
-									type="button"
-									class="icon-button"
-									aria-label={showPassword ? 'Hide password' : 'Show password'}
-									aria-pressed={showPassword}
-									onclick={() => (showPassword = !showPassword)}
-									>{#if showPassword}<EyeOffIcon />{:else}<EyeIcon />{/if}</button
-								>
-							</div>
-						</div>
-						<button class="primary-button auth-submit" disabled={!!pending}
-							>{pending === 'signin' ? 'Signing in…' : 'Sign in'}<ArrowRightIcon /></button
-						>
-					</form>
-					<Collapsible.Root bind:open={resetOpen} class="password-help">
-						<Collapsible.Trigger class="recovery-trigger"
-							>First time here? Set up your password <ChevronDownIcon /></Collapsible.Trigger
-						>
-						<Collapsible.Content class="recovery-content"
-							><p>We’ll email a password link to your existing account.</p>
-							<form
-								method="POST"
-								action={`${resolve('/auth/sign-in')}?/requestReset`}
-								class="auth-form"
-								use:enhance={submit}
+						{#if mode === 'reset'}
+							<p class="auth-hint">We’ll email a password link to your existing account.</p>
+							<button class="primary-button auth-submit" disabled={!!pending}
+								>{pending === 'reset' ? 'Sending link…' : 'Send password link'}<ArrowUpRightIcon
+								/></button
 							>
-								<div class="field">
-									<label for="reset-email">Account email</label><input
-										id="reset-email"
-										name="email"
-										type="email"
-										autocomplete="email"
-										placeholder="you@example.com"
-										required
-										maxlength="320"
-									/>
+							<button
+								type="button"
+								class="text-button auth-back"
+								onclick={() => switchMode('signin')}>Back to sign in</button
+							>
+						{:else}
+							<div class="field">
+								<div class="field-heading">
+									<label for="password">Password</label><button
+										type="button"
+										class="text-button"
+										onclick={() => switchMode('reset')}>Forgot password?</button
+									>
 								</div>
-								<button class="secondary-button" disabled={!!pending}
-									>{pending === 'reset' ? 'Sending link…' : 'Send password link'}<ArrowUpRightIcon
-									/></button
-								>
-							</form></Collapsible.Content
-						>
-					</Collapsible.Root>
+								<div class="password-input">
+									<input
+										id="password"
+										name="password"
+										type={showPassword ? 'text' : 'password'}
+										autocomplete="current-password"
+										placeholder="Enter your password"
+										required
+										maxlength="128"
+									/><button
+										type="button"
+										class="icon-button"
+										aria-label={showPassword ? 'Hide password' : 'Show password'}
+										aria-pressed={showPassword}
+										onclick={() => (showPassword = !showPassword)}
+										>{#if showPassword}<EyeOffIcon />{:else}<EyeIcon />{/if}</button
+									>
+								</div>
+							</div>
+							<button class="primary-button auth-submit" disabled={!!pending}
+								>{pending === 'signin' ? 'Signing in…' : 'Sign in'}<ArrowRightIcon /></button
+							>
+						{/if}
+					</form>
 				{/if}
 				{#if message}<p
 						role={result?.resetRequested ? 'status' : 'alert'}
