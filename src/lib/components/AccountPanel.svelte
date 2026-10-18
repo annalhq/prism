@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { Collapsible, Dialog, Tabs } from 'bits-ui';
+	import { soundPreference, setSounds, cue } from '#lib/client/sounds.svelte.js';
+	import { Volume2, VolumeX, Sparkles } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import {
 		RefreshCw,
@@ -15,7 +17,6 @@
 		Search,
 		X,
 		Folder,
-		Hash,
 		Check,
 		AlertCircle
 	} from '@lucide/svelte';
@@ -124,6 +125,43 @@
 				>
 				<div class="account-scroll">
 					<Tabs.Content value="account">
+						<div class="account-identity">
+							<span class="account-monogram"><Sparkles /></span>
+							<div>
+								<p class="eyebrow">A SPACE OF YOUR OWN</p>
+								<h2>Your private library</h2>
+								<p>Good ideas deserve a place to stay.</p>
+							</div>
+						</div>
+						<section class="settings-group">
+							<h3>Make yourself at home</h3>
+							<div class="settings-card">
+								<button
+									class="setting-row"
+									role="switch"
+									aria-checked={soundPreference.enabled}
+									onclick={() => {
+										setSounds(!soundPreference.enabled);
+										if (soundPreference.enabled) cue('success');
+									}}
+									><span class="setting-icon"
+										>{#if soundPreference.enabled}<Volume2 />{:else}<VolumeX />{/if}</span
+									><span
+										><strong>Subtle sounds</strong><small
+											>Quiet feedback for meaningful moments</small
+										></span
+									><span class="preference-switch" class:enabled={soundPreference.enabled}
+										><span></span></span
+									></button
+								>
+								<div class="setting-row appearance-summary">
+									<span class="palette-swatch"></span><span
+										><strong>Charcoal</strong><small>Soft surfaces. A little breathing room.</small
+										></span
+									>
+								</div>
+							</div>
+						</section>
 						<section class="settings-group">
 							<h3>Synchronization</h3>
 							<div class="settings-card sync-card">
@@ -244,7 +282,7 @@
 												onManage(entry);
 											}}
 											><span class="setting-icon"
-												>{#if entry.table === 'tags'}<Hash
+												>{#if entry.table === 'tags'}<Folder
 													/>{:else if entry.table === 'collections'}<Folder />{:else}<Search
 													/>{/if}</span
 											><span>{entry.row.name}</span><ChevronRight /></button

@@ -6,6 +6,8 @@
 		Clock3 as Clock3Icon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links are validated external HTTP URLs. */
+	import { onMount, onDestroy } from 'svelte';
+	import { cue } from '#lib/client/sounds.svelte.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { AlertDialog } from 'bits-ui';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
@@ -40,6 +42,44 @@
 		busy = $state(false),
 		error = $state(''),
 		purgeOpen = $state(false);
+	let draftWrites = Promise.resolve();
+	let draftTimer: ReturnType<typeof setTimeout> | undefined;
+	const draftId = $derived(`bookmark-details:${entity.id}`);
+	onMount(() => {
+		const draft = library.getDraft(draftId);
+		if (!draft) return;
+		try {
+			const value = JSON.parse(draft.body);
+			if (typeof value.title === 'string' && typeof value.url === 'string') {
+				title = value.title;
+				url = value.url;
+				base = draft.baseRevision;
+				dirty = true;
+			}
+		} catch {
+			error = 'A saved details draft could not be opened. It remains in your pending-work export.';
+		}
+	});
+	function persistDetails() {
+		const body = JSON.stringify({ title, url }),
+			revision = base;
+		draftWrites = draftWrites
+			.then(() => library.setDraft(draftId, body, revision))
+			.catch((e) => {
+				error = e.message;
+			});
+	}
+	function edited(field: 'title' | 'url', value: string) {
+		if (field === 'title') title = value;
+		else url = value;
+		dirty = true;
+		clearTimeout(draftTimer);
+		draftTimer = setTimeout(persistDetails, 200);
+	}
+	onDestroy(() => {
+		clearTimeout(draftTimer);
+		if (dirty) persistDetails();
+	});
 	const row = $derived.by(() => {
 		void version;
 		return library.get<Row>('bookmarks', entity.id);
@@ -103,14 +143,17 @@
 	});
 	async function act(command: Command) {
 		const result = await library.save(command);
-		if (result.status === 'rejected')
+		if (result.status === 'rejected') {
+			cue('error');
 			throw new Error(result.message ?? 'Could not save this change.');
+		}
 		feedback(result.status === 'queued' ? 'Saved on this device.' : 'Saved.');
 	}
 	async function details() {
 		if (!dirty || busy || !row || row.deletedAt) return;
 		busy = true;
 		error = '';
+		persistDetails();
 		const sentTitle = title,
 			sentUrl = url;
 		try {
@@ -121,7 +164,15 @@
 				patch: { title: sentTitle, url: sentUrl || null }
 			});
 			base = String(library.get<Row>('bookmarks', entity.id)?.revision ?? base) as Revision;
-			if (title === sentTitle && url === sentUrl) dirty = false;
+			if (title === sentTitle && url === sentUrl) {
+				dirty = false;
+				clearTimeout(draftTimer);
+				draftWrites = draftWrites
+					.then(() => library.clearDraft(draftId))
+					.catch((e) => {
+						error = e.message;
+					});
+			}
 		} catch (e) {
 			error = (e as Error).message;
 		} finally {
@@ -187,6 +238,7 @@
 		{#if !row}<p class="panel-message">This bookmark is unavailable.</p>{:else}
 			{#if row.deletedAt}<div class="notice">
 					In trash <button onclick={() => lifecycle('restore')}>Restore</button><button
+						data-cuelume-warning
 						onclick={() => (purgeOpen = true)}>Delete permanently</button
 					>
 				</div>{/if}
@@ -195,7 +247,7 @@
 					id="item-title"
 					rows="2"
 					bind:value={title}
-					oninput={() => (dirty = true)}
+					oninput={(e) => edited('title', e.currentTarget.value)}
 					onblur={details}
 					onkeydown={(e) => {
 						if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
@@ -274,7 +326,7 @@
 							id="item-url"
 							type="url"
 							bind:value={url}
-							oninput={() => (dirty = true)}
+							oninput={(e) => edited('url', e.currentTarget.value)}
 							onblur={details}
 						/>
 					</div>

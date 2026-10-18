@@ -8,6 +8,7 @@ export default ts.config(
 	{
 		ignores: [
 			'.svelte-kit/**',
+			'.vercel/**',
 			'build/**',
 			'node_modules/**',
 			'.agents/**',
@@ -21,5 +22,6 @@ export default ts.config(
 	...svelte.configs['flat/recommended'],
 	prettier,
 	{ languageOptions: { globals: { ...globals.node, ...globals.browser } } },
+	{ files: ['**/*.svelte.ts'], languageOptions: { parser: ts.parser } },
 	{ files: ['**/*.svelte'], languageOptions: { parserOptions: { parser: ts.parser } } }
 );

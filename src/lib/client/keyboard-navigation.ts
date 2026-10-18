@@ -18,7 +18,10 @@ export function libraryKeyboard(actions: {
 			event.defaultPrevented ||
 			event.isComposing ||
 			target.closest('input,textarea,select,[contenteditable="true"],[role="textbox"]') ||
-			document.querySelector('[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"]')
+			target.closest('[role="dialog"]') ||
+			document.querySelector(
+				'[role="dialog"][aria-modal="true"],[role="alertdialog"],[role="menu"],[role="listbox"]'
+			)
 		) {
 			lastG = 0;
 			return;

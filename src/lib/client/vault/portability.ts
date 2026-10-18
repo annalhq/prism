@@ -114,7 +114,8 @@ function createCommand(
 						id,
 						displayName: row.displayName,
 						bio: row.bio,
-						website: row.website
+						website: row.website,
+						...(row.avatarConfig ? { avatarConfig: row.avatarConfig } : {})
 					}
 				: table === 'personas'
 					? { type: 'persona.create', id, name: row.name, description: row.description }

@@ -6,7 +6,7 @@
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
-	import { UserRound, Keyboard } from '@lucide/svelte';
+	import { UserRound, Keyboard, Menu, Shuffle } from '@lucide/svelte';
 	import ViewPicker from './ViewPicker.svelte';
 	import AccountPanel from './AccountPanel.svelte';
 	import KeyboardHelp from './KeyboardHelp.svelte';
@@ -18,7 +18,11 @@
 	import { resolve } from '$app/paths';
 	import { Dialog, DropdownMenu } from 'bits-ui';
 	import Omnibar from './Omnibar.svelte';
-	import Brand from './ui/Brand.svelte';
+	import LibrarySidebar from './LibrarySidebar.svelte';
+	import PersonAvatar from './ui/PersonAvatar.svelte';
+	import { avatarFromSeed, type AvatarConfig } from '#lib/domain/avatars.js';
+	import { createPeopleFeedIndex } from '#lib/client/people-feed.js';
+	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
 	import SelectField from './ui/SelectField.svelte';
 	import TokenInput from './ui/TokenInput.svelte';
 	import BookmarkCard from './BookmarkCard.svelte';
@@ -36,7 +40,7 @@
 	} from '#lib/client/vault/portability.js';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { VaultIdentity } from '#lib/domain/replica.js';
-	import type { BookmarkCommand, Command, Revision } from '#lib/domain/contracts.js';
+	import type { Command, Revision } from '#lib/domain/contracts.js';
 	import LibraryInspector from './LibraryInspector.svelte';
 	let {
 		openOffline = false,
@@ -51,14 +55,24 @@
 		sort = $state('newest'),
 		toast = $state(''),
 		creating = $state(false),
-		busy = $state(false),
+		formBusy = $state(false),
+		bulkBusy = $state(false),
+		importBusy = $state(false),
 		formError = $state('');
 	let newType = $state('person'),
 		newTitle = $state(''),
 		newNote = $state(''),
 		personUrl = $state(''),
 		editingPerson = $state<Row | null>(null);
-	let captureId = '';
+	let captureId = $state('');
+	let avatarConfig = $state<AvatarConfig | null>(null);
+	let sidebarCollapsed = $state(false),
+		mobileNavigation = $state(false),
+		wideEditor = $state(false),
+		selectionMode = $state(false);
+	let feedFilter = $state('all');
+	const buildProfileIndex = createPeopleFeedIndex();
+	let bulkQueue = Promise.resolve();
 	let results = $state<ReturnType<typeof searchLibrary>>({ items: [], filter: emptySearch() }),
 		limit = $state(100),
 		selectedIds = $state<string[]>([]),
@@ -169,6 +183,10 @@
 					: saved.find((s) => s.id === view.slice(6))?.name) ??
 			'Library'
 	);
+	const profileLinks = $derived.by(() => {
+		void contentVersion;
+		return buildProfileIndex(view === 'people' || profileSlug ? library : null);
+	});
 	let query = $derived(page.url.searchParams.get('q') ?? '');
 	$effect(() => {
 		void contentVersion;
@@ -177,11 +195,19 @@
 		if (!current || !libraryReady || !search) return;
 		const n = ++generation;
 		const profile = personId;
+		const entries = profileLinks.get(profile ?? '');
 		const connected = new Set(
-			current
-				.list<Row>('relationships')
-				.filter((r) => !r.deletedAt && r.personId === profile)
-				.map((r) => r.bookmarkId)
+			[...(entries ?? [])]
+				.filter(
+					([, labels]) =>
+						feedFilter === 'all' ||
+						(feedFilter === 'authored'
+							? labels.includes('Authored')
+							: feedFilter === 'mentions'
+								? labels.includes('Mentioned')
+								: labels.some((label) => label === 'Related' || label === 'About'))
+				)
+				.map(([id]) => id)
 		);
 		pendingResults = search
 			.query(current, view, query, sort)
@@ -190,7 +216,9 @@
 					results = profileSlug
 						? {
 								...value,
-								items: value.items.filter((i) => i.entityKind === 'bookmark' && connected.has(i.id))
+								items: value.items.filter(
+									(i) => i.entityKind === 'bookmark' && connected.has(String(i.id))
+								)
 							}
 						: value;
 			})
@@ -199,6 +227,10 @@
 			});
 	});
 	onMount(() => {
+		const media = window.matchMedia('(min-width: 1200px)');
+		const resize = () => (wideEditor = media.matches);
+		resize();
+		media.addEventListener('change', resize);
 		searcher = createSearchClient();
 		const client = createLibraryClient(() => {
 			version++;
@@ -220,6 +252,7 @@
 		window.addEventListener('keydown', key);
 		window.addEventListener('focusin', remember);
 		return () => {
+			media.removeEventListener('change', resize);
 			window.removeEventListener('keydown', key);
 			window.removeEventListener('focusin', remember);
 			clearTimeout(feedbackTimer);
@@ -260,7 +293,7 @@
 		await goto(url, { reset: false });
 	}
 	function create(type: string) {
-		if (busy) return;
+		if (formBusy) return;
 		if (type === 'bookmark') {
 			void omnibar?.focusInsert();
 			return;
@@ -269,6 +302,7 @@
 		personUrl = '';
 		editingPerson = null;
 		captureId = crypto.randomUUID();
+		avatarConfig = avatarFromSeed(captureId);
 		newTitle = '';
 		newNote = '';
 		formError = '';
@@ -281,11 +315,13 @@
 		newTitle = String(person.displayName);
 		personUrl = String(person.website ?? '');
 		newNote = String(person.bio ?? '');
+		avatarConfig =
+			(person.avatarConfig as AvatarConfig | null) ?? avatarFromSeed(String(person.id));
 	}
 	async function submitCreate(event: SubmitEvent) {
 		event.preventDefault();
-		if (!library || busy) return;
-		busy = true;
+		if (!library || formBusy) return;
+		formBusy = true;
 		formError = '';
 		const id = editingPerson ? String(editingPerson.id) : captureId;
 		try {
@@ -296,14 +332,20 @@
 								type: 'person.update',
 								id,
 								expectedRevision: String(editingPerson.revision) as Revision,
-								patch: { displayName: newTitle, website: personUrl || null, bio: newNote }
+								patch: {
+									displayName: newTitle,
+									website: personUrl || null,
+									bio: newNote,
+									avatarConfig
+								}
 							}
 						: {
 								type: 'person.create',
 								id,
 								displayName: newTitle,
 								website: personUrl || null,
-								bio: newNote
+								bio: newNote,
+								avatarConfig
 							}
 					: newType === 'saved-search'
 						? {
@@ -317,13 +359,15 @@
 			const result = await library.save(command);
 			if (result.status === 'rejected') throw new Error(result.message ?? 'Could not save.');
 			creating = false;
+			cue('success');
 			feedback(status?.online ? 'Saved.' : 'Saved on this device.');
 			if (newType === 'person') await navigate({ kind: 'person', id });
 			else await navigate(null, `${newType === 'saved-search' ? 'saved' : newType}:${id}`);
 		} catch (e) {
 			formError = (e as Error).message;
+			cue('error');
 		} finally {
-			busy = false;
+			formBusy = false;
 		}
 	}
 	async function bookmarkAction(item: Row, action: 'later' | 'archive' | 'trash' | 'restore') {
@@ -346,8 +390,14 @@
 								? { readingStatus: isReadLater(row) ? 'unread' : 'reading' }
 								: { isArchived: !row.archivedAt }
 					};
-		const result = await library.save(command);
-		feedback(result.message ?? 'Saved.');
+		try {
+			const result = await library.save(command);
+			cue(result.status === 'rejected' ? 'error' : action === 'trash' ? 'warning' : 'success');
+			feedback(result.message ?? 'Saved on this device.');
+		} catch (error) {
+			cue('error');
+			feedback((error as Error).message);
+		}
 	}
 	async function connectContent(id: string) {
 		if (!library || !personId) return;
@@ -401,52 +451,72 @@
 		);
 	});
 
-	async function bulk(action: 'tag' | 'collection' | 'archive' | 'trash') {
+	function bulk(action: 'tag' | 'person' | 'collection' | 'archive' | 'trash', target = '') {
+		const ids = [...selectedIds],
+			tag = bulkTag,
+			collection = bulkCollection;
+		const work = bulkQueue.then(() => runBulk(action, target, ids, tag, collection));
+		bulkQueue = work.catch(() => {});
+		return work;
+	}
+	async function runBulk(
+		action: 'tag' | 'person' | 'collection' | 'archive' | 'trash',
+		target: string,
+		ids: string[],
+		tag: string,
+		collection: string
+	) {
 		if (!library) return;
-		busy = true;
+		bulkBusy = true;
 		let completed = 0;
+		const failed: string[] = [];
+		const stopLoading = foregroundSound();
 		try {
-			for (let offset = 0; offset < selectedIds.length; offset += 100) {
-				const commands = selectedIds.slice(offset, offset + 100).map((id) => {
-					const row = library!.get<Row>('bookmarks', id);
-					if (!row || row.deletedAt)
-						throw new Error(
-							'A selected item is unavailable. Refresh the list and select it again.'
-						);
-					return action === 'tag'
-						? { type: 'tag.add', id, tagId: bulkTag }
-						: {
-								type: action === 'trash' ? 'bookmark.trash' : 'bookmark.organize',
-								id,
-								expectedRevision: String(row.revision) as Revision,
-								...(action === 'trash'
-									? {}
-									: {
-											patch:
-												action === 'archive'
-													? { isArchived: true }
-													: { collectionId: bulkCollection || null }
-										})
-							};
-				});
-				const result = await library.save({
-					type: 'bookmark.bulk',
-					commands: commands as BookmarkCommand[]
-				});
-				if (result.status === 'rejected') {
-					feedback(`${completed} items processed. ${result.message}`);
-					return;
+			for (const id of ids) {
+				const row = library.get<Row>('bookmarks', id);
+				if (!row || row.deletedAt) {
+					failed.push(id);
+					continue;
 				}
-				completed += commands.length;
+				const command: Command =
+					action === 'person'
+						? {
+								type: 'content-person.add',
+								bookmarkId: id,
+								personId: target,
+								role: 'related',
+								provenance: 'manual'
+							}
+						: action === 'tag'
+							? { type: 'tag.add', id, tagId: tag }
+							: action === 'trash'
+								? { type: 'bookmark.trash', id, expectedRevision: String(row.revision) as Revision }
+								: {
+										type: 'bookmark.organize',
+										id,
+										expectedRevision: String(row.revision) as Revision,
+										patch:
+											action === 'archive'
+												? { isArchived: true }
+												: { collectionId: collection || null }
+									};
+				try {
+					const result = await library.save(command);
+					if (result.status === 'rejected') failed.push(id);
+					else completed++;
+				} catch {
+					failed.push(id);
+				}
 			}
-			feedback(`${completed} items saved${status?.online ? '' : ' on this device'}.`);
-			selectedIds = [];
-		} catch (error) {
+			if (action === 'trash' || action === 'archive')
+				selectedIds = selectedIds.filter((id) => !ids.includes(id) || failed.includes(id));
 			feedback(
-				`${completed} items processed. ${error instanceof Error ? error.message : String(error)}`
+				`${completed} items saved on this device.${failed.length ? ` ${failed.length} could not be saved; their selection is preserved.` : ''}`
 			);
+			cue(failed.length ? 'error' : action === 'trash' ? 'warning' : 'success');
 		} finally {
-			busy = false;
+			bulkBusy = false;
+			stopLoading();
 		}
 	}
 	function download(value: unknown, name: string) {
@@ -492,7 +562,7 @@
 	}
 	async function runImport() {
 		if (!library) return;
-		busy = true;
+		importBusy = true;
 		try {
 			importReport = await importLibrary(
 				library,
@@ -507,7 +577,7 @@
 		} catch (e) {
 			feedback((e as Error).message);
 		} finally {
-			busy = false;
+			importBusy = false;
 		}
 	}
 	async function runMaintenance() {
@@ -562,10 +632,30 @@
 	>{#if profileSlug}<title>{person?.displayName ?? 'Person'} · Prism</title>{/if}</svelte:head
 >
 <a class="skip-link" href="#library-main">Skip to content</a>
-<div class="library-shell">
+<div
+	class="library-shell"
+	class:sidebar-collapsed={sidebarCollapsed}
+	class:editor-open={!!selected}
+	class:selection-mode={selectionMode || !!selectedIds.length}
+>
+	<LibrarySidebar
+		{view}
+		{tags}
+		{collections}
+		{saved}
+		bind:collapsed={sidebarCollapsed}
+		bind:mobileOpen={mobileNavigation}
+		onSelect={(value) => void navigate(null, value)}
+		onCreate={create}
+		onAccount={() => (settings = true)}
+	/>
 	<header class="library-header">
-		<Brand compact />
-		<span class="header-divider" aria-hidden="true">/</span>
+		<button
+			class="icon-button mobile-menu-button"
+			aria-label="Open library navigation"
+			onclick={() => (mobileNavigation = true)}
+			data-cuelume-open><Menu /></button
+		>
 		<nav aria-label="Library navigation">
 			<ViewPicker
 				bind:this={viewPicker}
@@ -580,24 +670,40 @@
 		<button
 			class="account-button"
 			aria-label="Account and library settings"
+			data-cuelume-open
 			onclick={() => (settings = true)}><span class="account-avatar"><UserRound /></span></button
 		>
 	</header>
 	<main id="library-main" class="library-main" tabindex="-1">
-		<h1 class="sr-only">{title}</h1>
+		<div class="workspace-heading">
+			<div>
+				<p class="eyebrow">YOUR PERSONAL LIBRARY</p>
+				<h1>{title}</h1>
+			</div>
+			<span class="workspace-status"
+				><span class:offline={!status?.online}></span>{status?.pending
+					? `${status.pending} queued`
+					: status?.online
+						? 'Connected'
+						: 'Offline'}</span
+			>
+		</div>
 		<Omnibar
 			bind:this={omnibar}
 			{library}
 			ready={!!status?.ready}
 			{tags}
 			{people}
+			{collections}
 			bind:query
 			{personId}
 			{feedback}
 			onNormal={focusLibrary}
 		/>
 		{#if profileSlug && person}<div class="person-profile">
-				<div>
+				<div class="profile-cover" aria-hidden="true"></div>
+				<PersonAvatar id={String(person.id)} config={person.avatarConfig} size={88} />
+				<div class="profile-copy">
 					<h2>{person.displayName}</h2>
 					{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}{#if personWebsite}<a
 							class="source-link"
@@ -606,9 +712,18 @@
 							rel="noopener noreferrer">{personWebsite}</a
 						>{/if}
 				</div>
-				<button class="text-button" onclick={editPerson}>Edit profile</button>
+				<button class="text-button" onclick={editPerson} data-cuelume-open>Edit profile</button>
 			</div>{/if}
 
+		{#if profileSlug && person}<div class="profile-feed-heading">
+				<span>{profileLinks.get(String(person.id))?.size ?? 0} saved connections</span>
+				<div class="feed-filters" aria-label="Filter profile feed">
+					{#each [{ id: 'all', label: 'All' }, { id: 'authored', label: 'Authored' }, { id: 'related', label: 'Related' }, { id: 'mentions', label: 'Mentions' }] as option (option.id)}<button
+							aria-pressed={feedFilter === option.id}
+							onclick={() => (feedFilter = option.id)}>{option.label}</button
+						>{/each}
+				</div>
+			</div>{/if}
 		{#if profileSlug && status?.ready && person}<section class="person-connect">
 				<TokenInput
 					label="Connect existing bookmarks"
@@ -639,6 +754,14 @@
 			</section>
 		{:else}
 			<div class="list-toolbar">
+				{#if view !== 'people'}<button
+						class="text-button"
+						aria-pressed={selectionMode}
+						onclick={() => {
+							selectionMode = !selectionMode;
+							if (!selectionMode) selectedIds = [];
+						}}>{selectionMode ? 'Done selecting' : 'Select'}</button
+					>{/if}
 				<button
 					class="column-sort"
 					onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
@@ -673,7 +796,17 @@
 
 			{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
 			{#if selectedIds.length}<div class="bulk-bar">
-					<strong>{selectedIds.length} selected</strong><TokenInput
+					<strong>{selectedIds.length} selected</strong><button
+						class="text-button"
+						onclick={() => (selectedIds = [])}>Clear</button
+					><button
+						class="text-button"
+						onclick={() =>
+							(selectedIds = results.items
+								.filter((item) => item.entityKind === 'bookmark' && !item.deletedAt)
+								.slice(0, limit)
+								.map((item) => String(item.id)))}>Select visible</button
+					><TokenInput
 						label="Bulk tags"
 						placeholder="Tag selected bookmarks…"
 						allowCreate
@@ -684,6 +817,14 @@
 							await bulk('tag');
 						}}
 					/>
+					<TokenInput
+						label="Connect selected to people"
+						placeholder="Connect people…"
+						items={people.map((p) => ({ value: String(p.id), label: String(p.displayName) }))}
+						onAdd={async (value) => {
+							await bulk('person', value);
+						}}
+					/>
 					<SelectField
 						label="Bulk collection"
 						bind:value={bulkCollection}
@@ -691,20 +832,26 @@
 							{ value: '', label: 'No collection' },
 							...collections.map((r) => ({ value: String(r.id), label: String(r.name) }))
 						]}
-					/><button onclick={() => bulk('collection')} disabled={busy}>Move</button><button
+					/><button onclick={() => bulk('collection')} disabled={bulkBusy}>Move</button><button
 						onclick={() => bulk('archive')}
-						disabled={busy}>Archive</button
-					><button onclick={() => bulk('trash')} disabled={busy}>Trash</button>
+						disabled={bulkBusy}>Archive</button
+					><button onclick={() => bulk('trash')} disabled={bulkBusy}>Trash</button>
 				</div>{/if}
-			<div class="bookmark-list" class:person-timeline={!!profileSlug}>
+			<div
+				class="bookmark-list"
+				class:person-timeline={!!profileSlug}
+				class:people-grid={view === 'people'}
+			>
 				{#if profileSlug && !person}<p class="panel-message">This person is unavailable.</p>{:else}
 					{#each results.items.slice(0, limit) as item (String(item.id))}
 						{#if item.entityKind === 'person'}<button
 								class="person-card"
 								onclick={() => navigate({ kind: 'person', id: String(item.id) })}
-								><span class="person-initial">{String(item.displayName).slice(0, 1)}</span><span
+								><PersonAvatar id={String(item.id)} config={item.avatarConfig} size={56} /><span
 									><strong>{item.displayName}</strong><small
-										>{item.bio || item.website || 'Open profile'}</small
+										>{item.bio || item.website || 'A person worth keeping up with.'}</small
+									><span class="person-count"
+										>{profileLinks.get(String(item.id))?.size ?? 0} saved connections</span
 									></span
 								></button
 							>
@@ -715,17 +862,21 @@
 									noteBodies.get(String(item.id)) ?? String(item.description ?? '')
 								)}
 								timeline={!!profileSlug}
-								onDisconnect={profileSlug
+								relation={profileSlug
+									? (profileLinks.get(personId ?? '')?.get(String(item.id)) ?? []).join(' · ')
+									: ''}
+								tagLabels={((item.tagIds as string[]) ?? [])
+									.map((id) => String(tags.find((t) => t.id === id)?.name ?? ''))
+									.filter(Boolean)}
+								onDisconnect={profileSlug && connectedIds.includes(String(item.id))
 									? () => void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
 									: undefined}
 								selected={selected?.id === item.id}
 								checked={selectedIds.includes(String(item.id))}
-								onCheck={profileSlug
-									? undefined
-									: (checked) =>
-											(selectedIds = checked
-												? [...selectedIds, String(item.id)]
-												: selectedIds.filter((id) => id !== item.id))}
+								onCheck={(checked) =>
+									(selectedIds = checked
+										? [...selectedIds, String(item.id)]
+										: selectedIds.filter((id) => id !== item.id))}
 								onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
 								onAction={(action) => void bookmarkAction(item, action)}
 								onOpen={() => void library?.save({ type: 'activity.open', id: String(item.id) })}
@@ -777,7 +928,13 @@
 	}}
 >
 	<Dialog.Portal
-		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content
+		><Dialog.Overlay class="dialog-overlay editor-overlay" /><Dialog.Content
+			trapFocus={!wideEditor}
+			preventScroll={!wideEditor}
+			preventOverflowTextSelection={!wideEditor}
+			onInteractOutside={(event) => {
+				if (wideEditor) event.preventDefault();
+			}}
 			class="dialog-content editor-dialog"
 			onCloseAutoFocus={(event) => {
 				event.preventDefault();
@@ -786,18 +943,20 @@
 					?.focus();
 			}}
 		>
-			<Dialog.Title class="sr-only">Edit bookmark</Dialog.Title>
-			<Dialog.Description class="sr-only"
-				>Edit your bookmark, notes, tags, and connected people. Changes save automatically.</Dialog.Description
-			>
-			{#if library && selected}{#key selected.id}<LibraryInspector
-						{library}
-						entity={selected}
-						{version}
-						navigate={(target) => void navigate(target)}
-						{feedback}
-						close={() => void navigate(null)}
-					/>{/key}{/if}
+			{#snippet child({ props })}<div {...props} aria-modal={wideEditor ? undefined : true}>
+					<Dialog.Title class="sr-only">Edit bookmark</Dialog.Title>
+					<Dialog.Description class="sr-only"
+						>Edit your bookmark, notes, tags, and connected people. Changes save automatically.</Dialog.Description
+					>
+					{#if library && selected}{#key selected.id}<LibraryInspector
+								{library}
+								entity={selected}
+								{version}
+								navigate={(target) => void navigate(target)}
+								{feedback}
+								close={() => void navigate(null)}
+							/>{/key}{/if}
+				</div>{/snippet}
 		</Dialog.Content></Dialog.Portal
 	>
 </Dialog.Root>
@@ -816,7 +975,24 @@
 			>
 			<Dialog.Description class="sr-only">Add a name and optional details.</Dialog.Description>
 			<form class="stack capture-form" onsubmit={submitCreate}>
-				<fieldset disabled={busy}>
+				<fieldset disabled={formBusy}>
+					{#if newType === 'person'}<div class="avatar-picker">
+							<PersonAvatar
+								id={editingPerson ? String(editingPerson.id) : captureId}
+								config={avatarConfig}
+								size={88}
+							/>
+							<div>
+								<strong>A face for the name</strong>
+								<p class="muted">A little personality. One click.</p>
+								<button
+									type="button"
+									class="secondary-button"
+									onclick={() => (avatarConfig = avatarFromSeed(crypto.randomUUID()))}
+									><Shuffle /> Randomize</button
+								>
+							</div>
+						</div>{/if}
 					<label for="capture-title">Name</label><input
 						id="capture-title"
 						bind:value={newTitle}
@@ -838,14 +1014,14 @@
 							placeholder="A little context about this person"></textarea>
 					{/if}
 					{#if formError}<p class="form-error" role="alert">{formError}</p>{/if}
-					<button type="submit" class="primary-button" disabled={busy}
-						>{busy ? 'Saving…' : 'Save'}</button
+					<button type="submit" class="primary-button" disabled={formBusy}
+						>{formBusy ? 'Saving…' : 'Save'}</button
 					>
 				</fieldset>
 			</form>
 			<Dialog.Close
 				class="icon-button dialog-close"
-				disabled={busy}
+				disabled={formBusy}
 				aria-label="Close creation form"><XIcon /></Dialog.Close
 			>
 		</Dialog.Content></Dialog.Portal
@@ -904,11 +1080,11 @@
 					</p>{/each}<button
 					class="primary-button"
 					onclick={runImport}
-					disabled={busy ||
+					disabled={importBusy ||
 						!importPreview.valid ||
 						!!importReport ||
 						!status?.online ||
-						!!status?.pending}>{busy ? 'Importing…' : 'Import copy'}</button
+						!!status?.pending}>{importBusy ? 'Importing…' : 'Import copy'}</button
 				>{/if}
 			<p role="status">{importProgress}</p>
 			{#if importReport}<p>
@@ -922,7 +1098,7 @@
 					</p>{/if}{/if}<Dialog.Close
 				class="icon-button dialog-close"
 				aria-label="Close import"
-				disabled={busy}><XIcon /></Dialog.Close
+				disabled={importBusy}><XIcon /></Dialog.Close
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root

@@ -1,9 +1,15 @@
+import { parseAvatar, type AvatarConfig } from './avatars.js';
 import type { EntityProjection, Revision, Sequence } from './contracts.js';
 import { normalizeUrl } from './urls.js';
 import { keys, object, revision, text, uuid, ValidationError } from './validation-fields.js';
 
 export const MAX_PERSON_IDENTITIES = 50;
-export type PersonFields = { displayName: string; bio: string; website: string | null };
+export type PersonFields = {
+	displayName: string;
+	bio: string;
+	website: string | null;
+	avatarConfig?: AvatarConfig | null;
+};
 export type PersonProjection = EntityProjection & PersonFields & { kind: 'person' };
 export type PersonCommand =
 	| {
@@ -12,6 +18,7 @@ export type PersonCommand =
 			displayName: string;
 			bio?: string;
 			website?: string | null;
+			avatarConfig?: AvatarConfig | null;
 	  }
 	| { type: 'person.update'; id: string; expectedRevision: Revision; patch: Partial<PersonFields> }
 	| ({
@@ -90,18 +97,19 @@ export function parsePersonCommand(value: unknown): PersonCommand | PersonIdenti
 	const id = uuid(c.id);
 	switch (c.type) {
 		case 'person.create':
-			keys(c, ['type', 'id', 'displayName', 'bio', 'website']);
+			keys(c, ['type', 'id', 'displayName', 'bio', 'website', 'avatarConfig']);
 			return {
 				type: c.type,
 				id,
 				displayName: text(c.displayName, 200, true),
 				bio: c.bio === undefined ? '' : text(c.bio, 10000),
-				website: c.website === undefined ? null : personWebsite(c.website)
+				website: c.website === undefined ? null : personWebsite(c.website),
+				...('avatarConfig' in c ? { avatarConfig: parseAvatar(c.avatarConfig) } : {})
 			};
 		case 'person.update': {
 			keys(c, ['type', 'id', 'expectedRevision', 'patch']);
 			const p = object(c.patch);
-			keys(p, ['displayName', 'bio', 'website']);
+			keys(p, ['displayName', 'bio', 'website', 'avatarConfig']);
 			if (!Object.keys(p).length)
 				throw new ValidationError('A person update requires a writable field.');
 			return {
@@ -111,7 +119,8 @@ export function parsePersonCommand(value: unknown): PersonCommand | PersonIdenti
 				patch: {
 					...('displayName' in p ? { displayName: text(p.displayName, 200, true) } : {}),
 					...('bio' in p ? { bio: text(p.bio, 10000) } : {}),
-					...('website' in p ? { website: personWebsite(p.website) } : {})
+					...('website' in p ? { website: personWebsite(p.website) } : {}),
+					...('avatarConfig' in p ? { avatarConfig: parseAvatar(p.avatarConfig) } : {})
 				}
 			};
 		}

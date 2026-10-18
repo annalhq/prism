@@ -36,6 +36,7 @@
 		"@lucide/svelte": "1.59.0",
 		"@neondatabase/auth": "0.6.0-beta",
 		"bits-ui": "2.19.5",
+		"cuelume": "0.2.8",
 		"dexie": "4.4.6",
 		"drizzle-orm": "0.45.4",
 		"hast-util-to-html": "9.0.5",

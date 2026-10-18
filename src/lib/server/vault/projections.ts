@@ -100,7 +100,12 @@ export async function personProjection(
 ): Promise<PersonProjection> {
 	const entity = await entityProjection(tx, vaultId, id);
 	const [person] = await tx
-		.select({ displayName: people.displayName, bio: people.bio, website: people.website })
+		.select({
+			displayName: people.displayName,
+			bio: people.bio,
+			website: people.website,
+			avatarConfig: people.avatarConfig
+		})
 		.from(people)
 		.where(and(eq(people.vaultId, vaultId), eq(people.id, id)));
 	if (!person || entity.kind !== 'person') throw new Error('Person projection invariant failed.');

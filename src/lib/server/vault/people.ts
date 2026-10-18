@@ -33,7 +33,8 @@ export async function changePerson(
 			id: command.id,
 			displayName: command.displayName,
 			bio: command.bio ?? '',
-			website: command.website ?? null
+			website: command.website ?? null,
+			avatarConfig: command.avatarConfig ?? null
 		});
 		return [{ type: 'person.upsert', person: await personProjection(tx, vaultId, command.id) }];
 	}

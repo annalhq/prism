@@ -24,18 +24,19 @@
 		onRemove?: (value: string) => void | Promise<void>;
 	} = $props();
 	let query = $state(''),
-		selection = $state(''),
+		selection = $state<string[]>([]),
 		open = $state(false),
 		error = $state('');
 	let chain = Promise.resolve();
-	let reset = $state(0),
-		input = $state<HTMLInputElement | null>(null);
+	let input = $state<HTMLInputElement | null>(null);
 	function clearInput(focus = true, suffix = '') {
 		query = suffix;
-		selection = '';
-		open = false;
-		reset++;
-		if (focus) void tick().then(() => input?.focus({ preventScroll: true }));
+		selection = [];
+		open = focus;
+		void tick().then(() => {
+			if (input) input.value = suffix;
+			if (focus) input?.focus({ preventScroll: true });
+		});
 	}
 	const matches = $derived(
 		items
@@ -98,73 +99,76 @@
 						}}><XIcon /></button
 					>{/if}</span
 			>{/each}
-		{#key reset}<Combobox.Root
-				type="single"
-				bind:value={selection}
-				bind:open
-				inputValue={query}
-				onValueChange={pick}
+		<Combobox.Root
+			type="multiple"
+			bind:value={selection}
+			bind:open
+			inputValue={query}
+			onValueChange={(values) => {
+				const value = values.at(-1);
+				if (value) pick(value);
+			}}
+		>
+			<Combobox.Input
+				bind:ref={input}
+				aria-label={label}
+				class="token-search"
+				{placeholder}
+				clearOnDeselect
+				oninput={(e) => {
+					const text = e.currentTarget.value;
+					if (allowCreate && text.includes(',')) {
+						const parts = text.split(',');
+						const suffix = parts.pop() ?? '';
+						commit(parts.join(','));
+						clearInput(true, suffix);
+					} else query = text;
+					open = !!query;
+				}}
+				onkeydown={(e) => {
+					if (e.isComposing) return;
+					if (
+						e.key === 'Enter' &&
+						query.trim() &&
+						allowCreate &&
+						!e.currentTarget.getAttribute('aria-activedescendant')
+					) {
+						e.preventDefault();
+						commit(query);
+						clearInput();
+					}
+				}}
+				onblur={(e) => {
+					const next = e.relatedTarget as HTMLElement | null;
+					if (allowCreate && !next?.closest('[role="listbox"]')) {
+						commit(query);
+						clearInput(false);
+					}
+				}}
+			/>
+			<Combobox.Portal
+				><Combobox.Content class="select-content token-suggestions" sideOffset={5}
+					><Combobox.Viewport>
+						{#each matches as item (item.value)}<Combobox.Item
+								value={item.value}
+								label={item.label}
+								class="select-item"
+								><span
+									>{item.label}{#if item.detail}<small>{item.detail}</small>{/if}</span
+								></Combobox.Item
+							>{/each}
+						{#if canCreate}<Combobox.Item
+								value={`new:${query.trim().replace(/^#/, '')}`}
+								label={query.trim()}
+								class="select-item"
+								><span>Create #{query.trim().replace(/^#/, '')}</span></Combobox.Item
+							>{:else if !matches.length}<p class="picker-empty">
+								No matches. Try another title or name.
+							</p>{/if}
+					</Combobox.Viewport></Combobox.Content
+				></Combobox.Portal
 			>
-				<Combobox.Input
-					bind:ref={input}
-					aria-label={label}
-					class="token-search"
-					{placeholder}
-					clearOnDeselect
-					oninput={(e) => {
-						const text = e.currentTarget.value;
-						if (allowCreate && text.includes(',')) {
-							const parts = text.split(',');
-							const suffix = parts.pop() ?? '';
-							commit(parts.join(','));
-							clearInput(true, suffix);
-						} else query = text;
-						open = !!query;
-					}}
-					onkeydown={(e) => {
-						if (e.isComposing) return;
-						if (
-							e.key === 'Enter' &&
-							query.trim() &&
-							allowCreate &&
-							!e.currentTarget.getAttribute('aria-activedescendant')
-						) {
-							e.preventDefault();
-							commit(query);
-							clearInput();
-						}
-					}}
-					onblur={(e) => {
-						const next = e.relatedTarget as HTMLElement | null;
-						if (allowCreate && !next?.closest('[role="listbox"]')) {
-							commit(query);
-							clearInput(false);
-						}
-					}}
-				/>
-				<Combobox.Portal
-					><Combobox.Content class="select-content token-suggestions" sideOffset={5}
-						><Combobox.Viewport>
-							{#each matches as item (item.value)}<Combobox.Item
-									value={item.value}
-									label={item.label}
-									class="select-item"
-									><span
-										>{item.label}{#if item.detail}<small>{item.detail}</small>{/if}</span
-									></Combobox.Item
-								>{/each}
-							{#if canCreate}<Combobox.Item
-									value={`new:${query.trim().replace(/^#/, '')}`}
-									label={query.trim()}
-									class="select-item"
-									><span>Create #{query.trim().replace(/^#/, '')}</span></Combobox.Item
-								>{:else if !matches.length}<p class="picker-empty">
-									No matches. Try another title or name.
-								</p>{/if}
-						</Combobox.Viewport></Combobox.Content
-					></Combobox.Portal
-				>
-			</Combobox.Root>{/key}
+		</Combobox.Root>
 	</div>
 	{#if error}<p class="form-error" role="alert">{error}</p>{/if}
 </div>

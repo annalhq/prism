@@ -7,6 +7,7 @@
 		ArrowUpRight as ArrowUpRightIcon
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
+	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
 	import { enhance, applyAction } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import Brand from './ui/Brand.svelte';
@@ -48,10 +49,13 @@
 		};
 	});
 	const submit: import('$app/forms').SubmitFunction = ({ action }) => {
+		const stopLoading = foregroundSound();
 		pending = action.searchParams.has('/requestReset') ? 'reset' : 'signin';
 		response = null;
 		return async ({ result }) => {
 			pending = '';
+			stopLoading();
+			cue(result.type === 'failure' || result.type === 'error' ? 'error' : 'success');
 			if (result.type === 'failure' || result.type === 'success')
 				response = result.data as typeof response;
 			else if (result.type === 'redirect') await applyAction(result);
@@ -66,16 +70,29 @@
 		<Brand auth /><span class="auth-header-note">Your private library</span>
 	</header>
 	<div class="auth-layout">
+		<section class="auth-story" aria-label="Welcome to Prism">
+			<p class="eyebrow">COLLECT A LITTLE WONDER</p>
+			<h2>A home for<br />your next <em>idea.</em></h2>
+			<p>The links you love. The people behind them.<br />Everything connected, quietly.</p>
+			<div class="auth-art" aria-hidden="true">
+				<div class="art-orbit"></div>
+				<div class="art-card art-card-back"><span></span><span></span></div>
+				<div class="art-card art-card-front">
+					<span class="art-star">✳</span><strong>Worth keeping.</strong><span></span><span
+					></span><small>IDEAS · PEOPLE · POSSIBILITIES</small>
+				</div>
+			</div>
+		</section>
 		<section class="auth-form-panel" aria-labelledby="auth-heading">
 			<div class="auth-card">
 				<span class="auth-form-kicker">{data.signedIn ? 'YOUR ACCOUNT' : 'WELCOME TO PRISM'}</span>
 				<h1 id="auth-heading">
-					{data.signedIn ? 'Your account' : 'Your bookmarks, together.'}
+					{data.signedIn ? 'Your account' : 'Welcome back.'}
 				</h1>
 				<p class="auth-intro">
 					{data.signedIn
 						? 'You’re signed in to your private library.'
-						: 'Save a link. Add context. Find it when you need it.'}
+						: 'Your next good find starts here.'}
 				</p>
 				{#if !data.configured}<p class="notice">
 						Sign-in is not configured yet. Connect the owner account to open this library.

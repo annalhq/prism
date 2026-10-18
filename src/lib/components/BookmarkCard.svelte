@@ -18,6 +18,8 @@
 		item,
 		note = '',
 		timeline = false,
+		relation = '',
+		tagLabels = [],
 		checked = false,
 		selected = false,
 		onCheck,
@@ -30,6 +32,8 @@
 		item: Row;
 		note?: string;
 		timeline?: boolean;
+		relation?: string;
+		tagLabels?: string[];
 		checked?: boolean;
 		selected?: boolean;
 		onCheck?: (checked: boolean) => void;
@@ -146,6 +150,7 @@
 			</div>
 
 			<div class="bookmark-content">
+				{#if timeline && relation}<span class="post-relation">{relation}</span>{/if}
 				{#if source}<a
 						class="bookmark-title"
 						title={String(item.title)}
@@ -162,6 +167,9 @@
 					>{/if}
 			</div>
 			{#if timeline && note}<p class="bookmark-note">{note}</p>{/if}
+			{#if timeline && tagLabels.length}<div class="post-tags">
+					{#each tagLabels as label (label)}<span class="chip">{label}</span>{/each}
+				</div>{/if}
 			<time class="bookmark-date" datetime={String(item.createdAt)}
 				>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
 					month: 'short',
