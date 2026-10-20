@@ -149,13 +149,11 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 			throw new ValidationError('Unknown organization command.');
 	}
 }
-export function isInbox(
-	bookmark: Pick<BookmarkProjection, 'collectionId' | 'deletedAt' | 'archivedAt'>
-): boolean {
-	return bookmark.collectionId === null && !bookmark.deletedAt && !bookmark.archivedAt;
+export function isInbox(bookmark: Pick<BookmarkProjection, 'collectionId' | 'deletedAt'>): boolean {
+	return bookmark.collectionId === null && !bookmark.deletedAt;
 }
 export function isReadLater(
-	bookmark: Pick<BookmarkProjection, 'readingStatus' | 'deletedAt' | 'archivedAt'>
+	bookmark: Pick<BookmarkProjection, 'readingStatus' | 'deletedAt'>
 ): boolean {
-	return !bookmark.deletedAt && !bookmark.archivedAt && bookmark.readingStatus !== 'read';
+	return !bookmark.deletedAt && bookmark.readingStatus !== 'read';
 }

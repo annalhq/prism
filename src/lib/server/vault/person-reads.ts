@@ -136,8 +136,6 @@ export async function readPersonFeed(
 				url: bookmarks.url,
 				domain: bookmarks.domain,
 				readingStatus: bookmarks.readingStatus,
-				isPinned: bookmarks.isPinned,
-				archivedAt: bookmarks.archivedAt,
 				createdAt: bookmarks.createdAt,
 				updatedAt: entities.updatedAt,
 				revision: entities.revision,
@@ -153,7 +151,6 @@ export async function readPersonFeed(
 					eq(bookmarks.vaultId, owner.vaultId),
 					isNull(entities.deletedAt),
 					isNull(entities.purgedAt),
-					isNull(bookmarks.archivedAt),
 					inArray(bookmarks.id, linked),
 					cursor
 						? sql`(${bookmarks.createdAt}, ${bookmarks.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
@@ -192,7 +189,6 @@ export async function readPersonFeed(
 		const candidates = rows.slice(0, 50).map((row) => ({
 			bookmark: {
 				...row,
-				archivedAt: row.archivedAt?.toISOString() ?? null,
 				createdAt: row.createdAt.toISOString(),
 				updatedAt: row.updatedAt.toISOString(),
 				revision: String(row.revision) as Revision,

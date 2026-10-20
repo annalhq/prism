@@ -1,6 +1,5 @@
 <script lang="ts">
 	import {
-		Archive as ArchiveIcon,
 		Bookmark as BookmarkIcon,
 		Circle as CircleIcon,
 		Info as InfoIcon,
@@ -75,7 +74,7 @@
 				<span class="subtle-label">Your starting point</span>
 			</div>
 			<section class="empty-state" aria-labelledby="empty-heading">
-				<div class="empty-icon"><ArchiveIcon /></div>
+				<div class="empty-icon"><BookmarkIcon /></div>
 				<p class="eyebrow">A little space for everything you learn</p>
 				<h2 id="empty-heading">Your library starts here</h2>
 				<p>

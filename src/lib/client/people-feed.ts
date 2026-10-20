@@ -17,7 +17,7 @@ export function createPeopleFeedIndex() {
 		const bookmarks = new Set(
 			library
 				.list<Row>('bookmarks')
-				.filter((row) => !row.deletedAt && !row.purgedAt && !row.archivedAt)
+				.filter((row) => !row.deletedAt && !row.purgedAt)
 				.map((row) => String(row.id))
 		);
 		const add = (person: string, bookmark: string, label: string) => {

@@ -23,8 +23,7 @@ export function emptySearch(): SearchFilter {
 		people: [],
 		personas: [],
 		statuses: [],
-		has: [],
-		pinned: false
+		has: []
 	};
 }
 export function parseLibraryQuery(
@@ -86,11 +85,8 @@ export function parseLibraryQuery(
 				const v = t.slice(3);
 				if (['page', 'social', 'image', 'person'].includes(v))
 					filter.kinds.push(v as SearchFilter['kinds'][number]);
-				else if (v === 'pinned') filter.pinned = true;
-				else if (v === 'archived' || v === 'trash') {
-					if (filter.scope !== 'active' && filter.scope !== v)
-						throw new Error('Choose archive or trash, not both.');
-					filter.scope = v;
+				else if (v === 'trash') {
+					filter.scope = 'trash';
 				} else throw new Error(`Unknown filter “${t}”.`);
 			} else if (t.startsWith('has:')) {
 				const v = t.slice(4);
@@ -134,7 +130,6 @@ export function searchLibrary(
 		sort = String(saved.sort);
 	}
 	if (parsed.error) return { ...parsed, items: [] };
-	if (view === 'archive') filter = { ...filter, scope: 'archived' };
 	if (view === 'trash') filter = { ...filter, scope: 'trash' };
 	const notes = new Map(
 		library.list<Row>('notes').map((row) => [String(row.entityId), String(row.bodyMarkdown)])
@@ -155,8 +150,6 @@ export function searchLibrary(
 	const items = all.filter((row) => {
 		if (row.purgedAt || row.entityKind === 'persona') return false;
 		if (filter.scope === 'trash' ? !row.deletedAt : !!row.deletedAt) return false;
-		if (!row.deletedAt && (filter.scope === 'archived' ? !row.archivedAt : !!row.archivedAt))
-			return false;
 		if (view === 'people' && row.entityKind !== 'person') return false;
 		if (view !== 'people' && row.entityKind !== 'bookmark') return false;
 		if (
@@ -169,7 +162,6 @@ export function searchLibrary(
 		if (view === 'inbox' && (row.entityKind !== 'bookmark' || row.collectionId)) return false;
 		if (view === 'later' && (row.entityKind !== 'bookmark' || row.readingStatus !== 'reading'))
 			return false;
-		if ((view === 'pinned' || filter.pinned) && !row.isPinned) return false;
 		const tagIds = (row.tagIds as string[]) ?? [];
 		if (view.startsWith('tag:') && !tagIds.includes(view.slice(4))) return false;
 		if (view.startsWith('collection:') && row.collectionId !== view.slice(11)) return false;

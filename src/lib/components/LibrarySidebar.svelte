@@ -2,9 +2,7 @@
 	import {
 		Bookmark,
 		Clock3,
-		Pin,
 		Users,
-		Archive,
 		Trash2,
 		Folder,
 		PanelLeftClose,
@@ -37,9 +35,7 @@
 	const views = [
 		{ id: 'all', label: 'All bookmarks', icon: Bookmark },
 		{ id: 'later', label: 'Read later', icon: Clock3 },
-		{ id: 'pinned', label: 'Pinned', icon: Pin },
 		{ id: 'people', label: 'People', icon: Users },
-		{ id: 'archive', label: 'Archive', icon: Archive },
 		{ id: 'trash', label: 'Trash', icon: Trash2 }
 	];
 	onMount(() => {

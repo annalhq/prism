@@ -4,7 +4,6 @@
 		Ellipsis as EllipsisIcon,
 		Pencil as PencilIcon,
 		Clock3 as Clock3Icon,
-		Archive as ArchiveIcon,
 		Trash2 as Trash2Icon,
 		RotateCcw as RotateCcwIcon
 	} from '@lucide/svelte';
@@ -33,7 +32,7 @@
 		tagLabels?: string[];
 		selected?: boolean;
 		onEdit: () => void;
-		onAction: (action: 'later' | 'archive' | 'trash' | 'restore') => void;
+		onAction: (action: 'later' | 'trash' | 'restore' | 'purge') => void;
 		onOpen: () => void;
 		onDisconnect?: () => void;
 		feedback?: (message: string) => void;
@@ -191,9 +190,6 @@
 										? 'Remove from Read later'
 										: 'Read later'}</DropdownMenu.Item
 								>
-								<DropdownMenu.Item class="menu-item" onSelect={() => onAction('archive')}
-									><ArchiveIcon />{item.archivedAt ? 'Unarchive' : 'Archive'}</DropdownMenu.Item
-								>
 								{#if onDisconnect}<DropdownMenu.Item class="menu-item" onSelect={onDisconnect}
 										>Disconnect from person</DropdownMenu.Item
 									>{/if}
@@ -201,6 +197,11 @@
 									><Trash2Icon />Move to trash</DropdownMenu.Item
 								>
 							{/if}
+							{#if item.deletedAt}<DropdownMenu.Item
+									class="menu-item danger-text"
+									onSelect={() => onAction('purge')}
+									><Trash2Icon />Delete permanently</DropdownMenu.Item
+								>{/if}
 						</DropdownMenu.Content></DropdownMenu.Portal
 					></DropdownMenu.Root
 				>
@@ -216,9 +217,6 @@
 							? 'Remove from Read later'
 							: 'Read later'}</ContextMenu.Item
 					>
-					<ContextMenu.Item class="menu-item" onSelect={() => onAction('archive')}
-						><ArchiveIcon />{item.archivedAt ? 'Unarchive' : 'Archive'}</ContextMenu.Item
-					>
 					{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
 							>Disconnect from this person</ContextMenu.Item
 						>{/if}<ContextMenu.Separator class="menu-separator" />
@@ -226,6 +224,10 @@
 						><Trash2Icon />Delete</ContextMenu.Item
 					>
 				{/if}
+				{#if item.deletedAt}<ContextMenu.Item
+						class="menu-item danger-text"
+						onSelect={() => onAction('purge')}><Trash2Icon />Delete permanently</ContextMenu.Item
+					>{/if}
 			</ContextMenu.Content></ContextMenu.Portal
 		></ContextMenu.Root
 	>

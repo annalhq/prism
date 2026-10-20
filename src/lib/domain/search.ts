@@ -9,7 +9,7 @@ export type SearchSort = (typeof SEARCH_SORTS)[number];
 export type SearchReference = { id: string; label: string };
 export type SearchFilter = {
 	version: 1;
-	scope: 'active' | 'archived' | 'trash';
+	scope: 'active' | 'trash';
 	text: { value: string; phrase: boolean }[];
 	tags: SearchReference[];
 	// Omitted = any collection; null = Inbox; an ID = that collection.
@@ -19,7 +19,6 @@ export type SearchFilter = {
 	personas: SearchReference[];
 	statuses: ('unread' | 'reading' | 'read')[];
 	has: ('note' | 'media' | 'backlinks')[];
-	pinned: boolean;
 	site?: string;
 };
 export type SearchTarget = SearchReference & { kind: 'tag' | 'collection' | 'person' | 'persona' };
@@ -81,9 +80,11 @@ export function parseSearchFilter(value: unknown): SearchFilter {
 		throw new ValidationError('Unsupported saved-search AST version.');
 	if (f.scope !== 'active' && f.scope !== 'archived' && f.scope !== 'trash')
 		throw new ValidationError('Unknown search scope.');
+	// Accept legacy saved filters but normalize removed archive/pin facets away.
+	if ('pinned' in f) bool(f.pinned);
 	const filter: SearchFilter = {
 		version: SEARCH_AST_VERSION,
-		scope: f.scope,
+		scope: f.scope === 'trash' ? 'trash' : 'active',
 		text: list(f.text).map((value) => {
 			const term = object(value);
 			keys(term, ['value', 'phrase']);
@@ -112,8 +113,7 @@ export function parseSearchFilter(value: unknown): SearchFilter {
 			(r) => r.id
 		),
 		statuses: enumList(f.statuses, ['unread', 'reading', 'read'] as const),
-		has: enumList(f.has, ['note', 'media', 'backlinks'] as const),
-		pinned: bool(f.pinned)
+		has: enumList(f.has, ['note', 'media', 'backlinks'] as const)
 	};
 	if ('site' in f) {
 		const input = text(f.site, 253, true);
@@ -145,8 +145,7 @@ export function parseSearchFilter(value: unknown): SearchFilter {
 		filter.statuses.length +
 		filter.has.length +
 		Number(filter.collection !== undefined) +
-		Number(filter.site !== undefined) +
-		Number(filter.pinned);
+		Number(filter.site !== undefined);
 	if (
 		terms > 64 ||
 		new TextEncoder().encode(JSON.stringify(filter)).byteLength > MAX_SEARCH_FILTER_BYTES

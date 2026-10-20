@@ -15,7 +15,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { Dialog, DropdownMenu } from 'bits-ui';
+	import { AlertDialog, Dialog, DropdownMenu } from 'bits-ui';
 	import Omnibar from './Omnibar.svelte';
 	import LibrarySidebar from './LibrarySidebar.svelte';
 	import PersonAvatar from './ui/PersonAvatar.svelte';
@@ -76,6 +76,8 @@
 		importProgress = $state(''),
 		importPreview = $state<ReturnType<typeof previewImport> | null>(null);
 	let settings = $state(false),
+		purgeOpen = $state(false),
+		purgeTarget = $state<Row | null>(null),
 		manage = $state<{ table: 'tags'; row: Row } | null>(null),
 		rename = $state('');
 	let omnibar: Omnibar | undefined = $state();
@@ -118,7 +120,7 @@
 	const view = $derived(
 		profileSlug
 			? 'person'
-			: ['all', 'later', 'pinned', 'archive', 'trash', 'people'].includes(requestedView) ||
+			: ['all', 'later', 'trash', 'people'].includes(requestedView) ||
 				  requestedView.startsWith('tag:')
 				? requestedView
 				: 'all'
@@ -156,8 +158,6 @@
 				{
 					all: 'All bookmarks',
 					later: 'Read later',
-					pinned: 'Pinned',
-					archive: 'Archive',
 					trash: 'Trash',
 					people: 'People'
 				} as Record<string, string>
@@ -346,10 +346,15 @@
 			formBusy = false;
 		}
 	}
-	async function bookmarkAction(item: Row, action: 'later' | 'archive' | 'trash' | 'restore') {
+	async function bookmarkAction(item: Row, action: 'later' | 'trash' | 'restore' | 'purge') {
 		if (!library) return;
 		const row = library.get<Row>('bookmarks', String(item.id));
 		if (!row) return;
+		if (action === 'purge') {
+			purgeTarget = row;
+			purgeOpen = true;
+			return;
+		}
 		const command: Command =
 			action === 'trash' || action === 'restore'
 				? {
@@ -361,10 +366,7 @@
 						type: 'bookmark.organize',
 						id: String(row.id),
 						expectedRevision: String(row.revision) as Revision,
-						patch:
-							action === 'later'
-								? { readingStatus: isReadLater(row) ? 'unread' : 'reading' }
-								: { isArchived: !row.archivedAt }
+						patch: { readingStatus: isReadLater(row) ? 'unread' : 'reading' }
 					};
 		try {
 			const result = await library.save(command);
@@ -373,6 +375,28 @@
 		} catch (error) {
 			cue('error');
 			feedback((error as Error).message);
+		}
+	}
+	async function purgeBookmark() {
+		const target = purgeTarget;
+		if (!library || !target) return;
+		const row = library.get<Row>('bookmarks', String(target.id));
+		if (!row) return;
+		try {
+			const result = await library.save({
+				type: 'bookmark.purge',
+				id: String(row.id),
+				expectedRevision: String(row.revision) as Revision
+			});
+			if (result.status === 'rejected')
+				throw new Error(result.message ?? 'Could not delete bookmark.');
+			cue('success');
+			feedback('Deleted permanently.');
+		} catch (error) {
+			cue('error');
+			feedback((error as Error).message);
+		} finally {
+			purgeTarget = null;
 		}
 	}
 	async function connectContent(id: string) {
@@ -712,7 +736,7 @@
 												? 'Connect an existing bookmark above, or save a new one here.'
 												: 'Paste a link above to save your first bookmark.'}
 									</p>
-									{#if !query && view !== 'trash' && view !== 'archive'}<button
+									{#if !query && view !== 'trash'}<button
 											class="primary-button"
 											onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
 											>Add {view === 'people' ? 'person' : 'bookmark'}</button
@@ -939,4 +963,26 @@
 			></Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root
+>
+<AlertDialog.Root
+	bind:open={purgeOpen}
+	onOpenChange={(open) => {
+		purgeOpen = open;
+		if (!open) purgeTarget = null;
+	}}
+>
+	<AlertDialog.Portal
+		><AlertDialog.Overlay class="dialog-overlay" /><AlertDialog.Content class="dialog-content"
+			><AlertDialog.Title class="dialog-title">Delete bookmark permanently?</AlertDialog.Title
+			><AlertDialog.Description class="dialog-description"
+				>This removes the bookmark and its note. It cannot be undone.</AlertDialog.Description
+			>
+			<div class="button-row dialog-actions">
+				<AlertDialog.Cancel class="secondary-button">Keep in trash</AlertDialog.Cancel
+				><AlertDialog.Action class="danger-button" onclick={() => void purgeBookmark()}
+					>Delete permanently</AlertDialog.Action
+				>
+			</div></AlertDialog.Content
+		></AlertDialog.Portal
+	></AlertDialog.Root
 >
