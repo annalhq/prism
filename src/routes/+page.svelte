@@ -6,8 +6,8 @@
 </script>
 
 <svelte:head>
-	<title>Prism - Your knowledge, connected</title>
-	<meta name="description" content="A personal space for saved content, people and connections." />
+	<title>Prism/title>
+	<meta name="description" content="digital silo for bookmarks" />
 </svelte:head>
 
 {#if data.signedIn || offline}<LibraryWorkspace
