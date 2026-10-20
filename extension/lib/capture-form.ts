@@ -122,6 +122,7 @@ export async function renderCaptureForm(
 		const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
 		const selectedPerson = person.value;
 		const input: SaveInput = {
+			protocolVersion: 1,
 			operationId: crypto.randomUUID(),
 			command: {
 				type: 'extension.bookmark.create',

@@ -5,6 +5,7 @@ export type Catalog = {
 	people: { id: string; displayName: string }[];
 };
 export type SaveInput = {
+	protocolVersion: 1;
 	operationId: string;
 	command: {
 		type: 'extension.bookmark.create';
