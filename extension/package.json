@@ -1,6 +1,16 @@
 {
 	"name": "prism-extension",
 	"version": "0.0.0",
+	"devDependencies": {
+		"typescript": "6.0.3",
+		"wxt": "^0.21.4"
+	},
 	"private": true,
+	"scripts": {
+		"dev": "wxt -b firefox --mv3",
+		"build": "wxt build -b firefox --mv3",
+		"zip": "wxt zip -b firefox --mv3",
+		"check": "wxt prepare && tsc --noEmit"
+	},
 	"type": "module"
 }

@@ -23,6 +23,12 @@
 	import type { LibraryClient, LibraryState } from '#lib/client/vault/library.js';
 	type Row = Record<string, unknown>;
 	type Entry = { table: 'tags'; row: Row };
+	type ExtensionConnection = {
+		id: string;
+		name: string;
+		createdAt: string;
+		lastUsedAt: string | null;
+	};
 	let {
 		open = $bindable(false),
 		library,
@@ -54,6 +60,69 @@
 		query = $state('');
 	let resolving = $state<string[]>([]),
 		conflictError = $state('');
+	let extensionConnections = $state<ExtensionConnection[]>([]),
+		extensionBusy = $state(false),
+		extensionError = $state(''),
+		pairingCopied = $state(false),
+		pairingCode = $state(''),
+		pairingExpiresAt = $state(''),
+		pairingLifetime = $state(15);
+	async function loadExtensionConnections() {
+		try {
+			const response = await fetch('/api/v1/account/extensions', { cache: 'no-store' });
+			const result = await response.json();
+			if (!response.ok) throw new Error(result.message ?? 'Could not load extension connections.');
+			extensionConnections = result.connections;
+		} catch (error) {
+			extensionError = (error as Error).message;
+		}
+	}
+	async function generatePairing() {
+		extensionBusy = true;
+		extensionError = '';
+		pairingCopied = false;
+		pairingCode = '';
+		try {
+			const response = await fetch('/api/v1/account/extensions', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ expiresInMinutes: pairingLifetime })
+			});
+			const result = await response.json();
+			if (!response.ok) throw new Error(result.message ?? 'Could not create a pairing code.');
+			pairingCode = result.code;
+			pairingExpiresAt = result.expiresAt;
+		} catch (error) {
+			extensionError = (error as Error).message;
+		} finally {
+			extensionBusy = false;
+		}
+	}
+	async function copyPairingCode() {
+		try {
+			await navigator.clipboard.writeText(pairingCode);
+			pairingCopied = true;
+			setTimeout(() => (pairingCopied = false), 1800);
+		} catch {
+			extensionError = 'Clipboard access was unavailable. Select and copy the code manually.';
+		}
+	}
+	async function revokeExtension(id: string) {
+		extensionBusy = true;
+		extensionError = '';
+		try {
+			const response = await fetch(`/api/v1/account/extensions?id=${encodeURIComponent(id)}`, {
+				method: 'DELETE'
+			});
+			const result = await response.json();
+			if (!response.ok) throw new Error(result.message ?? 'Could not revoke the connection.');
+			extensionConnections = extensionConnections.filter((connection) => connection.id !== id);
+		} catch (error) {
+			extensionError = (error as Error).message;
+		} finally {
+			extensionBusy = false;
+		}
+	}
 	function changeLabel(type: string) {
 		if (type.startsWith('person-identity.')) return 'Profile connection';
 		if (type.startsWith('bookmark.')) return 'Bookmark change';
@@ -83,10 +152,15 @@
 	);
 
 	$effect(() => {
-		if (!open) {
+		if (open) {
+			void loadExtensionConnections();
+		} else {
 			query = '';
 			tab = 'account';
 			conflictError = '';
+			pairingCode = '';
+			pairingCopied = false;
+			extensionError = '';
 		}
 	});
 	function create(type: string) {
@@ -214,6 +288,64 @@
 									{#if conflictError}<p class="form-error" role="alert">{conflictError}</p>{/if}
 								</Collapsible.Content>
 							</Collapsible.Root>{/if}
+						<section class="settings-group">
+							<h3>Firefox extension</h3>
+							<div class="settings-card extension-connections">
+								<p class="muted">
+									Create a one-time code to connect Firefox. The extension can read tag and person
+									names and save bookmarks; revoke access here at any time.
+								</p>
+								<div class="button-row extension-pairing-controls">
+									<label>
+										<span class="sr-only">Pairing code lifetime</span>
+										<select aria-label="Pairing code lifetime" bind:value={pairingLifetime}>
+											<option value={5}>5 minutes</option>
+											<option value={15}>15 minutes</option>
+											<option value={60}>60 minutes</option>
+										</select>
+									</label>
+									<button
+										class="text-button"
+										onclick={generatePairing}
+										disabled={extensionBusy || !status?.online}
+									>
+										{extensionBusy ? 'Working…' : 'Generate pairing code'}
+									</button>
+								</div>
+								{#if pairingCode}
+									<div class="extension-pairing-code">
+										<strong>Enter this code in Firefox</strong>
+										<code>{pairingCode}</code>
+										<button class="text-button" onclick={copyPairingCode}
+											>{pairingCopied ? 'Copied' : 'Copy code'}</button
+										>
+										<small>Expires {new Date(pairingExpiresAt).toLocaleTimeString()}</small>
+										<p class="muted">
+											It works once. Close this panel after pairing to hide the code.
+										</p>
+									</div>
+								{/if}
+								{#if extensionConnections.length}
+									<div class="extension-connection-list" aria-label="Connected extensions">
+										{#each extensionConnections as connection (connection.id)}
+											<div class="extension-connection-row">
+												<span
+													><strong>{connection.name}</strong><small
+														>Connected {new Date(connection.createdAt).toLocaleDateString()}</small
+													></span
+												>
+												<button
+													class="text-button"
+													onclick={() => revokeExtension(connection.id)}
+													disabled={extensionBusy}>Revoke</button
+												>
+											</div>
+										{/each}
+									</div>
+								{:else}<p class="picker-empty">No Firefox extension connections.</p>{/if}
+								{#if extensionError}<p class="form-error" role="alert">{extensionError}</p>{/if}
+							</div>
+						</section>
 						<section class="settings-group">
 							<h3>Personal account</h3>
 							<div class="settings-card">

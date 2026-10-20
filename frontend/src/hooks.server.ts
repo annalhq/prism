@@ -6,11 +6,12 @@ import { ApiError, apiErrorResponse, safeErrorDetails } from '#lib/server/http.j
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.requestId = crypto.randomUUID();
 	const api = event.url.pathname.startsWith('/api/v1/');
+	const extensionApi = event.url.pathname.startsWith('/api/v1/extension/');
 	const authPage = event.url.pathname.startsWith('/auth/');
 	try {
 		if ((api || authPage) && !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method)) {
 			const origin = event.request.headers.get('origin');
-			if (!origin || origin !== APP_ORIGIN || event.url.origin !== origin) {
+			if (!extensionApi && (!origin || origin !== APP_ORIGIN || event.url.origin !== origin)) {
 				throw new ApiError(403, 'origin_denied', 'This write must originate from the application.');
 			}
 			const limit = authPage ? 16_384 : 1_048_576;
@@ -19,7 +20,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				throw new ApiError(413, 'body_too_large', 'Request body exceeds the limit.');
 			}
 		}
-		if (api) await requireOwner(event);
+		if (api && !extensionApi) await requireOwner(event);
 		const response = await resolve(event);
 		if (api || authPage) response.headers.set('Cache-Control', 'no-store');
 		// Native form POSTs need a non-opaque Origin. Suppress referrers only off-origin.

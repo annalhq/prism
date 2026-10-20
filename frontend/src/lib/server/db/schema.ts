@@ -593,9 +593,10 @@ export const deviceTokens = pgTable(
 			.notNull()
 			.references(() => vaults.id),
 		id: uuid('id').notNull(),
+		name: text('name').notNull().default('Device'),
 		tokenHash: text('token_hash').notNull().unique(),
 		scopes: text('scopes').array().notNull(),
-		expiresAt: utc('expires_at').notNull(),
+		expiresAt: utc('expires_at'),
 		lastUsedAt: utc('last_used_at'),
 		revokedAt: utc('revoked_at'),
 		createdAt: utc('created_at').notNull().defaultNow()
@@ -603,6 +604,24 @@ export const deviceTokens = pgTable(
 	(t) => [
 		primaryKey({ columns: [t.vaultId, t.id] }),
 		check('device_token_hash_valid', sql`${t.tokenHash} ~ '^[a-f0-9]{64}$'`)
+	]
+);
+
+export const extensionPairings = pgTable(
+	'extension_pairings',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		vaultId: uuid('vault_id')
+			.notNull()
+			.references(() => vaults.id),
+		codeHash: text('code_hash').notNull().unique(),
+		expiresAt: utc('expires_at').notNull(),
+		redeemedAt: utc('redeemed_at'),
+		createdAt: utc('created_at').notNull().defaultNow()
+	},
+	(t) => [
+		check('extension_pairing_hash_valid', sql`${t.codeHash} ~ '^[a-f0-9]{64}$'`),
+		index('extension_pairing_expiry').on(t.expiresAt)
 	]
 );
 

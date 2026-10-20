@@ -256,7 +256,47 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 				const seq = vault.changeSeq + 1n;
 				const now = new Date();
 				const changes: Change[] = [];
-				if (isPersonaCommand(command)) {
+				if (command.type === 'extension.bookmark.create') {
+					const { tagIds, person, ...bookmark } = command;
+					changes.push(
+						await applyBookmark(
+							mutation,
+							owner.vaultId,
+							{ ...bookmark, type: 'bookmark.create' },
+							seq,
+							now
+						)
+					);
+					for (const tagId of tagIds) {
+						changes.push(
+							...(await applyOrganization(
+								mutation,
+								owner.vaultId,
+								{ type: 'tag.add', id: command.id, tagId },
+								seq,
+								now,
+								true
+							))
+						);
+					}
+					if (person) {
+						changes.push(
+							...(await changeContentPerson(
+								mutation,
+								owner.vaultId,
+								{
+									type: 'content-person.add',
+									bookmarkId: command.id,
+									personId: person.id,
+									role: person.role,
+									provenance: 'manual'
+								},
+								seq,
+								now
+							))
+						);
+					}
+				} else if (isPersonaCommand(command)) {
 					changes.push(...(await applyPersonaCommand(mutation, owner.vaultId, command, seq, now)));
 				} else if (command.type === 'note.replace') {
 					changes.push(...(await replaceNote(mutation, owner.vaultId, command, seq, now)));

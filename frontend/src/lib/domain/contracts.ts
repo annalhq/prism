@@ -33,6 +33,15 @@ export type BookmarkCommand =
 			id: string;
 			expectedRevision: Revision;
 	  };
+export type ExtensionBookmarkCommand = {
+	type: 'extension.bookmark.create';
+	id: string;
+	kind: Exclude<BookmarkKind, 'image'>;
+	title: string;
+	url: string;
+	tagIds: string[];
+	person?: { id: string; role: import('./relationships.js').PersonRole };
+};
 export type NoteCommand = {
 	type: 'note.replace';
 	id: string;
@@ -47,6 +56,7 @@ export type RelatedLinkCommand = {
 } & ({ type: 'related-link.add' } | { type: 'related-link.remove' });
 export type Command =
 	| import('./personas.js').PersonaCommand
+	| ExtensionBookmarkCommand
 	| BookmarkCommand
 	| import('./people.js').PersonCommand
 	| import('./people.js').PersonIdentityCommand

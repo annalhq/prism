@@ -8,11 +8,11 @@ The browser workspace now supports saving content, notes, organization, people a
 
 This repository is a Bun workspace monorepo:
 
-| Path         | Purpose                                        |
-| ------------ | ---------------------------------------------- |
-| `frontend/`  | SvelteKit web app and its database tooling     |
-| `extension/` | Browser extension workspace (placeholder)      |
-| `docs/`      | Project and implementation notes               |
+| Path         | Purpose                                       |
+| ------------ | --------------------------------------------- |
+| `frontend/`  | SvelteKit web app and its database tooling    |
+| `extension/` | Firefox extension for page and X post capture |
+| `docs/`      | Project and implementation notes              |
 
 Install once at the repository root. Workspace dependencies are hoisted to the root `node_modules`; app configuration and environment files live in `frontend/`. Historical notes under `docs/` may still use pre-monorepo paths such as `src/`; those files now live under `frontend/`.
 
@@ -41,6 +41,9 @@ Run these from the repository root; each script delegates to the `frontend/` wor
 | `bun run format`           | Apply formatting                                                                               |
 | `bun run build`            | Production build for `frontend/`                                                               |
 | `bun run build:vercel`     | Production build and root `.vercel/output` assembly used by Vercel                             |
+| `bun run dev:extension`    | Run the Firefox extension in WXT development mode                                              |
+| `bun run build:extension`  | Build the Firefox extension                                                                    |
+| `bun run zip:extension`    | Package the Firefox extension                                                                  |
 | `bun run start`            | Run the existing production build                                                              |
 | `bun run preview`          | Local Vite production preview                                                                  |
 | `bun run bench`            | Record emitted asset sizes in `frontend/artifacts/baseline.json`; build first                  |
@@ -69,7 +72,7 @@ After the server verifies the owner, an initialized browser opens its cached lib
 
 ## Design and progress
 
-[Architecture](ARCHITECTURE.md) describes the intended system. [Implementation plan](plan.md) tracks completed work and deferred verification. Web clipper design/research remains deferred at the user's request; the `extension/` workspace is a placeholder for that work.
+[Architecture](ARCHITECTURE.md) describes the intended system. [Implementation plan](plan.md) tracks completed work and deferred verification. The Firefox extension captures pages and X posts using a short-lived pairing code and a revocable save-only connection.
 
 ## Connect the private vault
 

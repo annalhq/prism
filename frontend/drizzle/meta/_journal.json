@@ -36,6 +36,13 @@
 			"when": 1792356575651,
 			"tag": "0004_giant_vargas",
 			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1792519409508,
+			"tag": "0005_perpetual_bastion",
+			"breakpoints": true
 		}
 	]
 }

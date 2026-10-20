@@ -3,6 +3,7 @@ import { isPersonCommand, parsePersonCommand } from './people.js';
 import { parseContentPersonCommand } from './relationships.js';
 import {
 	MAX_BULK_BOOKMARKS,
+	type ExtensionBookmarkCommand,
 	type BookmarkCommand,
 	type BulkBookmarkCommand,
 	type Command
@@ -17,6 +18,7 @@ import {
 
 export { ValidationError, object, keys, uuid } from './validation-fields.js';
 import { ValidationError, object, keys, uuid, text, revision } from './validation-fields.js';
+import { MAX_ENTITY_TAGS } from './organization.js';
 
 function url(value: unknown): string | null {
 	if (value === null) return null;
@@ -77,6 +79,34 @@ function bookmark(value: unknown): BookmarkCommand {
 }
 export function parseCommand(value: unknown): Command {
 	const c = object(value);
+	if (c.type === 'extension.bookmark.create') {
+		keys(c, ['type', 'id', 'kind', 'title', 'url', 'tagIds', 'person']);
+		if (c.kind !== 'page' && c.kind !== 'social')
+			throw new ValidationError('Extension bookmarks must be pages or social posts.');
+		if (typeof c.url !== 'string') throw new ValidationError('A bookmark URL is required.');
+		if (!Array.isArray(c.tagIds) || c.tagIds.length > MAX_ENTITY_TAGS)
+			throw new ValidationError(`Choose no more than ${MAX_ENTITY_TAGS} tags.`);
+		const tagIds = c.tagIds.map(uuid);
+		if (new Set(tagIds).size !== tagIds.length)
+			throw new ValidationError('Each tag may be selected only once.');
+		let person: ExtensionBookmarkCommand['person'];
+		if (c.person !== undefined && c.person !== null) {
+			const value = object(c.person);
+			keys(value, ['id', 'role']);
+			if (value.role !== 'author' && value.role !== 'about' && value.role !== 'related')
+				throw new ValidationError('Choose author, about, or related for the person link.');
+			person = { id: uuid(value.id), role: value.role };
+		}
+		return {
+			type: c.type,
+			id: uuid(c.id),
+			kind: c.kind,
+			title: text(c.title, 500, true),
+			url: url(c.url)!,
+			tagIds,
+			...(person ? { person } : {})
+		};
+	}
 	if (typeof c.type === 'string' && isPersonaCommand({ type: c.type }))
 		return parsePersonaCommand(c);
 	if (typeof c.type === 'string' && isPersonCommand({ type: c.type })) return parsePersonCommand(c);
