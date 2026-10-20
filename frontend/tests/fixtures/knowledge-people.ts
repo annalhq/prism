@@ -90,8 +90,7 @@ export const knowledgePeopleFixture = {
 		people: [{ id: id(1), label: 'Ada', role: 'author' }],
 		personas: [],
 		statuses: [],
-		has: [],
-		pinned: false
+		has: []
 	}
 } satisfies {
 	version: 1;

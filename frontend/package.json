@@ -1,0 +1,73 @@
+{
+	"name": "prism-frontend",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"packageManager": "bun@1.4.0",
+	"engines": {
+		"node": ">=22.17"
+	},
+	"imports": {
+		"#lib": "./src/lib",
+		"#lib/*": "./src/lib/*"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"start": "node --env-file-if-exists=.env build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write .",
+		"test": "vitest run --project unit",
+		"test:integration": "vitest run --project integration",
+		"test:e2e": "playwright test",
+		"bench": "node scripts/baseline.mjs",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "bun scripts/db/migrate.ts",
+		"maintenance": "node scripts/not-ready.mjs maintenance",
+		"db:inventory": "bun scripts/db/inventory.ts",
+		"db:init-owner": "bun scripts/db/init-owner.ts"
+	},
+	"dependencies": {
+		"@fontsource-variable/geist": "5.3.0",
+		"@internationalized/date": "3.12.4",
+		"@lucide/svelte": "1.59.0",
+		"@neondatabase/auth": "0.6.0-beta",
+		"bits-ui": "2.19.5",
+		"cuelume": "0.2.8",
+		"dexie": "4.4.6",
+		"drizzle-orm": "0.45.4",
+		"hast-util-to-html": "9.0.5",
+		"mdast-util-from-markdown": "2.1.0",
+		"mdast-util-to-hast": "13.2.1",
+		"pg": "8.23.1",
+		"unicode-case-folding": "1.1.2"
+	},
+	"devDependencies": {
+		"@eslint/js": "9.39.5",
+		"@playwright/test": "1.64.1",
+		"@sveltejs/adapter-node": "6.0.0",
+		"@sveltejs/adapter-vercel": "^7.0.1",
+		"@sveltejs/kit": "3.1.0",
+		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@types/mdast": "4.0.4",
+		"@types/node": "26.6.5",
+		"@types/pg": "8.23.1",
+		"drizzle-kit": "0.31.11",
+		"eslint": "9.39.5",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-svelte": "3.23.1",
+		"fake-indexeddb": "6.2.6",
+		"globals": "17.4.0",
+		"prettier": "3.9.10",
+		"prettier-plugin-svelte": "4.1.1",
+		"svelte": "5.57.2",
+		"svelte-check": "4.7.6",
+		"typescript": "6.0.3",
+		"typescript-eslint": "8.71.2",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

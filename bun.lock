@@ -4,6 +4,14 @@
   "workspaces": {
     "": {
       "name": "prism",
+    },
+    "extension": {
+      "name": "prism-extension",
+      "version": "0.0.0",
+    },
+    "frontend": {
+      "name": "prism-frontend",
+      "version": "0.1.0",
       "dependencies": {
         "@fontsource-variable/geist": "5.3.0",
         "@internationalized/date": "3.12.4",
@@ -944,6 +952,10 @@
     "prettier": ["prettier@3.9.10", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-skGHTH1Yb9QvaTC4hWnRTzEYtCpApF0UMBPz+t/0ZPzP8ihefo/btKd+QA7pUE0fEwA1SbS/NmhyEcstdXOIdA=="],
 
     "prettier-plugin-svelte": ["prettier-plugin-svelte@4.1.1", "", { "peerDependencies": { "prettier": "^3.0.0", "svelte": "^5.0.0" } }, "sha512-wXvbXMjSvb4C9ENWTHXyd+ihakKCsJ6rJhLP6/8HFNj4GkZr48jqL9PoKsl2sk7SyCZRTnJ7O2TTowUpOxP/KA=="],
+
+    "prism-extension": ["prism-extension@workspace:extension"],
+
+    "prism-frontend": ["prism-frontend@workspace:frontend"],
 
     "prismjs": ["prismjs@1.30.0", "", {}, "sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw=="],
 

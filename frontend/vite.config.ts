@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [
 		sveltekit({
-			adapter: adapter()
+			adapter: adapter({ runtime: 'nodejs24.x' })
 		})
 	],
 	build: { manifest: true }

@@ -11,9 +11,10 @@ export class ApiError extends Error {
 function safeErrorDetails(error: unknown) {
 	if (!error || typeof error !== 'object') return { errorName: typeof error };
 	const value = error as { name?: unknown; code?: unknown; cause?: unknown };
-	const cause = value.cause && typeof value.cause === 'object'
-		? (value.cause as { name?: unknown; code?: unknown })
-		: undefined;
+	const cause =
+		value.cause && typeof value.cause === 'object'
+			? (value.cause as { name?: unknown; code?: unknown })
+			: undefined;
 	const safeCode = (code: unknown) =>
 		typeof code === 'string' && /^[A-Z0-9_]{3,32}$/.test(code) ? code : undefined;
 	return {

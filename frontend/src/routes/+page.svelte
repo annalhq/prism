@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Prism/title>
+	<title>Prism</title>
 	<meta name="description" content="digital silo for bookmarks" />
 </svelte:head>
 

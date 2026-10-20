@@ -461,11 +461,12 @@ export function createLibraryClient(notify: () => void) {
 						? 'Changes queued'
 						: 'Up to date';
 		} catch (error) {
-			state.error = error instanceof HttpFailure && error.requestId
-				? `${error.message} (Request ID: ${error.requestId})`
-				: error instanceof Error
-					? error.message
-					: String(error);
+			state.error =
+				error instanceof HttpFailure && error.requestId
+					? `${error.message} (Request ID: ${error.requestId})`
+					: error instanceof Error
+						? error.message
+						: String(error);
 			state.status = 'Sync paused';
 			if (database && state.identity && cursor) state.ready = true;
 			if (error instanceof HttpFailure && [401, 403].includes(error.status)) {

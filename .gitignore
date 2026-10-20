@@ -3,6 +3,7 @@ node_modules
 .svelte-kit
 .output
 .vercel
+.wxt
 .netlify
 dist
 build

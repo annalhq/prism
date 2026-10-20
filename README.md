@@ -4,20 +4,34 @@ A private personal knowledge library for saved content, people and connections a
 
 The browser workspace now supports saving content, notes, organization, people and personas as named knowledge contexts. It includes a durable local replica/outbox, basic synchronization and search, metadata import/export and manual profile cleanup. See [Prism v0](docs/v0.md) for what to try and the remaining gaps. B2 media, full backups and broader functional/browser/performance verification remain pending. The public welcome shell requires no credentials; private library features require the configured owner vault.
 
+## Repository layout
+
+This repository is a Bun workspace monorepo:
+
+| Path         | Purpose                                        |
+| ------------ | ---------------------------------------------- |
+| `frontend/`  | SvelteKit web app and its database tooling     |
+| `extension/` | Browser extension workspace (placeholder)      |
+| `docs/`      | Project and implementation notes               |
+
+Install once at the repository root. Workspace dependencies are hoisted to the root `node_modules`; app configuration and environment files live in `frontend/`. Historical notes under `docs/` may still use pre-monorepo paths such as `src/`; those files now live under `frontend/`.
+
 ## Develop
 
-Use Node 22.17+ (or a newer supported LTS) and Bun 1.4.0. Exact dependency versions are pinned in `package.json` and `bun.lock`.
+Use Node 22.17+ (or a newer supported LTS) and Bun 1.4.0. Exact dependency versions are pinned in `frontend/package.json` and the root `bun.lock`.
 
 ```sh
 bun install --frozen-lockfile
 bun run dev
 ```
 
-Open the local URL printed by Vite. Copy `.env.example` to `.env` when configuring services; empty values allow only the public welcome shell. Database/B2 keys must remain server-only, never `PUBLIC_` variables.
+Open the local URL printed by Vite. Copy `frontend/.env.example` to `frontend/.env` when configuring services; empty values allow only the public welcome shell. Database/B2 keys must remain server-only, never `PUBLIC_` variables.
 
-SvelteKit 3 configuration lives in `vite.config.ts`, local imports use `#lib`, and TypeScript extends `$app/tsconfig`. Application state uses Svelte 5 runes. Server-only implementation belongs under `src/lib/server/`; shared domain code must not import it.
+SvelteKit 3 configuration lives in `frontend/vite.config.ts`, local imports use `#lib`, and TypeScript extends `$app/tsconfig`. Application state uses Svelte 5 runes. Server-only implementation belongs under `frontend/src/lib/server/`; shared domain code must not import it.
 
 ## Commands
+
+Run these from the repository root; each script delegates to the `frontend/` workspace.
 
 | Command                    | Purpose                                                                                        |
 | -------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -25,10 +39,11 @@ SvelteKit 3 configuration lives in `vite.config.ts`, local imports use `#lib`, a
 | `bun run check`            | Framework synchronization and strict Svelte/TypeScript checks                                  |
 | `bun run lint`             | Prettier check and ESLint                                                                      |
 | `bun run format`           | Apply formatting                                                                               |
-| `bun run build`            | Production Node-adapter build                                                                  |
+| `bun run build`            | Production build for `frontend/`                                                               |
+| `bun run build:vercel`     | Production build and root `.vercel/output` assembly used by Vercel                             |
 | `bun run start`            | Run the existing production build                                                              |
 | `bun run preview`          | Local Vite production preview                                                                  |
-| `bun run bench`            | Record emitted asset sizes in `artifacts/baseline.json`; build first                           |
+| `bun run bench`            | Record emitted asset sizes in `frontend/artifacts/baseline.json`; build first                  |
 | `bun run test`             | Unit/SSR tests, isolated from integration and browser tests                                    |
 | `bun run test:integration` | Integration suite; currently empty and intentionally fails rather than reporting false success |
 | `bun run test:e2e`         | Production browser smoke tests; deferred until the final quality pass                          |
@@ -44,7 +59,7 @@ Per the current development preference, defer further functional/browser/perform
 
 ## Hosting and services
 
-Deploy `build/` and the runtime dependencies on a maintained Node host behind HTTPS. Build with development dependencies available; use `bun run start` for the resulting server. Set `HOST`, `PORT` and the Node adapter's `ORIGIN` to match the deployment. `APP_ORIGIN` documents the app's intended public origin for future integrations and is not a replacement for `ORIGIN`.
+The frontend deploys to Vercel from the repository root. `vercel.json` installs the Bun workspace, runs `bun run build:vercel`, and exposes the SvelteKit Build Output API at `.vercel/output`, so no Vercel Root Directory override is needed. `APP_ORIGIN` documents the app's intended public origin for future integrations.
 
 Later milestones require outbound access to NeonDB, Neon Auth and the correct B2 regional endpoint; bounded database pool concurrency; and a scheduled runner for the maintenance command. The host must support bounded image verification outside SQL transactions within its memory/request time limits. Database migrations use a separate direct connection and a reviewed deployment step. No infrastructure has been provisioned by the foundation.
 
@@ -54,7 +69,7 @@ After the server verifies the owner, an initialized browser opens its cached lib
 
 ## Design and progress
 
-[Architecture](ARCHITECTURE.md) describes the intended system. [Implementation plan](plan.md) tracks completed work and deferred verification. Web clipper design/research remains deferred at the user's request.
+[Architecture](ARCHITECTURE.md) describes the intended system. [Implementation plan](plan.md) tracks completed work and deferred verification. Web clipper design/research remains deferred at the user's request; the `extension/` workspace is a placeholder for that work.
 
 ## Connect the private vault
 
@@ -64,9 +79,9 @@ The owner-only `POST /api/v1/commands` supports bookmark create/update/trash/res
 
 ## Environment loading
 
-Application server modules use SvelteKit 3's private runtime variables declared in `src/env.ts` and imported from `$app/env/private`. Vite reads local `.env` files through this framework mechanism; do not use direct `process.env` reads in application auth/database code. The standalone Bun database scripts load their environment independently and share only the pure connection-URL validator.
+Application server modules use SvelteKit 3's private runtime variables declared in `frontend/src/env.ts` and imported from `$app/env/private`. Vite reads local `.env` files through this framework mechanism; do not use direct `process.env` reads in application auth/database code. The standalone Bun database scripts load their environment independently and share only the pure connection-URL validator.
 
-`bun run start` uses Node's `--env-file-if-exists=.env` for a local production build. Deployment-provided environment variables retain precedence. Restart the development/production server after changing environment settings. To diagnose only the local sign-in page without submitting credentials, run `node scripts/check-auth-page.mjs http://localhost:5173` (adjust the port if necessary).
+`bun run start` uses Node's `--env-file-if-exists=.env` with `frontend/` as the working directory. Deployment-provided environment variables retain precedence. Restart the development/production server after changing environment settings. To diagnose only the local sign-in page without submitting credentials, run `node frontend/scripts/check-auth-page.mjs http://localhost:5173` (adjust the port if necessary).
 
 ### Set the owner's password
 
