@@ -37,7 +37,8 @@ export type LibraryState = {
 class HttpFailure extends Error {
 	constructor(
 		public status: number,
-		message: string
+		message: string,
+		public requestId?: string
 	) {
 		super(message);
 	}
@@ -66,7 +67,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	if (!response.ok && !(value && typeof value === 'object' && value.status === 'rejected'))
 		throw new HttpFailure(
 			response.status,
-			value?.error?.message ?? value?.message ?? `Request failed (${response.status}).`
+			value?.error?.message ?? value?.message ?? `Request failed (${response.status}).`,
+			typeof value?.requestId === 'string' ? value.requestId : undefined
 		);
 	return value as T;
 }
@@ -459,7 +461,11 @@ export function createLibraryClient(notify: () => void) {
 						? 'Changes queued'
 						: 'Up to date';
 		} catch (error) {
-			state.error = error instanceof Error ? error.message : String(error);
+			state.error = error instanceof HttpFailure && error.requestId
+				? `${error.message} (Request ID: ${error.requestId})`
+				: error instanceof Error
+					? error.message
+					: String(error);
 			state.status = 'Sync paused';
 			if (database && state.identity && cursor) state.ready = true;
 			if (error instanceof HttpFailure && [401, 403].includes(error.status)) {

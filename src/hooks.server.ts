@@ -1,7 +1,7 @@
 import { APP_ORIGIN } from '$app/env/private';
 import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { requireOwner } from '#lib/server/auth.js';
-import { ApiError, apiErrorResponse } from '#lib/server/http.js';
+import { ApiError, apiErrorResponse, safeErrorDetails } from '#lib/server/http.js';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.requestId = crypto.randomUUID();
@@ -30,12 +30,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 	} catch (error) {
 		if (error instanceof ApiError) return apiErrorResponse(error, event.locals.requestId);
 		// Never expose provider messages, SQL or connection strings.
-		console.error('prism.request.failed', { requestId: event.locals.requestId });
+		console.error('prism.request.failed', {
+			requestId: event.locals.requestId,
+			...safeErrorDetails(error)
+		});
 		return apiErrorResponse(error, event.locals.requestId);
 	}
 };
 
-export const handleError: HandleServerError = ({ event }) => {
-	console.error('prism.request.unhandled', { requestId: event.locals.requestId });
+export const handleError: HandleServerError = ({ event, error }) => {
+	console.error('prism.request.unhandled', {
+		requestId: event.locals.requestId,
+		...safeErrorDetails(error)
+	});
 	return { message: 'The request could not be completed.' };
 };
