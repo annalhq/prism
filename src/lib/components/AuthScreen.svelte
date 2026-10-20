@@ -67,13 +67,12 @@
 <a class="skip-link" href="#auth-main">Skip to content</a>
 <main id="auth-main" class="auth-page" tabindex="-1">
 	<header class="auth-header">
-		<Brand auth /><span class="auth-header-note">Your private library</span>
+		<Brand auth />
 	</header>
 	<div class="auth-layout">
 		<section class="auth-story" aria-label="Welcome to Prism">
 			<p class="eyebrow">COLLECT A LITTLE WONDER</p>
 			<h2>A home for<br />your next <em>idea.</em></h2>
-			<p>The links you love. The people behind them.<br />Everything connected, quietly.</p>
 			<div class="auth-art" aria-hidden="true">
 				<div class="art-orbit"></div>
 				<div class="art-card art-card-back"><span></span><span></span></div>
@@ -85,15 +84,9 @@
 		</section>
 		<section class="auth-form-panel" aria-labelledby="auth-heading">
 			<div class="auth-card">
-				<span class="auth-form-kicker">{data.signedIn ? 'YOUR ACCOUNT' : 'WELCOME TO PRISM'}</span>
 				<h1 id="auth-heading">
 					{data.signedIn ? 'Your account' : 'Welcome back.'}
 				</h1>
-				<p class="auth-intro">
-					{data.signedIn
-						? 'You’re signed in to your private library.'
-						: 'Your next good find starts here.'}
-				</p>
 				{#if !data.configured}<p class="notice">
 						Sign-in is not configured yet. Connect the owner account to open this library.
 					</p>
@@ -187,6 +180,6 @@
 		</section>
 	</div>
 	<footer class="auth-footer">
-		<span>Less searching. More finding.</span><span>Prism / Your private library</span>
+		<span>ann's bkmrks</span>
 	</footer>
 </main>

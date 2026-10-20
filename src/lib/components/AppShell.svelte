@@ -26,7 +26,6 @@
 	<header class="app-header">
 		<a class="brand" href={resolve('/')} aria-label="Prism home">
 			<span class="brand-symbol" aria-hidden="true">P</span>
-			<span>Prism<span class="brand-caption">Personal library</span></span>
 		</a>
 		<a class="foundation-badge" href={resolve('/auth/sign-in')}>Account</a>
 		<Dialog.Root>
