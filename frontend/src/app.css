@@ -1698,6 +1698,8 @@ svg.lucide {
 }
 .account-panel {
 	width: min(480px, calc(100vw - 24px));
+	height: min(760px, 88dvh);
+	min-height: 0;
 	padding: 0;
 	display: flex;
 	flex-direction: column;
@@ -1712,15 +1714,34 @@ svg.lucide {
 	margin: 0;
 	color: var(--secondary);
 	font-size: var(--text-sm);
+	overflow-wrap: anywhere;
+}
+.extension-connections {
+	padding: 14px;
+}
+.extension-connections > .muted {
+	max-width: 48ch;
+	line-height: 1.5;
 }
 .extension-pairing-controls {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: flex-start;
+	flex-wrap: wrap;
 	gap: 10px;
 	margin-top: 12px;
 }
+.extension-pairing-controls > label {
+	flex: 0 0 auto;
+}
+.extension-pairing-controls > button {
+	min-width: 0;
+	max-width: 100%;
+	white-space: normal;
+	text-align: left;
+}
 .extension-pairing-controls select {
+	max-width: 100%;
 	min-height: 36px;
 	padding: 0 10px;
 	border: 1px solid var(--line);
@@ -1737,12 +1758,16 @@ svg.lucide {
 	background: var(--field);
 }
 .extension-pairing-code code {
+	display: block;
+	max-width: 100%;
 	padding: 8px;
 	border-radius: 6px;
 	background: var(--canvas);
 	color: var(--ink);
 	font-size: var(--text-sm);
-	line-break: anywhere;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 .extension-pairing-code small,
 .extension-connection-row small {
@@ -1764,7 +1789,9 @@ svg.lucide {
 }
 .extension-connection-row > span {
 	display: grid;
+	min-width: 0;
 	gap: 2px;
+	overflow-wrap: anywhere;
 }
 .account-panel-header {
 	display: flex;

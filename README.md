@@ -56,6 +56,8 @@ Run these from the repository root; each script delegates to the `frontend/` wor
 | `bun run db:init-owner`    | Explicitly initialize the configured owner vault after migration                               |
 | `bun run maintenance`      | CLI placeholder; use library settings for bounded profile cleanup                              |
 
+The Firefox extension migration is a separate reviewed production step. Apply it with `CONFIRM_PRISM_PRODUCTION_MIGRATION=0005 bun run --cwd frontend db:migrate:production:extension` after reviewing the guarded script.
+
 The browser suite builds and starts the actual Node-adapter output with empty service credentials. When browser testing resumes, install its matching browser with `bunx playwright install chromium`. It includes desktop/mobile viewport, landmarks, keyboard skip navigation, dialog focus restoration and absence of external requests. It is configured but has not passed in this environment. Do not run builds concurrently: they share generated output.
 
 Per the current development preference, defer further functional/browser/performance test execution to the final quality pass. Keep basic type, lint and build checks during foundation work. See [baseline evidence](docs/baseline.md) for exactly what has been verified.

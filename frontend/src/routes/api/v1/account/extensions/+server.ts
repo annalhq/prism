@@ -32,6 +32,18 @@ export const GET: RequestHandler = async (event) => {
 		return Response.json({ connections: rows }, { headers: { 'Cache-Control': 'no-store' } });
 	} catch (error) {
 		if (error instanceof ApiError) return apiErrorResponse(error, event.locals.requestId);
+		const databaseCode =
+			error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+		if (databaseCode === '42P01' || databaseCode === '42703') {
+			return apiErrorResponse(
+				new ApiError(
+					503,
+					'extension_schema_unavailable',
+					'Firefox extension storage is not initialized. Apply reviewed database migration 0005.'
+				),
+				event.locals.requestId
+			);
+		}
 		throw error;
 	}
 };
@@ -61,6 +73,18 @@ export const POST: RequestHandler = async (event) => {
 		return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });
 	} catch (error) {
 		if (error instanceof ApiError) return apiErrorResponse(error, event.locals.requestId);
+		const databaseCode =
+			error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+		if (databaseCode === '42P01' || databaseCode === '42703') {
+			return apiErrorResponse(
+				new ApiError(
+					503,
+					'extension_schema_unavailable',
+					'Firefox extension storage is not initialized. Apply reviewed database migration 0005.'
+				),
+				event.locals.requestId
+			);
+		}
 		throw error;
 	}
 };

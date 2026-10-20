@@ -71,29 +71,30 @@ export default defineContentScript({
 				shadow.append(status);
 			}
 		}
-		function bookmarkIcon() {
-			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-			svg.setAttribute('viewBox', '0 0 24 24');
-			svg.setAttribute('aria-hidden', 'true');
-			svg.style.cssText = 'width:18px;height:18px;fill:currentColor';
+		function replaceShareIcon(button: HTMLButtonElement) {
+			const svg = button.querySelector<SVGSVGElement>('svg');
+			if (!svg) return false;
 			const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 			path.setAttribute(
 				'd',
-				'M6 3.75A1.75 1.75 0 0 1 7.75 2h8.5A1.75 1.75 0 0 1 18 3.75V22l-6-4-6 4V3.75Zm2 0V18.2l4-2.67 4 2.67V3.75a.25.25 0 0 0-.25-.25h-7.5a.25.25 0 0 0-.25.25Z'
+				'M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2zm0 14.53-5-2.86-5 2.86V5h10v12.53z'
 			);
-			svg.append(path);
-			return svg;
+			// Keep X's SVG classes and surrounding color/ripple wrappers so its own hover,
+			// pressed, and dark-mode styles continue to control the replacement icon.
+			const group = svg.querySelector('g') ?? svg;
+			group.replaceChildren(path);
+			return true;
 		}
 		function installButtons() {
 			for (const article of document.querySelectorAll<HTMLElement>('article')) {
 				if (!article.querySelector('a[href*="/status/"]')) continue;
 				const share = article.querySelector<HTMLButtonElement>(shareSelector);
 				if (!share || share.dataset.prismBookmark === 'true') continue;
+				if (!replaceShareIcon(share)) continue;
 				share.dataset.prismBookmark = 'true';
 				share.setAttribute('aria-label', 'Save to Prism');
 				share.removeAttribute('aria-haspopup');
 				share.removeAttribute('aria-expanded');
-				share.replaceChildren(bookmarkIcon());
 				share.addEventListener(
 					'click',
 					(event) => {
