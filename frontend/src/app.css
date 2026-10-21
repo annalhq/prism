@@ -2368,6 +2368,109 @@ svg.lucide {
 	color: var(--secondary);
 	flex-shrink: 0;
 }
+.omnibar {
+	--omnibar-radius: 999px;
+	--omnibar-inset: 6px;
+	gap: 10px;
+	min-height: 54px;
+	padding: var(--omnibar-inset) var(--omnibar-inset) var(--omnibar-inset) 18px;
+	border: 1px solid var(--line);
+	border-radius: var(--omnibar-radius);
+	box-shadow: var(--edge);
+	transition: border-color 120ms ease, background-color 120ms ease;
+}
+.omnibar:focus-within {
+	border-color: var(--secondary);
+}
+.omnibar-leading {
+	display: flex;
+	align-items: center;
+	color: var(--secondary);
+}
+.omnibar-leading svg {
+	width: 17px;
+	height: 17px;
+}
+.omnibar input:not([type='checkbox']) {
+	min-width: 0;
+	min-height: 36px;
+	font-size: 14px;
+}
+.omnibar-shortcut {
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	color: var(--secondary);
+	font-size: 12px;
+}
+.omnibar-add,
+.omnibar-return,
+.omnibar-continue,
+.omnibar-clear {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	border-radius: 9px;
+}
+.omnibar-add {
+	width: 38px;
+	height: 38px;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--secondary);
+}
+.omnibar-add:hover {
+	background: var(--selection);
+	color: var(--ink);
+}
+.omnibar-add svg,
+.omnibar-return svg,
+.omnibar-continue svg,
+.omnibar-clear svg {
+	width: 16px;
+	height: 16px;
+}
+.omnibar-actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+.omnibar-return {
+	gap: 6px;
+	min-height: 36px;
+	padding: 0 10px;
+	color: var(--secondary);
+	font-size: 12px;
+}
+.omnibar-return:hover,
+.omnibar-clear:hover,
+.omnibar-continue:hover {
+	background: var(--selection);
+	color: var(--ink);
+}
+.omnibar-clear {
+	width: 34px;
+	height: 34px;
+	color: var(--secondary);
+}
+.omnibar-continue {
+	width: calc(54px - var(--omnibar-inset) - var(--omnibar-inset));
+	height: calc(54px - var(--omnibar-inset) - var(--omnibar-inset));
+	border-radius: var(--radius-control) 50% 50% var(--radius-control);
+	background: var(--elevated);
+	color: var(--ink);
+}
+.omnibar-continue:hover:not(:disabled) {
+	background: var(--selection);
+}
+.omnibar-continue:disabled {
+	background: var(--surface);
+	color: var(--secondary);
+}
 
 .capture-picker {
 	margin-top: 10px;

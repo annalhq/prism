@@ -265,13 +265,15 @@
 
 <section class="omnibar-section" aria-label="Search and save bookmarks">
 	<form class="omnibar" class:search-mode={mode === 'search'} onsubmit={prepare}>
-		{#if mode === 'search'}<Search />{:else}<Plus />{/if}
+		<span class="omnibar-leading" aria-hidden="true">
+			{#if mode === 'search'}<Search />{:else}<Plus />{/if}
+		</span>
 		<input
 			bind:this={input}
 			aria-label={mode === 'search' ? 'Search library' : 'Bookmark URL'}
 			placeholder={mode === 'search'
-				? 'Search titles, notes, #tags, people…'
-				: 'Paste a link worth keeping…'}
+				? 'search here'
+				: 'add new bkmrk'}
 			value={mode === 'search' ? query : draft}
 			oninput={(e) => {
 				if (mode === 'search') query = e.currentTarget.value;
@@ -283,14 +285,31 @@
 		/>
 		{#if mode === 'search' && query}<button
 				type="button"
-				class="icon-button"
+				class="omnibar-clear"
 				aria-label="Clear search"
 				onclick={() => (query = '')}><X /></button
-			>{:else if mode === 'insert' && !url}<button
-				class="icon-button"
-				aria-label="Continue adding bookmark"
-				disabled={!ready || !draft.trim() || busy}><ArrowRight /></button
 			>{/if}
+		{#if mode === 'search'}<button
+				type="button"
+				class="omnibar-add"
+				disabled={!ready}
+				aria-label="Add bookmark"
+				title="Add bookmark"
+				onclick={() => switchMode('insert')}><Plus /></button
+			>{:else}<div class="omnibar-actions">
+				<button
+					type="button"
+					class="omnibar-return"
+					aria-label="Return to search"
+					onclick={() => switchMode('search')}><Search /></button
+				>
+				{#if !url}<button
+						type="submit"
+						class="omnibar-continue"
+						aria-label="Continue adding bookmark"
+						disabled={!ready || !draft.trim() || busy}><ArrowRight /></button
+					>{/if}
+			</div>{/if}
 	</form>
 	{#if mode === 'insert' && url}
 		<form
