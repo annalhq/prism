@@ -3,12 +3,13 @@
 		Copy as CopyIcon,
 		Ellipsis as EllipsisIcon,
 		Pencil as PencilIcon,
+		ChevronDown as ChevronDownIcon,
 		Clock3 as Clock3Icon,
 		Trash2 as Trash2Icon,
 		RotateCcw as RotateCcwIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
-	import { ContextMenu, DropdownMenu } from 'bits-ui';
+	import { Collapsible, ContextMenu, DropdownMenu } from 'bits-ui';
 	import Favicon from './ui/Favicon.svelte';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { isReadLater, type Row } from '#lib/client/workflows.js';
@@ -38,7 +39,8 @@
 		feedback?: (message: string) => void;
 	} = $props();
 	let offset = $state(0),
-		menuOpen = $state(false);
+		menuOpen = $state(false),
+		expanded = $state(false);
 	const source = $derived.by(() => {
 		try {
 			return normalizeUrl(String(item.url)).url;
@@ -115,6 +117,19 @@
 			}
 		};
 	}
+	function toggleFromRow(event: MouseEvent) {
+		if ((event.target as HTMLElement).closest('a, button')) return;
+		expanded = !expanded;
+	}
+	function toggleFromTitle(event: MouseEvent) {
+		if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+			onOpen();
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		expanded = !expanded;
+	}
 </script>
 
 <div
@@ -126,10 +141,15 @@
 	{#if offset}<span class="swipe-hint" class:to-later={offset < 0}
 			>{offset < 0 ? 'Read later' : 'Edit'}</span
 		>{/if}
+	<Collapsible.Root
+		bind:open={expanded}
+		class={`bookmark-disclosure${expanded ? ' expanded' : ''}`}
+	>
 	<ContextMenu.Root bind:open={menuOpen}
 		><ContextMenu.Trigger
 			class={`library-row ${selected ? 'selected' : ''}`}
 			style={`transform:translateX(${offset}px)`}
+			onclick={toggleFromRow}
 		>
 			<div class="row-leading"><Favicon url={source} /></div>
 
@@ -141,7 +161,7 @@
 						href={source}
 						target="_blank"
 						rel="noopener noreferrer"
-						onclick={onOpen}>{item.title}</a
+						onclick={toggleFromTitle}>{item.title}</a
 					>{:else}<button class="bookmark-title" onclick={onEdit}>{item.title}</button>{/if}
 				<span class="bookmark-domain"
 					>{item.domain ?? (source ? new URL(source).hostname : '')}</span
@@ -161,6 +181,14 @@
 				})}</time
 			>
 			<div class="row-actions">
+				<Collapsible.Trigger
+					class="icon-button bookmark-expand"
+					aria-label={`${expanded ? 'Hide' : 'Show'} note for ${item.title}`}
+					title={expanded ? 'Hide note' : 'Show note'}
+					onclick={(event) => event.stopPropagation()}><ChevronDownIcon
+						class={expanded ? 'turned' : ''}
+					/></Collapsible.Trigger
+				>
 				<button class="icon-button bookmark-edit" onclick={onEdit} aria-label={`Edit ${item.title}`}
 					><PencilIcon /></button
 				>
@@ -229,6 +257,10 @@
 						onSelect={() => onAction('purge')}><Trash2Icon />Delete permanently</ContextMenu.Item
 					>{/if}
 			</ContextMenu.Content></ContextMenu.Portal
-		></ContextMenu.Root
-	>
+		></ContextMenu.Root>
+	<Collapsible.Content class="bookmark-expansion">
+		<strong>Note</strong>
+		{#if note}<p>{note}</p>{:else}<p class="muted">No note saved.</p>{/if}
+	</Collapsible.Content>
+	</Collapsible.Root>
 </div>

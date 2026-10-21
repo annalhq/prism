@@ -700,7 +700,7 @@
 									{item}
 									{feedback}
 									note={notePreview(
-										noteBodies.get(String(item.id)) ?? String(item.description ?? '')
+										noteBodies.get(String(item.id)) ?? ''
 									)}
 									timeline={!!profileSlug}
 									relation={profileSlug
