@@ -10,6 +10,7 @@
 		"dev": "wxt -b firefox --mv3",
 		"build": "wxt build -b firefox --mv3",
 		"zip": "wxt zip -b firefox --mv3",
+		"sign": "wxt build -b firefox --mv3 && bunx web-ext sign --source-dir .output/firefox-mv3 --artifacts-dir .output/signed --channel unlisted",
 		"check": "wxt prepare && tsc --noEmit"
 	},
 	"type": "module"

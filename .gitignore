@@ -13,6 +13,7 @@ extension/dist
 plan.md
 ARCHITECTURE.md
 AGENT.md
+todo.md
 
 .env
 .env.*

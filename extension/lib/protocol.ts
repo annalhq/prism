@@ -23,6 +23,12 @@ export type ExtensionMessage =
 	| { type: 'pair'; code: string }
 	| { type: 'catalog' }
 	| { type: 'save'; input: SaveInput }
+	| {
+			type: 'save-result';
+			operationId: string;
+			status?: 'accepted' | 'already_exists';
+			error?: string;
+	  }
 	| { type: 'disconnect' };
 
 export function getPairingOrigin(code: string): string {

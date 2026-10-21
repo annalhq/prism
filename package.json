@@ -17,6 +17,7 @@
 		"build": "bun run --cwd frontend build",
 		"build:extension": "bun run --cwd extension build",
 		"zip:extension": "bun run --cwd extension zip",
+		"sign:extension": "bun run --cwd extension sign",
 		"build:vercel": "rm -rf .vercel/output && bun run --cwd frontend build && mkdir -p .vercel && cp -R frontend/.vercel/output .vercel/output",
 		"start": "bun run --cwd frontend start",
 		"preview": "bun run --cwd frontend preview",

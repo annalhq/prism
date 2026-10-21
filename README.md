@@ -43,7 +43,8 @@ Run these from the repository root; each script delegates to the `frontend/` wor
 | `bun run build:vercel`     | Production build and root `.vercel/output` assembly used by Vercel                             |
 | `bun run dev:extension`    | Run the Firefox extension in WXT development mode                                              |
 | `bun run build:extension`  | Build the Firefox extension                                                                    |
-| `bun run zip:extension`    | Package the Firefox extension                                                                  |
+| `bun run zip:extension`    | Package the Firefox extension as an installable `.xpi`                                         |
+| `bun run sign:extension`   | Sign the extension through AMO for permanent installation (needs API credentials)              |
 | `bun run start`            | Run the existing production build                                                              |
 | `bun run preview`          | Local Vite production preview                                                                  |
 | `bun run bench`            | Record emitted asset sizes in `frontend/artifacts/baseline.json`; build first                  |

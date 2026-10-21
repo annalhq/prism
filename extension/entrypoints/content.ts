@@ -11,6 +11,7 @@ export default defineContentScript({
 		let activeButton: HTMLButtonElement | undefined;
 
 		function closePanel() {
+			activeHost?.shadowRoot?.dispatchEvent(new CustomEvent('prism-dispose'));
 			activeHost?.remove();
 			activeHost = undefined;
 			activeButton = undefined;
@@ -30,9 +31,10 @@ export default defineContentScript({
 			if (!activeHost || !activeButton) return;
 			const rect = activeButton.getBoundingClientRect();
 			const width = Math.min(340, window.innerWidth - 20);
+			const height = activeHost.getBoundingClientRect().height;
 			activeHost.style.width = `${width}px`;
 			activeHost.style.left = `${Math.max(10, Math.min(rect.right - width, window.innerWidth - width - 10))}px`;
-			activeHost.style.top = `${Math.max(10, Math.min(rect.bottom + 8, window.innerHeight - 440))}px`;
+			activeHost.style.top = `${Math.max(10, Math.min(rect.bottom + 8, window.innerHeight - height - 10))}px`;
 		}
 		async function openPanel(button: HTMLButtonElement, article: HTMLElement) {
 			closePanel();
@@ -40,11 +42,9 @@ export default defineContentScript({
 			if (!statusLink) return;
 			const targetUrl = new URL(statusLink.href, location.href);
 			if (!/\/status\/\d+/.test(targetUrl.pathname)) return;
-			const text = article
-				.querySelector<HTMLElement>('[data-testid="tweetText"]')
-				?.innerText?.trim();
 			const capture: Capture = {
-				title: (text || document.title).slice(0, 500),
+				// Social post text is useful as context, but should not become the bookmark title.
+				title: '',
 				url: `${targetUrl.origin}${targetUrl.pathname}`,
 				kind: 'social'
 			};
@@ -63,7 +63,8 @@ export default defineContentScript({
 			window.addEventListener('scroll', placePanel, true);
 			window.addEventListener('resize', placePanel);
 			try {
-				await renderCaptureForm(shadow, capture);
+				await renderCaptureForm(shadow, capture, closePanel, true);
+				placePanel();
 			} catch (error) {
 				const status = document.createElement('p');
 				status.textContent = (error as Error).message;

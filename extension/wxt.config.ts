@@ -1,10 +1,14 @@
 import { defineConfig } from 'wxt';
 
 export default defineConfig({
+	zip: {
+		// Firefox installs add-on packages with the .xpi extension.
+		artifactTemplate: '{{name}}-{{packageVersion}}-{{browser}}.xpi'
+	},
 	manifest: {
 		name: 'Prism',
 		description: 'Save pages and X posts to your Prism library.',
-		permissions: ['storage', 'activeTab'],
+		permissions: ['storage', 'activeTab', 'alarms'],
 		host_permissions: ['https://x.com/*', 'https://twitter.com/*'],
 		optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
 		web_accessible_resources: [

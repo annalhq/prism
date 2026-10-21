@@ -40,7 +40,8 @@ async function initialize() {
 			parsed.hostname.endsWith('.twitter.com')) &&
 		/\/status\/\d+/.test(parsed.pathname);
 	const capture: Capture = {
-		title: tab.title || parsed.hostname,
+		// X/Twitter tab titles often contain the post text; leave social titles for the user.
+		title: isX ? '' : tab.title || parsed.hostname,
 		url,
 		kind: isX ? 'social' : 'page'
 	};
