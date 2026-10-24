@@ -83,10 +83,13 @@ export function libraryKeyboard(actions: {
 				event.preventDefault();
 				actions.help();
 				break;
-			case 'o':
+			case 'o': {
 				event.preventDefault();
-				items[current]?.click();
+				const open = row?.querySelector<HTMLButtonElement>('.bookmark-open');
+				if (open) open.click();
+				else items[current]?.click();
 				break;
+			}
 			case 'e':
 			case ' ':
 				if (row && (event.key === 'e' || target.matches('.bookmark-title'))) {

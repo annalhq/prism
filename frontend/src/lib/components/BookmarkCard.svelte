@@ -1,15 +1,12 @@
 <script lang="ts">
 	import {
-		Copy as CopyIcon,
-		Ellipsis as EllipsisIcon,
 		Pencil as PencilIcon,
-		ChevronDown as ChevronDownIcon,
 		Clock3 as Clock3Icon,
 		Trash2 as Trash2Icon,
 		RotateCcw as RotateCcwIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
-	import { Collapsible, ContextMenu, DropdownMenu } from 'bits-ui';
+	import { Collapsible, ContextMenu } from 'bits-ui';
 	import Favicon from './ui/Favicon.svelte';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { isReadLater, type Row } from '#lib/client/workflows.js';
@@ -41,6 +38,10 @@
 	let offset = $state(0),
 		menuOpen = $state(false),
 		expanded = $state(false);
+	const hasNote = $derived(note.trim().length > 0);
+	$effect(() => {
+		if (!hasNote) expanded = false;
+	});
 	const source = $derived.by(() => {
 		try {
 			return normalizeUrl(String(item.url)).url;
@@ -48,6 +49,14 @@
 			return null;
 		}
 	});
+	function openSource() {
+		if (!source) {
+			onEdit();
+			return;
+		}
+		onOpen();
+		window.open(source, '_blank', 'noopener,noreferrer');
+	}
 	async function copy() {
 		if (!source) return;
 		try {
@@ -118,15 +127,30 @@
 		};
 	}
 	function toggleFromRow(event: MouseEvent) {
-		if ((event.target as HTMLElement).closest('a, button')) return;
+		if (!hasNote || (event.target as HTMLElement).closest('a, button')) return;
 		expanded = !expanded;
 	}
 	function toggleFromTitle(event: MouseEvent) {
-		if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+		if (
+			!hasNote ||
+			event.metaKey ||
+			event.ctrlKey ||
+			event.shiftKey ||
+			event.altKey ||
+			event.button !== 0
+		) {
 			onOpen();
 			return;
 		}
 		event.preventDefault();
+		event.stopPropagation();
+		expanded = !expanded;
+	}
+	function toggleFromButton(event: MouseEvent) {
+		if (!hasNote) {
+			onEdit();
+			return;
+		}
 		event.stopPropagation();
 		expanded = !expanded;
 	}
@@ -143,124 +167,94 @@
 		>{/if}
 	<Collapsible.Root
 		bind:open={expanded}
-		class={`bookmark-disclosure${expanded ? ' expanded' : ''}`}
+		class={`bookmark-disclosure${expanded ? ' expanded' : ''}${hasNote ? ' expandable' : ''}`}
 	>
-	<ContextMenu.Root bind:open={menuOpen}
-		><ContextMenu.Trigger
-			class={`library-row ${selected ? 'selected' : ''}`}
-			style={`transform:translateX(${offset}px)`}
-			onclick={toggleFromRow}
-		>
-			<div class="row-leading"><Favicon url={source} /></div>
-
-			<div class="bookmark-content">
-				{#if timeline && relation}<span class="post-relation">{relation}</span>{/if}
-				{#if source}<a
-						class="bookmark-title"
-						title={String(item.title)}
-						href={source}
-						target="_blank"
-						rel="noopener noreferrer"
-						onclick={toggleFromTitle}>{item.title}</a
-					>{:else}<button class="bookmark-title" onclick={onEdit}>{item.title}</button>{/if}
-				<span class="bookmark-domain"
-					>{item.domain ?? (source ? new URL(source).hostname : '')}</span
-				>
-				{#if isReadLater(item)}<span class="later-badge" title="Read later"
-						><Clock3Icon /><span class="sr-only">Read later</span></span
-					>{/if}
-			</div>
-			{#if timeline && note}<p class="bookmark-note">{note}</p>{/if}
-			{#if timeline && tagLabels.length}<div class="post-tags">
-					{#each tagLabels as label (label)}<span class="chip">{label}</span>{/each}
-				</div>{/if}
-			<time class="bookmark-date" datetime={String(item.createdAt)}
-				>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
-					month: 'short',
-					day: 'numeric'
-				})}</time
+		<ContextMenu.Root bind:open={menuOpen}
+			><ContextMenu.Trigger
+				class={`library-row ${selected ? 'selected' : ''}`}
+				style={`transform:translateX(${offset}px)`}
+				onclick={toggleFromRow}
 			>
-			<div class="row-actions">
-				<Collapsible.Trigger
-					class="icon-button bookmark-expand"
-					aria-label={`${expanded ? 'Hide' : 'Show'} note for ${item.title}`}
-					title={expanded ? 'Hide note' : 'Show note'}
-					onclick={(event) => event.stopPropagation()}><ChevronDownIcon
-						class={expanded ? 'turned' : ''}
-					/></Collapsible.Trigger
+				<div class="row-leading"><Favicon url={source} /></div>
+
+				<div class="bookmark-content">
+					{#if timeline && relation}<span class="post-relation">{relation}</span>{/if}
+					{#if source}<a
+							class="bookmark-title"
+							title={String(item.title)}
+							href={source}
+							target="_blank"
+							rel="noopener noreferrer"
+							onclick={toggleFromTitle}>{item.title}</a
+						>{:else}<button class="bookmark-title" onclick={toggleFromButton}>{item.title}</button
+						>{/if}
+					<span class="bookmark-domain"
+						>{item.domain ?? (source ? new URL(source).hostname : '')}</span
+					>
+					{#if isReadLater(item)}<span class="later-badge" title="Read later"
+							><Clock3Icon /><span class="sr-only">Read later</span></span
+						>{/if}
+				</div>
+				{#if timeline && note}<p class="bookmark-note">{note}</p>{/if}
+				{#if timeline && tagLabels.length}<div class="post-tags">
+						{#each tagLabels as label (label)}<span class="chip">{label}</span>{/each}
+					</div>{/if}
+				<time class="bookmark-date" datetime={String(item.createdAt)}
+					>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
+						month: 'short',
+						day: 'numeric'
+					})}</time
 				>
-				<button class="icon-button bookmark-edit" onclick={onEdit} aria-label={`Edit ${item.title}`}
-					><PencilIcon /></button
-				>
+				<button
+					hidden
+					class="bookmark-open"
+					tabindex="-1"
+					aria-label={`Open ${item.title}`}
+					onclick={openSource}
+				></button>
+				<button
+					hidden
+					class="bookmark-edit"
+					tabindex="-1"
+					aria-label={`Edit ${item.title}`}
+					onclick={onEdit}
+				></button>
 				{#if source}<button
-						class="icon-button bookmark-copy"
+						hidden
+						class="bookmark-copy"
+						tabindex="-1"
 						aria-label={`Copy link for ${item.title}`}
-						onclick={copy}><CopyIcon /></button
-					>{/if}
-				<DropdownMenu.Root
-					><DropdownMenu.Trigger
-						class="icon-button bookmark-menu"
-						aria-label={`Actions for ${item.title}`}><EllipsisIcon /></DropdownMenu.Trigger
-					><DropdownMenu.Portal
-						><DropdownMenu.Content class="menu-content" align="end" sideOffset={4}>
-							<DropdownMenu.Item class="menu-item" onSelect={onEdit}
-								><PencilIcon />Edit</DropdownMenu.Item
-							>
-							{#if source}<DropdownMenu.Item class="menu-item" onSelect={copy}
-									><CopyIcon />Copy link</DropdownMenu.Item
-								>{/if}
-							{#if item.deletedAt}<DropdownMenu.Item
-									class="menu-item"
-									onSelect={() => onAction('restore')}>Restore</DropdownMenu.Item
-								>{:else}
-								<DropdownMenu.Item class="menu-item" onSelect={() => onAction('later')}
-									><Clock3Icon />{isReadLater(item)
-										? 'Remove from Read later'
-										: 'Read later'}</DropdownMenu.Item
-								>
-								{#if onDisconnect}<DropdownMenu.Item class="menu-item" onSelect={onDisconnect}
-										>Disconnect from person</DropdownMenu.Item
-									>{/if}
-								<DropdownMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
-									><Trash2Icon />Move to trash</DropdownMenu.Item
-								>
-							{/if}
-							{#if item.deletedAt}<DropdownMenu.Item
-									class="menu-item danger-text"
-									onSelect={() => onAction('purge')}
-									><Trash2Icon />Delete permanently</DropdownMenu.Item
-								>{/if}
-						</DropdownMenu.Content></DropdownMenu.Portal
-					></DropdownMenu.Root
-				>
-			</div>
-		</ContextMenu.Trigger><ContextMenu.Portal
-			><ContextMenu.Content class="menu-content">
-				<ContextMenu.Item class="menu-item" onSelect={onEdit}><PencilIcon />Edit</ContextMenu.Item>
-				{#if item.deletedAt}<ContextMenu.Item class="menu-item" onSelect={() => onAction('restore')}
-						><RotateCcwIcon />Restore</ContextMenu.Item
-					>{:else}
-					<ContextMenu.Item class="menu-item" onSelect={() => onAction('later')}
-						><Clock3Icon />{isReadLater(item)
-							? 'Remove from Read later'
-							: 'Read later'}</ContextMenu.Item
+						onclick={copy}
+					></button>{/if}
+			</ContextMenu.Trigger><ContextMenu.Portal
+				><ContextMenu.Content class="menu-content">
+					<ContextMenu.Item class="menu-item" onSelect={onEdit}><PencilIcon />Edit</ContextMenu.Item
 					>
-					{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
-							>Disconnect from this person</ContextMenu.Item
-						>{/if}<ContextMenu.Separator class="menu-separator" />
-					<ContextMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
-						><Trash2Icon />Delete</ContextMenu.Item
-					>
-				{/if}
-				{#if item.deletedAt}<ContextMenu.Item
-						class="menu-item danger-text"
-						onSelect={() => onAction('purge')}><Trash2Icon />Delete permanently</ContextMenu.Item
-					>{/if}
-			</ContextMenu.Content></ContextMenu.Portal
-		></ContextMenu.Root>
-	<Collapsible.Content class="bookmark-expansion">
-		<strong>Note</strong>
-		{#if note}<p>{note}</p>{:else}<p class="muted">No note saved.</p>{/if}
-	</Collapsible.Content>
+					{#if item.deletedAt}<ContextMenu.Item
+							class="menu-item"
+							onSelect={() => onAction('restore')}><RotateCcwIcon />Restore</ContextMenu.Item
+						>{:else}
+						<ContextMenu.Item class="menu-item" onSelect={() => onAction('later')}
+							><Clock3Icon />{isReadLater(item)
+								? 'Remove from Read later'
+								: 'Read later'}</ContextMenu.Item
+						>
+						{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
+								>Disconnect from this person</ContextMenu.Item
+							>{/if}<ContextMenu.Separator class="menu-separator" />
+						<ContextMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
+							><Trash2Icon />Delete</ContextMenu.Item
+						>
+					{/if}
+					{#if item.deletedAt}<ContextMenu.Item
+							class="menu-item danger-text"
+							onSelect={() => onAction('purge')}><Trash2Icon />Delete permanently</ContextMenu.Item
+						>{/if}
+				</ContextMenu.Content></ContextMenu.Portal
+			></ContextMenu.Root
+		>
+		<Collapsible.Content class="bookmark-expansion">
+			{#if hasNote}<p>{note}</p>{/if}
+		</Collapsible.Content>
 	</Collapsible.Root>
 </div>

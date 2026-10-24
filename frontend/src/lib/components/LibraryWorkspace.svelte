@@ -699,9 +699,7 @@
 							{:else}<BookmarkCard
 									{item}
 									{feedback}
-									note={notePreview(
-										noteBodies.get(String(item.id)) ?? ''
-									)}
+									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
 									timeline={!!profileSlug}
 									relation={profileSlug
 										? (profileLinks.get(personId ?? '')?.get(String(item.id)) ?? []).join(' · ')
