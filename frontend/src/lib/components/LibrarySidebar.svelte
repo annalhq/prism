@@ -73,7 +73,7 @@
 
 {#snippet navigation(mobile: boolean)}
 	<div class="sidebar-brand">
-		<Brand compact /><span class="sidebar-label">Prism <small>Personal library</small></span>
+		<Brand compact /><span class="sidebar-label">prism</span>
 		<button
 			class="icon-button sidebar-toggle"
 			aria-label={mobile ? 'Close navigation' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
