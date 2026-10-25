@@ -35,7 +35,12 @@
 	let selected = $state<Choice[]>([]),
 		completed = $state<string[]>([]),
 		captureId = $state(''),
-		created = $state(false);
+		created = $state(false),
+		titleLoading = $state(false),
+		titleEdited = $state(false),
+		autoTitle = $state('');
+	let titleController: AbortController | null = null,
+		titleRequestedFor = '';
 	let input = $state<HTMLInputElement>(),
 		titleInput = $state<HTMLInputElement>();
 	let restoredScope = $state('');
@@ -62,14 +67,73 @@
 	const key = (choice: Choice) => `${choice.kind}:${choice.id || choice.name}`;
 	function discardDraft() {
 		if (busy || created) return;
+		cancelTitleFetch();
 		draft = '';
 		title = '';
+		autoTitle = '';
+		titleEdited = false;
 		url = '';
 		organizer = '';
 		selected = [];
 		completed = [];
 		captureId = '';
 		error = '';
+	}
+	function cancelTitleFetch() {
+		titleController?.abort();
+		titleController = null;
+		titleRequestedFor = '';
+		titleLoading = false;
+	}
+	async function loadTitle(target: string) {
+		if (!target || created || titleEdited || titleRequestedFor === target) return;
+		titleRequestedFor = target;
+		titleController?.abort();
+		const controller = new AbortController();
+		titleController = controller;
+		titleLoading = true;
+		try {
+			const response = await fetch(`/api/v1/metadata?url=${encodeURIComponent(target)}`, {
+				signal: controller.signal,
+				headers: { accept: 'application/json' }
+			});
+			if (!response.ok) throw new Error('Title lookup failed.');
+			const payload: unknown = await response.json();
+			const value =
+				payload &&
+				typeof payload === 'object' &&
+				typeof (payload as { title?: unknown }).title === 'string'
+					? (payload as { title: string }).title.trim()
+					: '';
+			if (
+				controller.signal.aborted ||
+				titleRequestedFor !== target ||
+				titleEdited ||
+				busy ||
+				created
+			)
+				return;
+			if (value) {
+				title = value;
+				autoTitle = value;
+			}
+		} catch {
+			if (!controller.signal.aborted && titleRequestedFor === target) titleRequestedFor = '';
+		} finally {
+			if (titleController === controller) {
+				titleController = null;
+				titleLoading = false;
+			}
+		}
+	}
+	function editLink() {
+		cancelTitleFetch();
+		if (title.trim() && title === autoTitle) {
+			title = '';
+			autoTitle = '';
+			titleEdited = false;
+		}
+		url = '';
 	}
 	function toggle(choice: Choice) {
 		const id = key(choice);
@@ -104,6 +168,8 @@
 					: [];
 				captureId = typeof value.captureId === 'string' ? value.captureId : '';
 				created = value.created === true;
+				titleEdited = title.trim().length > 0;
+				autoTitle = '';
 			}
 		} catch {
 			/* Keep the in-memory draft. */
@@ -169,8 +235,10 @@
 	async function switchMode(next: 'insert' | 'search') {
 		mode = next;
 		await tick();
-		if (next === 'insert' && url) titleInput?.focus();
-		else input?.focus();
+		if (next === 'insert' && url) {
+			titleInput?.focus();
+			void loadTitle(url);
+		} else input?.focus();
 	}
 	function prepare(event: SubmitEvent) {
 		event.preventDefault();
@@ -182,6 +250,17 @@
 			captureId = crypto.randomUUID();
 			created = false;
 			completed = [];
+			const previousAutoTitle = title.trim().length > 0 && title === autoTitle;
+			if (previousAutoTitle) {
+				title = '';
+				autoTitle = '';
+				titleEdited = false;
+			} else {
+				titleEdited = title.trim().length > 0;
+				autoTitle = '';
+			}
+			cancelTitleFetch();
+			void loadTitle(url);
 			if (personId && !selected.some((c) => c.kind === 'person' && c.id === personId))
 				selected = [
 					...selected,
@@ -245,8 +324,11 @@
 
 			feedback('Saved on this device.');
 			cue('success');
+			cancelTitleFetch();
 			draft = '';
 			title = '';
+			autoTitle = '';
+			titleEdited = false;
 			url = '';
 			organizer = '';
 			selected = [];
@@ -271,9 +353,7 @@
 		<input
 			bind:this={input}
 			aria-label={mode === 'search' ? 'Search library' : 'Bookmark URL'}
-			placeholder={mode === 'search'
-				? 'search here'
-				: 'add new bkmrk'}
+			placeholder={mode === 'search' ? 'search here' : 'add new bkmrk'}
 			value={mode === 'search' ? query : draft}
 			oninput={(e) => {
 				if (mode === 'search') query = e.currentTarget.value;
@@ -328,17 +408,28 @@
 			</div>
 			<fieldset disabled={busy} class="stack">
 				{#if !created}<div class="capture-link-actions">
-						<button type="button" class="text-button" onclick={() => (url = '')}>Edit link</button
-						><button type="button" class="text-button" onclick={discardDraft}>Discard draft</button>
+						<button type="button" class="text-button" onclick={editLink}>Edit link</button><button
+							type="button"
+							class="text-button"
+							onclick={discardDraft}>Discard draft</button
+						>
 					</div>{/if}
-				<label for="bookmark-capture-title">Title <span class="muted">optional</span></label><input
-					id="bookmark-capture-title"
-					bind:this={titleInput}
-					bind:value={title}
-					disabled={created}
-					maxlength="500"
-					placeholder="Give this link a memorable name"
-				/>
+				<label for="bookmark-capture-title">Title <span class="muted">optional</span></label>
+				<div class="capture-title-field">
+					<input
+						id="bookmark-capture-title"
+						bind:this={titleInput}
+						bind:value={title}
+						oninput={() => (titleEdited = true)}
+						disabled={created}
+						maxlength="500"
+						placeholder={titleLoading ? '' : 'Give this link a memorable name'}
+						aria-busy={titleLoading}
+					/>
+					{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
+							>Fetching title…</span
+						>{/if}
+				</div>
 				<label for="capture-organizer">Tags & people</label>
 				<div class="capture-chips">
 					{#each selected as choice (key(choice))}<button

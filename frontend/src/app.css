@@ -420,6 +420,47 @@ kbd {
 	font-size: var(--text-sm);
 	font-weight: 500;
 }
+.capture-title-field {
+	position: relative;
+}
+.capture-title-field input {
+	position: relative;
+	z-index: 1;
+}
+.title-shimmer {
+	position: absolute;
+	z-index: 2;
+	top: 50%;
+	right: 12px;
+	left: 12px;
+	overflow: hidden;
+	color: transparent;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	pointer-events: none;
+	transform: translateY(-50%);
+	background: linear-gradient(
+		90deg,
+		var(--secondary) 0%,
+		var(--secondary) 35%,
+		var(--ink) 50%,
+		var(--secondary) 65%,
+		var(--secondary) 100%
+	);
+	background-size: 200% 100%;
+	background-clip: text;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: title-shimmer 1.4s linear infinite;
+}
+@keyframes title-shimmer {
+	from {
+		background-position: 100% 0;
+	}
+	to {
+		background-position: -100% 0;
+	}
+}
 .capture-choices {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
@@ -1489,6 +1530,7 @@ kbd {
 	.dialog-content textarea,
 	.token-field .token-search:not([type='checkbox']),
 	.capture-picker input,
+	.capture-picker .title-shimmer,
 	.auth-form input {
 		font-size: var(--text-lg);
 	}
