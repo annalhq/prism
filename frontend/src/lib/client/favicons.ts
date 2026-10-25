@@ -1,9 +1,33 @@
+import { asset } from '$app/paths';
+
 const MAX_PAGE_BYTES = 262_144;
 const MAX_CACHED_PAGES = 256;
+const TWITTER_ICON = asset('site-icons/twitter.svg');
+const YOUTUBE_ICON = asset('site-icons/youtube.svg');
+const siteIcons = new Set([TWITTER_ICON, YOUTUBE_ICON]);
 const discoveries = new Map<string, Promise<string[]>>();
 const blankIcons = new Map<string, Promise<boolean>>();
 const waiting: (() => void)[] = [];
 let running = 0;
+
+function siteIcon(hostname: string): string | null {
+	const host = hostname.toLowerCase().replace(/\.$/, '');
+	if (
+		host === 'x.com' ||
+		host.endsWith('.x.com') ||
+		host === 'twitter.com' ||
+		host.endsWith('.twitter.com')
+	)
+		return TWITTER_ICON;
+	if (
+		host === 'youtube.com' ||
+		host.endsWith('.youtube.com') ||
+		host === 'youtu.be' ||
+		host.endsWith('.youtu.be')
+	)
+		return YOUTUBE_ICON;
+	return null;
+}
 
 function pageUrl(input: string | null): URL | null {
 	try {
@@ -19,6 +43,8 @@ function pageUrl(input: string | null): URL | null {
 export function faviconSources(input: string | null): string[] {
 	const url = pageUrl(input);
 	if (!url) return [];
+	const icon = siteIcon(url.hostname);
+	if (icon) return [icon];
 	const sources = [`${url.origin}/favicon.ico`];
 	const host = url.hostname;
 	// Send only public hostnames to Google, never bookmark paths or query strings.
@@ -34,6 +60,8 @@ export function faviconSources(input: string | null): string[] {
 
 /** A successful image load can still be a completely transparent placeholder. */
 export function isBlankFavicon(source: string): Promise<boolean> {
+	// Bundled site icons are known to be visible; no canvas inspection needed.
+	if (siteIcons.has(source)) return Promise.resolve(false);
 	// Google already supplies a visible fallback; inspect only the site's own icons.
 	if (source.startsWith('https://www.google.com/s2/favicons?')) return Promise.resolve(false);
 	const existing = blankIcons.get(source);
@@ -164,7 +192,10 @@ async function discover(url: URL): Promise<string[]> {
 /** Discover the page's own icons in the browser before falling back to root/Google icons. */
 export function discoverFavicons(input: string | null): Promise<string[]> {
 	const url = pageUrl(input);
-	if (!url || typeof document === 'undefined') return Promise.resolve(faviconSources(input));
+	if (!url) return Promise.resolve([]);
+	// Known sites use bundled icons; skip page HTML and remote favicon requests entirely.
+	if (siteIcon(url.hostname)) return Promise.resolve(faviconSources(input));
+	if (typeof document === 'undefined') return Promise.resolve(faviconSources(input));
 	const existing = discoveries.get(url.href);
 	if (existing) return existing;
 	const result = (async () => {
