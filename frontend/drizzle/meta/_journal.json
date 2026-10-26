@@ -43,6 +43,13 @@
 			"when": 1792519409508,
 			"tag": "0005_perpetual_bastion",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1793045847074,
+			"tag": "0006_tag_position",
+			"breakpoints": true
 		}
 	]
 }

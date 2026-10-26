@@ -129,6 +129,8 @@ export type TaxonomyProjection = {
 	id: string;
 	name: string;
 	normalizedName: string;
+	/** Tags only: fractional sort key, null until the user reorders tags. */
+	position?: string | null;
 	revision: Revision;
 	lastSeq: Sequence;
 	deletedAt: string | null;

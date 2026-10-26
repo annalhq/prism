@@ -1,0 +1,2 @@
+ALTER TABLE "tags" ADD COLUMN "position" text;--> statement-breakpoint
+ALTER TABLE "tags" ADD CONSTRAINT "tag_position_valid" CHECK ("tags"."position" IS NULL OR "tags"."position" ~ '^[0-9a-z]{0,127}[1-9a-z]$');

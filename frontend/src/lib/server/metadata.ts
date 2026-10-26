@@ -5,7 +5,10 @@ import { ApiError } from './http.js';
 
 const MAX_BYTES = 512 * 1024;
 const MAX_REDIRECTS = 3;
-const TIMEOUT_MS = 8_000;
+// One deadline covers DNS checks, every redirect hop and the body read.
+const TIMEOUT_MS = 6_000;
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const MAX_CACHED_TITLES = 500;
 const MAX_TITLE_LENGTH = 500;
 const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
 
@@ -218,45 +221,82 @@ async function assertPublicUrl(url: URL): Promise<void> {
 		throw new ApiError(400, 'metadata_url_invalid', 'This address cannot be fetched.');
 }
 
-async function readLimited(response: Response): Promise<string> {
-	if (!response.body) return '';
-	const reader = response.body.getReader();
-	const chunks: Uint8Array[] = [];
-	let total = 0;
-	try {
-		while (true) {
-			const part = await reader.read();
-			if (part.done) break;
-			if (total + part.value.byteLength > MAX_BYTES) {
-				await reader.cancel();
-				break;
-			}
-			chunks.push(part.value);
-			total += part.value.byteLength;
-		}
-	} finally {
-		reader.releaseLock();
-	}
-	const body = new Uint8Array(total);
-	let offset = 0;
-	for (const chunk of chunks) {
-		body.set(chunk, offset);
-		offset += chunk.byteLength;
-	}
+function responseDecoder(response: Response): TextDecoder {
 	const charset = /charset=([^;]+)/i
 		.exec(response.headers.get('content-type') ?? '')?.[1]
 		?.trim()
 		.replace(/^["']|["']$/g, '');
-	let decoder: TextDecoder;
 	try {
-		decoder = new TextDecoder(charset || 'utf-8', { fatal: false });
+		return new TextDecoder(charset || 'utf-8', { fatal: false });
 	} catch {
-		decoder = new TextDecoder('utf-8', { fatal: false });
+		return new TextDecoder('utf-8', { fatal: false });
 	}
-	return decoder.decode(body);
 }
 
-export async function fetchPageTitle(input: string): Promise<string> {
+/** Reads only as much of the page as the title needs: usually just the <head>. */
+async function readTitle(response: Response): Promise<string> {
+	if (!response.body) return '';
+	const reader = response.body.getReader();
+	const decoder = responseDecoder(response);
+	let html = '';
+	let total = 0;
+	let headClosed = false;
+	try {
+		while (true) {
+			const part = await reader.read();
+			if (part.done) break;
+			const room = MAX_BYTES - total;
+			total += part.value.byteLength;
+			html += decoder.decode(part.value.subarray(0, room), { stream: true });
+			if (total >= MAX_BYTES) break;
+			// Head metadata and <title> win over an <h1>, so once the head has closed with a
+			// title there is no reason to download the rest of the page.
+			if (!headClosed) {
+				headClosed = /<\/head\s*>|<body[\s>]/i.test(html.slice(-(part.value.byteLength + 16)));
+				if (headClosed && extractPageTitle(html)) break;
+			} else if (/<\/h1\s*>/i.test(html.slice(-(part.value.byteLength + 8)))) break;
+		}
+	} finally {
+		await reader.cancel().catch(() => {});
+		reader.releaseLock();
+	}
+	return extractPageTitle(html + decoder.decode());
+}
+
+const titles = new Map<string, { title: string; expires: number }>();
+const pending = new Map<string, Promise<string>>();
+
+/** Cached and de-duplicated: typing, Enter and a retry for the same link share one fetch. */
+export function fetchPageTitle(input: string): Promise<string> {
+	const now = Date.now();
+	const cached = titles.get(input);
+	if (cached && cached.expires > now) {
+		// Refresh recency so the map evicts the least recently used title first.
+		titles.delete(input);
+		titles.set(input, cached);
+		return Promise.resolve(cached.title);
+	}
+	if (cached) titles.delete(input);
+	const running = pending.get(input);
+	if (running) return running;
+	const request = loadPageTitle(input)
+		.then((title) => {
+			if (titles.size >= MAX_CACHED_TITLES) titles.delete(titles.keys().next().value!);
+			titles.set(input, { title, expires: Date.now() + CACHE_TTL_MS });
+			return title;
+		})
+		.finally(() => pending.delete(input));
+	pending.set(input, request);
+	return request;
+}
+
+export function clearPageTitleCache(): void {
+	titles.clear();
+	pending.clear();
+}
+
+async function loadPageTitle(input: string): Promise<string> {
+	const signal = AbortSignal.timeout(TIMEOUT_MS);
 	let current: URL;
 	try {
 		current = new URL(input);
@@ -269,10 +309,12 @@ export async function fetchPageTitle(input: string): Promise<string> {
 		try {
 			response = await fetch(current, {
 				redirect: 'manual',
-				signal: AbortSignal.timeout(TIMEOUT_MS),
+				signal,
 				headers: {
 					accept: 'text/html,application/xhtml+xml',
-					'accept-encoding': 'identity',
+					// Compressed pages arrive faster; the reader still bounds decoded bytes.
+					'accept-encoding': 'gzip, deflate, br',
+					'accept-language': 'en;q=0.9, *;q=0.5',
 					'user-agent': 'Prism/0.1 (bookmark title lookup)'
 				}
 			});
@@ -303,7 +345,12 @@ export async function fetchPageTitle(input: string): Promise<string> {
 			!contentType.includes('application/xhtml+xml')
 		)
 			throw new ApiError(422, 'metadata_title_missing', 'This link is not a web page.');
-		const title = extractPageTitle(await readLimited(response));
+		let title: string;
+		try {
+			title = await readTitle(response);
+		} catch {
+			throw new ApiError(502, 'metadata_unavailable', 'Could not fetch this link.');
+		}
 		if (!title) throw new ApiError(422, 'metadata_title_missing', 'No page title was found.');
 		return title;
 	}

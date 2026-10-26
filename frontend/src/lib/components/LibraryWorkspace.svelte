@@ -26,7 +26,8 @@
 	import TokenInput from './ui/TokenInput.svelte';
 	import BookmarkCard from './BookmarkCard.svelte';
 	import { notePreview } from '#lib/client/reference-edits.js';
-	import { isReadLater, personSlug, personIdFromSlug } from '#lib/client/workflows.js';
+	import { isReadLater, moveTag, personSlug, personIdFromSlug } from '#lib/client/workflows.js';
+	import { sortByPosition } from '#lib/domain/organization.js';
 
 	import { createLibraryClient, type LibraryClient } from '#lib/client/vault/library.js';
 	import { createSearchClient } from '#lib/client/search-client.js';
@@ -154,7 +155,7 @@
 	});
 	const tags = $derived.by(() => {
 		void version;
-		return library?.list<Row>('tags').filter((r) => !r.deletedAt) ?? [];
+		return sortByPosition(library?.list<Row>('tags').filter((r) => !r.deletedAt) ?? []);
 	});
 	const title = $derived(
 		(view === 'person' ? (person?.displayName ?? 'Person') : undefined) ??
@@ -664,6 +665,15 @@
 		onSelect={(value) => void navigate(null, value)}
 		onCreate={create}
 		onAccount={() => (settings = true)}
+		onReorder={async (id, toIndex) => {
+			if (!library) return;
+			try {
+				await moveTag(library, tags, id, toIndex);
+			} catch (e) {
+				cue('error');
+				feedback((e as Error).message);
+			}
+		}}
 	/>
 	<main id="library-main" class="library-main" tabindex="-1">
 		<h1 class="view-title" class:inline-heading={!!profileSlug || view === 'tags'}>{title}</h1>

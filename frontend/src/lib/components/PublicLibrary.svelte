@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sortByPosition } from '#lib/domain/organization.js';
 	import { ChevronDown as ChevronDownIcon } from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
@@ -39,7 +40,7 @@
 	let tagsExplorer: TagsExplorer | undefined = $state();
 	let searcher = $state.raw<ReturnType<typeof createSearchClient>>();
 	let generation = 0;
-	const tags = $derived(library.list<Row>('tags'));
+	const tags = $derived(sortByPosition(library.list<Row>('tags')));
 	const people = $derived(library.list<Row>('people'));
 	const requestedView = $derived(page.url.searchParams.get('view') ?? 'all');
 	const view = $derived(

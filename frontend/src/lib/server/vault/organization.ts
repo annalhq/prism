@@ -13,11 +13,14 @@ import { requireEntity } from './entities.js';
 import { entityMetadataChange } from './projections.js';
 import { reject } from './rejections.js';
 
-export function taxonomyProjection(row: typeof tags.$inferSelect): TaxonomyProjection {
+export function taxonomyProjection(
+	row: typeof tags.$inferSelect | typeof collections.$inferSelect
+): TaxonomyProjection {
 	return {
 		id: row.id,
 		name: row.name,
 		normalizedName: row.normalizedName,
+		...('position' in row ? { position: row.position } : {}),
 		revision: String(row.revision) as Revision,
 		lastSeq: String(row.lastSeq) as Sequence,
 		deletedAt: row.deletedAt?.toISOString() ?? null,
@@ -49,6 +52,19 @@ export async function changeTaxonomy(
 				id: command.id,
 				currentRevision: String(current.revision) as Revision
 			});
+	}
+	if (command.type === 'tag.move') {
+		const [moved] = await tx
+			.update(tags)
+			.set({
+				position: command.position,
+				revision: current!.revision + 1n,
+				lastSeq: seq,
+				updatedAt: now
+			})
+			.where(and(eq(tags.vaultId, vaultId), eq(tags.id, command.id)))
+			.returning();
+		return [{ type: 'tag.upsert', tag: taxonomyProjection(moved) }];
 	}
 	const deleting = command.type === 'tag.delete' || command.type === 'collection.delete';
 	if (deleting) {

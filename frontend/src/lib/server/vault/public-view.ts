@@ -1,5 +1,6 @@
 import { DATABASE_URL, LIBRARY_PUBLIC_VIEW, OWNER_SUBJECT } from '$app/env/private';
 import { and, eq, isNull } from 'drizzle-orm';
+import { sortByPosition } from '#lib/domain/organization.js';
 import type { PublicSnapshot } from '#lib/domain/public-view.js';
 import { database } from '../db/connection.js';
 import {
@@ -60,7 +61,7 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 				.innerJoin(entities, and(eq(entities.vaultId, people.vaultId), eq(entities.id, people.id)))
 				.where(live);
 			const tagRows = await tx
-				.select({ id: tags.id, name: tags.name })
+				.select({ id: tags.id, name: tags.name, position: tags.position })
 				.from(tags)
 				.where(and(eq(tags.vaultId, vault.id), isNull(tags.deletedAt), isNull(tags.purgedAt)));
 			const tagLinks = await tx
@@ -128,7 +129,12 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 					createdAt: createdAt.toISOString(),
 					updatedAt: updatedAt.toISOString()
 				})),
-				tags: tagRows.map((t) => ({ id: t.id, name: t.name, deletedAt: null })),
+				tags: sortByPosition(tagRows).map((t) => ({
+					id: t.id,
+					name: t.name,
+					position: t.position,
+					deletedAt: null
+				})),
 				relationships: relationRows
 					.filter((r) => bookmarkIds.has(r.bookmarkId) && personIds.has(r.personId))
 					.map((r) => ({ ...r, deletedAt: null })),

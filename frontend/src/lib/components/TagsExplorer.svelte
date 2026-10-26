@@ -16,17 +16,20 @@
 		onCreate?: (name: string) => void;
 	} = $props();
 	let filter = $state(''),
-		order = $state<'used' | 'name'>('used');
+		order = $state<'used' | 'name' | 'custom'>('used');
 	let searchInput = $state<HTMLInputElement>();
 	const needle = $derived(filter.trim().toLocaleLowerCase());
 	const visible = $derived(
 		tags
 			.filter((t) => String(t.name).toLocaleLowerCase().includes(needle))
+			// `tags` arrives in the user's own order, which the stable sort keeps for 'custom'.
 			.sort((a, b) =>
 				order === 'used'
 					? (counts[String(b.id)] ?? 0) - (counts[String(a.id)] ?? 0) ||
 						String(a.name).localeCompare(String(b.name))
-					: String(a.name).localeCompare(String(b.name))
+					: order === 'name'
+						? String(a.name).localeCompare(String(b.name))
+						: 0
 			)
 	);
 	const exact = $derived(tags.some((t) => String(t.name).toLocaleLowerCase() === needle));
@@ -89,8 +92,8 @@
 		<button
 			class="column-sort"
 			aria-label="Sort tags"
-			onclick={() => (order = order === 'used' ? 'name' : 'used')}
-			>{order === 'used' ? 'Most used' : 'A–Z'}</button
+			onclick={() => (order = order === 'used' ? 'name' : order === 'name' ? 'custom' : 'used')}
+			>{order === 'used' ? 'Most used' : order === 'name' ? 'A–Z' : 'Your order'}</button
 		>
 		{#if onCreate}<button class="text-button" onclick={() => onCreate('')}><Plus /> New tag</button
 			>{/if}

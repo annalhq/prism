@@ -20,6 +20,7 @@ export const GET: RequestHandler = async (event) => {
 			'tag.create',
 			'tag.rename',
 			'tag.delete',
+			'tag.move',
 			'tag.add',
 			'tag.remove',
 			'collection.create',

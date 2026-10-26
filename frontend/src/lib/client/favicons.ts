@@ -10,6 +10,69 @@ const blankIcons = new Map<string, Promise<boolean>>();
 const waiting: (() => void)[] = [];
 let running = 0;
 
+// The icon that worked for each site, kept across reloads so a row can show it at once
+// instead of rediscovering it. `null` remembers that a site has no usable icon.
+const STORE_KEY = 'prism:favicons:v1';
+const FOUND_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const MISSING_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_REMEMBERED = 1000;
+type Remembered = { src: string | null; at: number };
+let remembered: Map<string, Remembered> | undefined;
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+
+function memory(): Map<string, Remembered> {
+	if (remembered) return remembered;
+	remembered = new Map();
+	try {
+		const raw = JSON.parse(localStorage.getItem(STORE_KEY) ?? '{}') as Record<string, unknown>;
+		const now = Date.now();
+		for (const [origin, value] of Object.entries(raw)) {
+			const entry = value as Partial<Remembered>;
+			if (typeof entry?.at !== 'number' || !(typeof entry.src === 'string' || entry.src === null))
+				continue;
+			if (now - entry.at < (entry.src ? FOUND_TTL_MS : MISSING_TTL_MS))
+				remembered.set(origin, { src: entry.src, at: entry.at });
+		}
+	} catch {
+		/* Storage may be unavailable or hold an old format. */
+	}
+	return remembered;
+}
+
+function persist() {
+	clearTimeout(persistTimer);
+	persistTimer = setTimeout(() => {
+		try {
+			localStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(memory())));
+		} catch {
+			/* Optional cache. */
+		}
+	}, 500);
+}
+
+/** The icon last known to work for this page's site; null if it has none, undefined if unknown. */
+export function rememberedFavicon(input: string | null): string | null | undefined {
+	const url = pageUrl(input);
+	if (!url || siteIcon(url.hostname) || typeof localStorage === 'undefined') return undefined;
+	return memory().get(url.origin)?.src;
+}
+
+export function rememberFavicon(input: string | null, src: string | null): void {
+	const url = pageUrl(input);
+	if (!url || siteIcon(url.hostname) || typeof localStorage === 'undefined') return;
+	const store = memory();
+	if (store.get(url.origin)?.src === src) return;
+	store.delete(url.origin);
+	if (store.size >= MAX_REMEMBERED) store.delete(store.keys().next().value!);
+	store.set(url.origin, { src, at: Date.now() });
+	persist();
+}
+
+export function forgetFavicon(input: string | null): void {
+	const url = pageUrl(input);
+	if (url && memory().delete(url.origin)) persist();
+}
+
 function siteIcon(hostname: string): string | null {
 	const host = hostname.toLowerCase().replace(/\.$/, '');
 	if (
@@ -196,7 +259,8 @@ export function discoverFavicons(input: string | null): Promise<string[]> {
 	// Known sites use bundled icons; skip page HTML and remote favicon requests entirely.
 	if (siteIcon(url.hostname)) return Promise.resolve(faviconSources(input));
 	if (typeof document === 'undefined') return Promise.resolve(faviconSources(input));
-	const existing = discoveries.get(url.href);
+	// Icons belong to a site, not a page: one discovery serves every bookmark on it.
+	const existing = discoveries.get(url.origin);
 	if (existing) return existing;
 	const result = (async () => {
 		// Bound background work when a library contains many different websites.
@@ -211,15 +275,15 @@ export function discoverFavicons(input: string | null): Promise<string[]> {
 		}
 	})();
 	if (discoveries.size >= MAX_CACHED_PAGES) discoveries.delete(discoveries.keys().next().value!);
-	discoveries.set(url.href, result);
+	discoveries.set(url.origin, result);
 	void result.then((sources) => {
 		// A temporary network/CORS failure must not become a permanent cache entry.
 		const fallback = faviconSources(url.href);
 		if (
 			sources.every((source) => fallback.includes(source)) &&
-			discoveries.get(url.href) === result
+			discoveries.get(url.origin) === result
 		)
-			discoveries.delete(url.href);
+			discoveries.delete(url.origin);
 	});
 	return result;
 }

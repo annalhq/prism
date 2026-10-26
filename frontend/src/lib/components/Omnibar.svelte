@@ -1,3 +1,32 @@
+<script lang="ts" module>
+	// Shared across mounts so a title fetched while typing is ready when the link is confirmed.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- A plain request cache; nothing renders from it.
+	const titleRequests = new Map<string, Promise<string>>();
+	function requestTitle(target: string): Promise<string> {
+		const existing = titleRequests.get(target);
+		if (existing) return existing;
+		const request = fetch(`/api/v1/metadata?url=${encodeURIComponent(target)}`, {
+			headers: { accept: 'application/json' }
+		})
+			.then(async (response) => {
+				if (!response.ok) throw new Error('Title lookup failed.');
+				const payload: unknown = await response.json();
+				return payload &&
+					typeof payload === 'object' &&
+					typeof (payload as { title?: unknown }).title === 'string'
+					? (payload as { title: string }).title.trim()
+					: '';
+			})
+			.catch((error) => {
+				titleRequests.delete(target);
+				throw error;
+			});
+		if (titleRequests.size >= 50) titleRequests.delete(titleRequests.keys().next().value!);
+		titleRequests.set(target, request);
+		return request;
+	}
+</script>
+
 <script lang="ts">
 	import { Plus, Search, X, ArrowRight, ArrowLeft, Folder, UserRound, Check } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
@@ -45,8 +74,8 @@
 		titleLoading = $state(false),
 		titleEdited = $state(false),
 		autoTitle = $state('');
-	let titleController: AbortController | null = null,
-		titleRequestedFor = '';
+	let titleRequestedFor = '',
+		prefetchTimer: ReturnType<typeof setTimeout> | undefined;
 	let input = $state<HTMLInputElement>(),
 		titleInput = $state<HTMLInputElement>(),
 		organizerInput = $state<HTMLInputElement>();
@@ -88,50 +117,42 @@
 		step = 'title';
 	}
 	function cancelTitleFetch() {
-		titleController?.abort();
-		titleController = null;
 		titleRequestedFor = '';
 		titleLoading = false;
+	}
+	function captureUrl(value: string): string {
+		const text = value.trim();
+		return normalizeUrl(/^[a-z][a-z\d+.-]*:/i.test(text) ? text : `https://${text}`).url;
+	}
+	// Start the title lookup while the link is still in the field, so it is usually done
+	// before the title step opens.
+	function prefetchTitle(value: string, delay = 300) {
+		clearTimeout(prefetchTimer);
+		prefetchTimer = setTimeout(() => {
+			try {
+				const target = captureUrl(value);
+				if (/\.[a-z\d-]{2,}$/i.test(new URL(target).hostname))
+					void requestTitle(target).catch(() => {});
+			} catch {
+				/* Not a link yet. */
+			}
+		}, delay);
 	}
 	async function loadTitle(target: string) {
 		if (!target || created || titleEdited || titleRequestedFor === target) return;
 		titleRequestedFor = target;
-		titleController?.abort();
-		const controller = new AbortController();
-		titleController = controller;
 		titleLoading = true;
 		try {
-			const response = await fetch(`/api/v1/metadata?url=${encodeURIComponent(target)}`, {
-				signal: controller.signal,
-				headers: { accept: 'application/json' }
-			});
-			if (!response.ok) throw new Error('Title lookup failed.');
-			const payload: unknown = await response.json();
-			const value =
-				payload &&
-				typeof payload === 'object' &&
-				typeof (payload as { title?: unknown }).title === 'string'
-					? (payload as { title: string }).title.trim()
-					: '';
-			if (
-				controller.signal.aborted ||
-				titleRequestedFor !== target ||
-				titleEdited ||
-				busy ||
-				created
-			)
-				return;
+			const value = await requestTitle(target);
+			if (titleRequestedFor !== target || titleEdited || busy || created) return;
 			if (value) {
 				title = value;
 				autoTitle = value;
 			}
 		} catch {
-			if (!controller.signal.aborted && titleRequestedFor === target) titleRequestedFor = '';
+			if (titleRequestedFor === target) titleRequestedFor = '';
 		} finally {
-			if (titleController === controller) {
-				titleController = null;
-				titleLoading = false;
-			}
+			if (titleRequestedFor === target || !titleRequestedFor) titleLoading = false;
 		}
 	}
 	function editLink() {
@@ -250,7 +271,10 @@
 			}
 		};
 		window.addEventListener('keydown', listener);
-		return () => window.removeEventListener('keydown', listener);
+		return () => {
+			window.removeEventListener('keydown', listener);
+			clearTimeout(prefetchTimer);
+		};
 	});
 	export async function focusSearch() {
 		await switchMode('search');
@@ -258,8 +282,28 @@
 	export async function focusInsert() {
 		await switchMode('insert');
 	}
+	// Touch devices have no quick paste shortcut, so a copied link fills the empty field.
+	// The read starts before any await so it still counts as part of the user's tap.
+	function pasteCopiedLink() {
+		if (draft || url || !matchMedia('(pointer: coarse)').matches || !navigator.clipboard?.readText)
+			return;
+		navigator.clipboard
+			.readText()
+			.then((text) => {
+				const link = text.trim();
+				if (draft || url || mode !== 'insert' || link.length > 2048) return;
+				if (!/^https?:\/\/[^\s/]+\.[^\s]+$/i.test(link)) return;
+				draft = link;
+				prefetchTitle(link, 0);
+				feedback('Pasted the copied link.');
+			})
+			.catch(() => {
+				/* Permission denied or nothing to read: the user can still paste by hand. */
+			});
+	}
 	async function switchMode(next: 'insert' | 'search') {
 		if (readonly) next = 'search';
+		if (next === 'insert') pasteCopiedLink();
 		mode = next;
 		await tick();
 		if (next === 'insert' && url) {
@@ -281,8 +325,7 @@
 		if (mode === 'search' || busy || !ready) return;
 		error = '';
 		try {
-			const value = draft.trim();
-			url = normalizeUrl(/^[a-z][a-z\d+.-]*:/i.test(value) ? value : `https://${value}`).url;
+			url = captureUrl(draft);
 			captureId = crypto.randomUUID();
 			created = false;
 			completed = [];
@@ -413,7 +456,13 @@
 			value={mode === 'search' ? query : draft}
 			oninput={(e) => {
 				if (mode === 'search') query = e.currentTarget.value;
-				else draft = e.currentTarget.value;
+				else {
+					draft = e.currentTarget.value;
+					prefetchTitle(
+						draft,
+						(e as unknown as InputEvent).inputType === 'insertFromPaste' ? 0 : 300
+					);
+				}
 			}}
 			disabled={!ready || (mode === 'insert' && (busy || !!url))}
 			autocomplete="off"

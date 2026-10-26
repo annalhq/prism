@@ -145,6 +145,8 @@ export const tags = pgTable(
 		id: uuid('id').notNull(),
 		name: text('name').notNull(),
 		normalizedName: text('normalized_name').notNull(),
+		// Fractional sort key from a drag reorder; null tags follow the ordered ones.
+		position: text('position'),
 		...lifecycle(),
 		...revisions()
 	},
@@ -152,6 +154,10 @@ export const tags = pgTable(
 		...revisionChecks(t),
 		...lifecycleChecks(t),
 		primaryKey({ columns: [t.vaultId, t.id] }),
+		check(
+			'tag_position_valid',
+			sql`${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$'`
+		),
 		uniqueIndex('tag_name_unique')
 			.on(t.vaultId, t.normalizedName)
 			.where(sql`${t.deletedAt} IS NULL`),

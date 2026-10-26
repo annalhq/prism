@@ -17,7 +17,8 @@ export type TaxonomyCommand =
 			expectedRevision: Revision;
 			name: string;
 	  }
-	| { type: 'tag.delete' | 'collection.delete'; id: string; expectedRevision: Revision };
+	| { type: 'tag.delete' | 'collection.delete'; id: string; expectedRevision: Revision }
+	| { type: 'tag.move'; id: string; expectedRevision: Revision; position: string };
 export type TagMembershipCommand = { type: 'tag.add' | 'tag.remove'; id: string; tagId: string };
 export type BookmarkOrganization = {
 	collectionId?: string | null;
@@ -49,6 +50,7 @@ export const ORGANIZATION_COMMAND_TYPES = [
 	'tag.create',
 	'tag.rename',
 	'tag.delete',
+	'tag.move',
 	'collection.create',
 	'collection.rename',
 	'collection.delete',
@@ -72,6 +74,60 @@ export function normalizeOrganizationName(value: unknown): {
 	const normalizedName = caseFold(name).normalize('NFC');
 	if ([...normalizedName].length > 256) throw new ValidationError('Normalized name is too long.');
 	return { name, normalizedName };
+}
+// Tag order uses fractional keys: base-36 digits read as a fraction after the point, so a
+// key fits between any two others without renumbering. Trailing zeros would make two
+// spellings of one value, so they are not allowed.
+const POSITION_DIGITS = '0123456789abcdefghijklmnopqrstuvwxyz';
+export const TAG_POSITION_PATTERN = /^[0-9a-z]{0,127}[1-9a-z]$/;
+export function parseTagPosition(value: unknown): string {
+	if (typeof value !== 'string' || !TAG_POSITION_PATTERN.test(value))
+		throw new ValidationError('Invalid tag position.');
+	return value;
+}
+/** A key strictly between `a` and `b`; null means the start or the end of the list. */
+export function positionBetween(a: string | null, b: string | null): string {
+	if (a !== null && b !== null && a >= b) throw new Error('Positions must be ascending.');
+	return midpoint(a ?? '', b);
+}
+function midpoint(a: string, b: string | null): string {
+	if (b !== null) {
+		let n = 0;
+		while ((a[n] ?? '0') === b[n]) n++;
+		if (n > 0) return b.slice(0, n) + midpoint(a.slice(n), b.slice(n));
+	}
+	const low = a ? POSITION_DIGITS.indexOf(a[0]) : 0;
+	const high = b !== null ? POSITION_DIGITS.indexOf(b[0]) : POSITION_DIGITS.length;
+	if (high - low > 1) return POSITION_DIGITS[Math.round((low + high) / 2)];
+	if (b !== null && b.length > 1) return b[0];
+	return POSITION_DIGITS[low] + midpoint(a.slice(1), null);
+}
+/** `count` evenly spaced ascending keys, for giving a whole list its first order. */
+export function spreadPositions(count: number): string[] {
+	let width = 1;
+	while (36 ** width <= count) width++;
+	const step = 36 ** width / (count + 1);
+	return Array.from({ length: count }, (_, index) =>
+		Math.floor(step * (index + 1))
+			.toString(36)
+			.padStart(width, '0')
+			.replace(/0+$/, '')
+	);
+}
+/** Ordered tags first by key, then the never-ordered ones in their existing order. */
+export function sortByPosition<T extends { position?: unknown }>(rows: T[]): T[] {
+	const key = (row: T) => (typeof row.position === 'string' ? row.position : null);
+	return rows
+		.map((row, index) => ({ row, index }))
+		.sort((x, y) => {
+			const a = key(x.row),
+				b = key(y.row);
+			if (a !== null && b !== null) return a < b ? -1 : a > b ? 1 : x.index - y.index;
+			if (a !== null) return -1;
+			if (b !== null) return 1;
+			return x.index - y.index;
+		})
+		.map(({ row }) => row);
 }
 export function parseBookmarkOrganization(value: unknown): BookmarkOrganization {
 	const p = object(value);
@@ -115,6 +171,14 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 		case 'collection.delete':
 			keys(c, ['type', 'id', 'expectedRevision']);
 			return { type: c.type, id, expectedRevision: revision(c.expectedRevision) };
+		case 'tag.move':
+			keys(c, ['type', 'id', 'expectedRevision', 'position']);
+			return {
+				type: c.type,
+				id,
+				expectedRevision: revision(c.expectedRevision),
+				position: parseTagPosition(c.position)
+			};
 		case 'tag.add':
 		case 'tag.remove':
 			keys(c, ['type', 'id', 'tagId']);

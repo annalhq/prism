@@ -12,6 +12,7 @@
 		Eye
 	} from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
+	import { flip } from 'svelte/animate';
 	import Brand from './ui/Brand.svelte';
 	type Row = Record<string, unknown>;
 	let {
@@ -21,7 +22,8 @@
 		home,
 		onSelect,
 		onCreate,
-		onAccount
+		onAccount,
+		onReorder
 	}: {
 		view: string;
 		tags: Row[];
@@ -31,7 +33,71 @@
 		// Without these the sidebar is view-only: no adding, no trash, no account.
 		onCreate?: (type: string) => void;
 		onAccount?: () => void;
+		// Moves a tag to an index of the list without it; absent where tags are read-only.
+		onReorder?: (id: string, toIndex: number) => void | Promise<void>;
 	} = $props();
+	// While dragging, `preview` is the order as it would be if dropped now. The list renders
+	// it so the other folders slide aside under the pointer instead of jumping on drop.
+	let dragId = $state(''),
+		preview = $state<string[] | null>(null),
+		committing = false,
+		reduceMotion = $state(false);
+	const shown = $derived.by(() => {
+		if (!preview) return tags;
+		const byId = new Map(tags.map((t) => [String(t.id), t]));
+		const ordered = preview.map((id) => byId.get(id)).filter((t): t is Row => !!t);
+		// A tag added mid-drag still shows, at the end.
+		return [...ordered, ...tags.filter((t) => !preview!.includes(String(t.id)))];
+	});
+	function hover(event: DragEvent, id: string) {
+		if (!dragId || !preview) return;
+		event.preventDefault();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+		if (id === dragId) return;
+		const from = preview.indexOf(dragId),
+			to = preview.indexOf(id);
+		if (from === -1 || to === -1) return;
+		// Swap only once the pointer passes the middle of the row in the direction of travel,
+		// so a row sliding under a still pointer does not bounce straight back.
+		const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const middle = box.top + box.height / 2;
+		if ((from < to && event.clientY < middle) || (from > to && event.clientY > middle)) return;
+		const next = preview.filter((x) => x !== dragId);
+		next.splice(to, 0, dragId);
+		preview = next;
+	}
+	async function finishDrag() {
+		const id = dragId,
+			order = preview;
+		dragId = '';
+		if (!id || !order) {
+			preview = null;
+			return;
+		}
+		const index = order.indexOf(id);
+		committing = true;
+		try {
+			// Keep the previewed order until the saved one arrives, so nothing snaps back.
+			if (index !== tags.findIndex((t) => t.id === id)) await onReorder?.(id, index);
+		} finally {
+			committing = false;
+			preview = null;
+		}
+	}
+	function cancelDrag() {
+		dragId = '';
+		if (!committing) preview = null;
+	}
+	async function nudge(event: KeyboardEvent, id: string) {
+		if (!onReorder || !event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+		event.preventDefault();
+		const index = tags.findIndex((t) => t.id === id);
+		const next = index + (event.key === 'ArrowUp' ? -1 : 1);
+		if (index === -1 || next < 0 || next >= tags.length) return;
+		await onReorder(id, next);
+		await tick();
+		document.querySelector<HTMLElement>(`.library-sidebar [data-tag-id="${id}"]`)?.focus();
+	}
 	const views = $derived(
 		[
 			{ id: 'all', label: 'All bookmarks', icon: Bookmark },
@@ -41,6 +107,8 @@
 		].filter((item) => onCreate || item.id !== 'trash')
 	);
 	onMount(() => {
+		const motion = matchMedia('(prefers-reduced-motion: reduce)');
+		reduceMotion = motion.matches;
 		try {
 			const preference = localStorage.getItem('prism:sidebar');
 			collapsed = preference ? preference === 'collapsed' : innerWidth < 1100;
@@ -91,7 +159,20 @@
 				onclick={() => onSelect(item.id)}
 				><item.icon /><span class="sidebar-label">{item.label}</span></button
 			>{/each}
-		<section class="sidebar-group">
+		<!-- Drops anywhere in the group, including gaps between rows, commit the preview. -->
+		<section
+			class="sidebar-group"
+			role="group"
+			aria-label="Tags"
+			ondragover={(event) => {
+				if (dragId) event.preventDefault();
+			}}
+			ondrop={(event) => {
+				if (!dragId) return;
+				event.preventDefault();
+				void finishDrag();
+			}}
+		>
 			<div class="sidebar-section-heading">
 				<button
 					class="sidebar-heading-link"
@@ -105,11 +186,28 @@
 						onclick={() => onCreate('tag')}><Plus /></button
 					>{/if}
 			</div>
-			{#each tags as row (String(row.id))}<button
+			{#each shown as row (String(row.id))}<button
+					animate:flip={{ duration: reduceMotion ? 0 : 180 }}
 					class="sidebar-link"
 					class:active={view === `tag:${row.id}`}
+					class:dragging={dragId === row.id}
 					aria-current={view === `tag:${row.id}` ? 'page' : undefined}
-					title={String(row.name)}
+					aria-keyshortcuts={onReorder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
+					title={onReorder ? `${row.name} · drag or Alt+↑/↓ to reorder` : String(row.name)}
+					data-tag-id={String(row.id)}
+					draggable={!!onReorder && !collapsed}
+					ondragstart={(event) => {
+						dragId = String(row.id);
+						preview = tags.map((t) => String(t.id));
+						if (event.dataTransfer) {
+							event.dataTransfer.effectAllowed = 'move';
+							event.dataTransfer.setData('text/plain', String(row.name));
+						}
+					}}
+					ondragenter={(event) => hover(event, String(row.id))}
+					ondragover={(event) => hover(event, String(row.id))}
+					ondragend={cancelDrag}
+					onkeydown={(event) => void nudge(event, String(row.id))}
 					onclick={() => onSelect(`tag:${row.id}`)}
 					><Folder /><span class="sidebar-label">{row.name}</span></button
 				>{:else}<p class="sidebar-empty">A little room to organize.</p>{/each}
