@@ -8,17 +8,14 @@
 		PanelLeftClose,
 		PanelLeftOpen,
 		Plus,
-		Settings2,
-		X
+		Settings2
 	} from '@lucide/svelte';
-	import { Dialog } from 'bits-ui';
 	import { onMount, tick } from 'svelte';
 	import Brand from './ui/Brand.svelte';
 	type Row = Record<string, unknown>;
 	let {
 		view,
 		tags,
-		mobileOpen = $bindable(false),
 		collapsed = $bindable(false),
 		onSelect,
 		onCreate,
@@ -26,7 +23,6 @@
 	}: {
 		view: string;
 		tags: Row[];
-		mobileOpen?: boolean;
 		collapsed?: boolean;
 		onSelect: (value: string) => void;
 		onCreate: (type: string) => void;
@@ -55,41 +51,30 @@
 		}
 	}
 	export async function focusNavigation() {
-		if (innerWidth < 768) mobileOpen = true;
-		else if (collapsed) toggle();
+		if (collapsed) toggle();
 		await tick();
 		document
-			.querySelector<HTMLButtonElement>(
-				`${mobileOpen ? '.mobile-navigation' : '.library-sidebar'} .sidebar-navigation button`
-			)
+			.querySelector<HTMLButtonElement>('.library-sidebar .sidebar-navigation button')
 			?.focus();
-	}
-
-	function select(value: string) {
-		mobileOpen = false;
-		onSelect(value);
 	}
 </script>
 
-{#snippet navigation(mobile: boolean)}
+<aside class="library-sidebar" class:collapsed>
 	<div class="sidebar-brand">
 		<Brand compact /><span class="sidebar-label">prism</span>
 		<button
 			class="icon-button sidebar-toggle"
-			aria-label={mobile ? 'Close navigation' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-			aria-expanded={mobile || !collapsed}
-			onclick={() => (mobile ? (mobileOpen = false) : toggle())}
-			>{#if mobile}<X />{:else if collapsed}<PanelLeftOpen />{:else}<PanelLeftClose />{/if}</button
+			aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+			aria-expanded={!collapsed}
+			onclick={toggle}
+			>{#if collapsed}<PanelLeftOpen />{:else}<PanelLeftClose />{/if}</button
 		>
 	</div>
 	<nav class="sidebar-navigation" aria-label="Library">
 		<button
 			class="sidebar-link"
 			title="Add bookmark · i"
-			onclick={() => {
-				mobileOpen = false;
-				onCreate('bookmark');
-			}}
+			onclick={() => onCreate('bookmark')}
 			data-cuelume-open><Plus /><span class="sidebar-label">Add bookmark</span></button
 		>
 		{#each views as item (item.id)}<button
@@ -97,7 +82,7 @@
 				class:active={view === item.id}
 				aria-current={view === item.id ? 'page' : undefined}
 				title={item.label}
-				onclick={() => select(item.id)}
+				onclick={() => onSelect(item.id)}
 				><item.icon /><span class="sidebar-label">{item.label}</span></button
 			>{/each}
 		<section class="sidebar-group">
@@ -105,10 +90,7 @@
 				<span>Tags</span><button
 					class="icon-button"
 					aria-label="Add tag"
-					onclick={() => {
-						mobileOpen = false;
-						onCreate('tag');
-					}}><Plus /></button
+					onclick={() => onCreate('tag')}><Plus /></button
 				>
 			</div>
 			{#each tags as row (String(row.id))}<button
@@ -116,7 +98,7 @@
 					class:active={view === `tag:${row.id}`}
 					aria-current={view === `tag:${row.id}` ? 'page' : undefined}
 					title={String(row.name)}
-					onclick={() => select(`tag:${row.id}`)}
+					onclick={() => onSelect(`tag:${row.id}`)}
 					><Folder /><span class="sidebar-label">{row.name}</span></button
 				>{:else}<p class="sidebar-empty">A little room to organize.</p>{/each}
 		</section>
@@ -124,21 +106,7 @@
 	<button
 		class="sidebar-link sidebar-account account-button"
 		title="Account and preferences"
-		onclick={() => {
-			mobileOpen = false;
-			onAccount();
-		}}
+		onclick={onAccount}
 		data-cuelume-open><Settings2 /><span class="sidebar-label">Account & preferences</span></button
 	>
-{/snippet}
-<aside class="library-sidebar" class:collapsed>{@render navigation(false)}</aside>
-<Dialog.Root bind:open={mobileOpen}
-	><Dialog.Portal
-		><Dialog.Overlay class="dialog-overlay navigation-overlay" /><Dialog.Content
-			class="mobile-navigation"
-			><Dialog.Title class="sr-only">Library navigation</Dialog.Title><Dialog.Description
-				class="sr-only">Browse your bookmarks, people, and folders.</Dialog.Description
-			>{@render navigation(true)}</Dialog.Content
-		></Dialog.Portal
-	></Dialog.Root
->
+</aside>

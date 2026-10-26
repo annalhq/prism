@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Collapsible, Dialog, Tabs } from 'bits-ui';
 	import { soundPreference, setSounds, cue } from '#lib/client/sounds.svelte.js';
-	import { Volume2, VolumeX } from '@lucide/svelte';
+	import { themePreference, setTheme } from '#lib/client/theme.svelte.js';
+	import { Volume2, VolumeX, Sun, Moon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import {
 		RefreshCw,
@@ -175,7 +176,10 @@
 			class="dialog-content account-panel"
 			onCloseAutoFocus={(event) => {
 				event.preventDefault();
-				document.querySelector<HTMLButtonElement>('.account-button')?.focus();
+				// The sidebar and the mobile navbar both render one; only the visible one can take focus.
+				[...document.querySelectorAll<HTMLButtonElement>('.account-button')]
+					.find((button) => button.offsetParent)
+					?.focus();
 			}}
 		>
 			<header class="account-panel-header">
@@ -212,6 +216,20 @@
 											>Quiet feedback for meaningful moments</small
 										></span
 									><span class="preference-switch" class:enabled={soundPreference.enabled}
+										><span></span></span
+									></button
+								>
+								<button
+									class="setting-row"
+									role="switch"
+									aria-checked={themePreference.value === 'light'}
+									onclick={() => setTheme(themePreference.value === 'light' ? 'dark' : 'light')}
+									><span class="setting-icon"
+										>{#if themePreference.value === 'light'}<Sun />{:else}<Moon />{/if}</span
+									><span
+										><strong>Light appearance</strong><small>Warm paper tones instead of dark</small
+										></span
+									><span class="preference-switch" class:enabled={themePreference.value === 'light'}
 										><span></span></span
 									></button
 								>

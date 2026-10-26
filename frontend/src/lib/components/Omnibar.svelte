@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Plus, Search, X, ArrowRight, Folder, UserRound, Check } from '@lucide/svelte';
+	import { Plus, Search, X, ArrowRight, ArrowLeft, Folder, UserRound, Check } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
 	import { ensureTag, inferBookmarkKind, type Row } from '#lib/client/workflows.js';
@@ -14,7 +14,8 @@
 		query = $bindable(''),
 		personId = null,
 		feedback,
-		onNormal
+		onNormal,
+		onDismiss
 	}: {
 		library: LibraryClient | null;
 		ready: boolean;
@@ -24,8 +25,10 @@
 		personId?: string | null;
 		feedback: (message: string) => void;
 		onNormal: () => void;
+		onDismiss?: () => void;
 	} = $props();
 	let mode = $state<'insert' | 'search'>('search');
+	let step = $state<'title' | 'organize'>('title');
 	let draft = $state(''),
 		title = $state(''),
 		url = $state(''),
@@ -42,7 +45,8 @@
 	let titleController: AbortController | null = null,
 		titleRequestedFor = '';
 	let input = $state<HTMLInputElement>(),
-		titleInput = $state<HTMLInputElement>();
+		titleInput = $state<HTMLInputElement>(),
+		organizerInput = $state<HTMLInputElement>();
 	let restoredScope = $state('');
 	const choices = $derived(
 		[
@@ -78,6 +82,7 @@
 		completed = [];
 		captureId = '';
 		error = '';
+		step = 'title';
 	}
 	function cancelTitleFetch() {
 		titleController?.abort();
@@ -134,6 +139,7 @@
 			titleEdited = false;
 		}
 		url = '';
+		step = 'title';
 	}
 	function toggle(choice: Choice) {
 		const id = key(choice);
@@ -168,6 +174,7 @@
 					: [];
 				captureId = typeof value.captureId === 'string' ? value.captureId : '';
 				created = value.created === true;
+				step = created ? 'organize' : 'title';
 				titleEdited = title.trim().length > 0;
 				autoTitle = '';
 			}
@@ -219,8 +226,10 @@
 				void switchMode('search');
 			} else if (event.key === 'Escape') {
 				event.preventDefault();
+				const capturing = mode === 'insert' && !!url;
 				mode = 'search';
 				onNormal();
+				if (!capturing) onDismiss?.();
 			}
 		};
 		window.addEventListener('keydown', listener);
@@ -236,9 +245,18 @@
 		mode = next;
 		await tick();
 		if (next === 'insert' && url) {
-			titleInput?.focus();
 			void loadTitle(url);
+			await focusStep();
 		} else input?.focus();
+	}
+	async function goTo(next: 'title' | 'organize') {
+		step = created ? 'organize' : next;
+		await focusStep();
+	}
+	async function focusStep() {
+		await tick();
+		if (step === 'title') titleInput?.focus();
+		else organizerInput?.focus();
 	}
 	function prepare(event: SubmitEvent) {
 		event.preventDefault();
@@ -250,6 +268,7 @@
 			captureId = crypto.randomUUID();
 			created = false;
 			completed = [];
+			step = 'title';
 			const previousAutoTitle = title.trim().length > 0 && title === autoTitle;
 			if (previousAutoTitle) {
 				title = '';
@@ -270,7 +289,7 @@
 						name: String(people.find((p) => p.id === personId)?.displayName ?? 'This person')
 					}
 				];
-			void tick().then(() => titleInput?.focus());
+			void focusStep();
 		} catch {
 			error = 'Enter a valid website link, such as example.com/article.';
 			cue('error');
@@ -335,6 +354,7 @@
 			completed = [];
 			created = false;
 			captureId = '';
+			step = 'title';
 		} catch (e) {
 			error = (e as Error).message;
 			cue('error');
@@ -353,7 +373,7 @@
 		<input
 			bind:this={input}
 			aria-label={mode === 'search' ? 'Search library' : 'Bookmark URL'}
-			placeholder={mode === 'search' ? 'search here' : 'add new bkmrk'}
+			placeholder={mode === 'search' ? 'Search bookmarks…' : 'Paste a link to save…'}
 			value={mode === 'search' ? query : draft}
 			oninput={(e) => {
 				if (mode === 'search') query = e.currentTarget.value;
@@ -368,19 +388,20 @@
 				class="omnibar-clear"
 				aria-label="Clear search"
 				onclick={() => (query = '')}><X /></button
-			>{/if}
+			>{:else if mode === 'search'}<kbd class="omnibar-shortcut" aria-hidden="true">/</kbd>{/if}
 		{#if mode === 'search'}<button
 				type="button"
 				class="omnibar-add"
 				disabled={!ready}
 				aria-label="Add bookmark"
-				title="Add bookmark"
+				title="Add bookmark · i"
 				onclick={() => switchMode('insert')}><Plus /></button
 			>{:else}<div class="omnibar-actions">
 				<button
 					type="button"
 					class="omnibar-return"
 					aria-label="Return to search"
+					title="Return to search"
 					onclick={() => switchMode('search')}><Search /></button
 				>
 				{#if !url}<button
@@ -396,90 +417,111 @@
 			class="capture-picker"
 			onsubmit={(e) => {
 				e.preventDefault();
-				void save();
+				if (step === 'title') void goTo('organize');
+				else void save();
 			}}
 		>
-			<div class="section-heading">
-				<strong>{created ? 'Saved. Finish organizing.' : 'Make it yours'}</strong><button
-					type="button"
-					class="text-button"
-					onclick={() => switchMode('search')}>Keep draft & close</button
+			<div class="capture-header">
+				<ol class="capture-steps" aria-label="Capture steps">
+					<li class="done">Link</li>
+					<li class:current={step === 'title'} class:done={step === 'organize'}>Title</li>
+					<li class:current={step === 'organize'}>Organize</li>
+				</ol>
+				<button type="button" class="text-button" onclick={() => switchMode('search')}
+					>{created ? 'Close' : 'Keep draft'}</button
 				>
 			</div>
+			<p class="capture-url" title={url}>{url.replace(/^https?:\/\/(www\.)?/, '')}</p>
 			<fieldset disabled={busy} class="stack">
-				{#if !created}<div class="capture-link-actions">
-						<button type="button" class="text-button" onclick={editLink}>Edit link</button><button
-							type="button"
-							class="text-button"
-							onclick={discardDraft}>Discard draft</button
-						>
-					</div>{/if}
-				<label for="bookmark-capture-title">Title <span class="muted">optional</span></label>
-				<div class="capture-title-field">
-					<input
-						id="bookmark-capture-title"
-						bind:this={titleInput}
-						bind:value={title}
-						oninput={() => (titleEdited = true)}
-						disabled={created}
-						maxlength="500"
-						placeholder={titleLoading ? '' : 'Give this link a memorable name'}
-						aria-busy={titleLoading}
-					/>
-					{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
-							>Fetching title…</span
-						>{/if}
-				</div>
-				<label for="capture-organizer">Tags & people</label>
-				<div class="capture-chips">
-					{#each selected as choice (key(choice))}<button
-							type="button"
-							class="chip"
-							disabled={completed.includes(key(choice))}
-							onclick={() => toggle(choice)}
-							aria-label={`Remove ${choice.name}`}
-							>{#if choice.kind === 'person'}<UserRound />{:else}<Folder />{/if}{choice.name}<X
-							/></button
-						>{/each}
-				</div>
-				<input
-					id="capture-organizer"
-					bind:value={organizer}
-					placeholder="Find tags or people…"
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
-							e.preventDefault();
-							if (choices[0]) toggle(choices[0]);
-						}
-					}}
-				/>
-				<div class="capture-choices">
-					{#each choices as choice (key(choice))}<button
-							type="button"
-							aria-pressed={selected.some((c) => key(c) === key(choice))}
-							disabled={completed.includes(key(choice))}
-							onclick={() => toggle(choice)}
-							>{#if choice.kind === 'person'}<UserRound />{:else}<Folder />{/if}<span
-								>{choice.name}</span
-							>{#if selected.some((c) => key(c) === key(choice))}<Check />{:else}<small
-									>{choice.kind}</small
-								>{/if}</button
-						>{/each}
-					{#if canCreate}<button
-							type="button"
-							onclick={() => {
-								toggle({ kind: 'new-tag', id: '', name: tagName });
-								organizer = '';
-							}}><Plus /><span>Create tag “{tagName}”</span></button
-						>{/if}
-				</div>
+				{#key step}<div class="capture-step">
+						{#if step === 'title'}
+							<label for="bookmark-capture-title">Title <span class="muted">optional</span></label>
+							<div class="capture-title-field">
+								<input
+									id="bookmark-capture-title"
+									bind:this={titleInput}
+									bind:value={title}
+									oninput={() => (titleEdited = true)}
+									disabled={created}
+									maxlength="500"
+									placeholder={titleLoading ? '' : 'Give this link a memorable name'}
+									aria-busy={titleLoading}
+								/>
+								{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
+										>Fetching title…</span
+									>{/if}
+							</div>
+						{:else}
+							<label for="capture-organizer">Tags & people</label>
+							<div class="capture-chips">
+								{#each selected as choice (key(choice))}<button
+										type="button"
+										class="chip"
+										disabled={completed.includes(key(choice))}
+										onclick={() => toggle(choice)}
+										aria-label={`Remove ${choice.name}`}
+										>{#if choice.kind === 'person'}<UserRound />{:else}<Folder
+											/>{/if}{choice.name}<X /></button
+									>{/each}
+							</div>
+							<input
+								id="capture-organizer"
+								bind:this={organizerInput}
+								bind:value={organizer}
+								placeholder="Find tags or people…"
+								autocomplete="off"
+								onkeydown={(e) => {
+									if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+										e.preventDefault();
+										if (choices[0]) toggle(choices[0]);
+									}
+								}}
+							/>
+							<div class="capture-choices">
+								{#each choices as choice (key(choice))}<button
+										type="button"
+										aria-pressed={selected.some((c) => key(c) === key(choice))}
+										disabled={completed.includes(key(choice))}
+										onclick={() => toggle(choice)}
+										>{#if choice.kind === 'person'}<UserRound />{:else}<Folder />{/if}<span
+											>{choice.name}</span
+										>{#if selected.some((c) => key(c) === key(choice))}<Check />{:else}<small
+												>{choice.kind}</small
+											>{/if}</button
+									>{/each}
+								{#if canCreate}<button
+										type="button"
+										onclick={() => {
+											toggle({ kind: 'new-tag', id: '', name: tagName });
+											organizer = '';
+										}}><Plus /><span>Create tag “{tagName}”</span></button
+									>{/if}
+							</div>
+						{/if}
+					</div>{/key}
 
 				<div class="capture-footer">
-					<span class="muted"
-						>{busy ? 'Saving on this device…' : 'Sync happens in the background.'}</span
-					><button type="submit" class="primary-button"
-						>{busy ? 'Saving…' : created ? 'Finish saving' : 'Save bookmark'}<ArrowRight /></button
-					>
+					{#if step === 'organize' && !created}<button
+							type="button"
+							class="text-button"
+							onclick={() => goTo('title')}><ArrowLeft /> Back</button
+						>{:else if !created}<span class="capture-link-actions"
+							><button type="button" class="text-button" onclick={editLink}>Edit link</button
+							><button type="button" class="text-button" onclick={discardDraft}>Discard</button
+							></span
+						>{:else}<span class="muted">Saved. Finish organizing.</span>{/if}
+					<span class="capture-submit">
+						{#if step === 'title'}<button
+								type="button"
+								class="text-button"
+								title="Save now · Ctrl+Enter"
+								onclick={() => void save()}>Save now</button
+							><button type="submit" class="primary-button">Next<ArrowRight /></button
+							>{:else}<button type="submit" class="primary-button"
+								>{busy ? 'Saving…' : created ? 'Finish saving' : 'Save bookmark'}<ArrowRight
+								/></button
+							>{/if}
+					</span>
 				</div>
 			</fieldset>
 		</form>{/if}

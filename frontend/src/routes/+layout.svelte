@@ -5,6 +5,8 @@
 	import { SvelteURL } from 'svelte/reactivity';
 	import { onMount } from 'svelte';
 	import { initializeSounds } from '#lib/client/sounds.svelte.js';
+	import { initializeTheme } from '#lib/client/theme.svelte.js';
+	onMount(initializeTheme);
 	onMount(initializeSounds);
 	let { children } = $props();
 	const socialImage = $derived(new SvelteURL(asset('og-image.png'), page.url.origin).href);

@@ -4,6 +4,14 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="theme-color" content="#121212" />
+		<script>
+			try {
+				if (localStorage.getItem('prism:theme') === 'light') {
+					document.documentElement.dataset.theme = 'light';
+					document.querySelector('meta[name="theme-color"]').content = '#f7f7f4';
+				}
+			} catch {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

@@ -6,7 +6,7 @@
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
-	import { Keyboard, Menu, Shuffle } from '@lucide/svelte';
+	import { Keyboard, Shuffle } from '@lucide/svelte';
 	import AccountPanel from './AccountPanel.svelte';
 	import KeyboardHelp from './KeyboardHelp.svelte';
 	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
@@ -18,6 +18,7 @@
 	import { AlertDialog, Dialog, DropdownMenu } from 'bits-ui';
 	import Omnibar from './Omnibar.svelte';
 	import LibrarySidebar from './LibrarySidebar.svelte';
+	import MobileNavbar from './MobileNavbar.svelte';
 	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import { avatarFromSeed, type AvatarConfig } from '#lib/domain/avatars.js';
 	import { createPeopleFeedIndex } from '#lib/client/people-feed.js';
@@ -64,7 +65,8 @@
 	let captureId = $state('');
 	let avatarConfig = $state<AvatarConfig | null>(null);
 	let sidebarCollapsed = $state(false),
-		mobileNavigation = $state(false),
+		mobile = $state(false),
+		navSearching = $state(false),
 		wideEditor = $state(false);
 	let feedFilter = $state('all');
 	const buildProfileIndex = createPeopleFeedIndex();
@@ -82,6 +84,7 @@
 		rename = $state('');
 	let omnibar: Omnibar | undefined = $state();
 	let sidebar: LibrarySidebar | undefined = $state();
+	let mobileNav: MobileNavbar | undefined = $state();
 	let helpOpen = $state(false);
 	let lastRow: HTMLElement | null = null;
 	let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -213,6 +216,10 @@
 		const resize = () => (wideEditor = media.matches);
 		resize();
 		media.addEventListener('change', resize);
+		const narrow = window.matchMedia('(max-width: 767px)');
+		const layout = () => (mobile = narrow.matches);
+		layout();
+		narrow.addEventListener('change', layout);
 		searcher = createSearchClient();
 		const client = createLibraryClient(() => {
 			version++;
@@ -222,8 +229,8 @@
 			if (openOffline) return client.openCached().catch((error: Error) => feedback(error.message));
 		});
 		const key = libraryKeyboard({
-			insert: () => void omnibar?.focusInsert(),
-			filter: () => void sidebar?.focusNavigation(),
+			insert: () => void openOmnibar('insert'),
+			filter: () => void (mobile ? mobileNav?.focusTags() : sidebar?.focusNavigation()),
 			account: () => (settings = true),
 			help: () => (helpOpen = true)
 		});
@@ -235,6 +242,7 @@
 		window.addEventListener('focusin', remember);
 		return () => {
 			media.removeEventListener('change', resize);
+			narrow.removeEventListener('change', layout);
 			window.removeEventListener('keydown', key);
 			window.removeEventListener('focusin', remember);
 			clearTimeout(feedbackTimer);
@@ -242,6 +250,14 @@
 			searcher?.stop();
 		};
 	});
+	// On mobile the omnibar lives in the bottom navbar and must be revealed before it can take focus.
+	async function openOmnibar(next: 'insert' | 'search') {
+		if (mobile) {
+			navSearching = true;
+			await tick();
+		}
+		await (next === 'insert' ? omnibar?.focusInsert() : omnibar?.focusSearch());
+	}
 	function feedback(message: string) {
 		toast = message;
 		clearTimeout(feedbackTimer);
@@ -276,7 +292,7 @@
 	function create(type: string) {
 		if (formBusy) return;
 		if (type === 'bookmark') {
-			void omnibar?.focusInsert();
+			void openOmnibar('insert');
 			return;
 		}
 		if (!['person', 'tag'].includes(type)) return;
@@ -549,6 +565,18 @@
 	}
 </script>
 
+{#snippet omnibarSlot()}<Omnibar
+		bind:this={omnibar}
+		{library}
+		ready={!!status?.ready}
+		{tags}
+		{people}
+		bind:query
+		{personId}
+		{feedback}
+		onNormal={focusLibrary}
+		onDismiss={() => (navSearching = false)}
+	/>{/snippet}
 <svelte:head
 	>{#if profileSlug}<title>{person?.displayName ?? 'Person'} · Prism</title>{/if}</svelte:head
 >
@@ -557,38 +585,20 @@
 	class="library-shell"
 	class:sidebar-collapsed={sidebarCollapsed}
 	class:editor-open={!!selected}
+	class:mobile-layout={mobile}
 >
 	<LibrarySidebar
 		bind:this={sidebar}
 		{view}
 		{tags}
 		bind:collapsed={sidebarCollapsed}
-		bind:mobileOpen={mobileNavigation}
 		onSelect={(value) => void navigate(null, value)}
 		onCreate={create}
 		onAccount={() => (settings = true)}
 	/>
 	<main id="library-main" class="library-main" tabindex="-1">
 		<h1 class="sr-only">{title}</h1>
-		<div class="workspace-search">
-			<button
-				class="icon-button mobile-menu-button"
-				aria-label="Open library navigation"
-				onclick={() => (mobileNavigation = true)}
-				data-cuelume-open><Menu /></button
-			>
-			<Omnibar
-				bind:this={omnibar}
-				{library}
-				ready={!!status?.ready}
-				{tags}
-				{people}
-				bind:query
-				{personId}
-				{feedback}
-				onNormal={focusLibrary}
-			/>
-		</div>
+		{#if !mobile}<div class="workspace-search">{@render omnibarSlot()}</div>{/if}
 		<div class="library-content">
 			{#if profileSlug && person}<div class="person-profile">
 					<div class="profile-cover" aria-hidden="true"></div>
@@ -748,6 +758,20 @@
 			{/if}
 		</div>
 	</main>
+	{#if mobile && status?.ready}<MobileNavbar
+			bind:this={mobileNav}
+			bind:searching={navSearching}
+			{view}
+			{tags}
+			onSelect={(value) => {
+				navSearching = false;
+				void navigate(null, value);
+			}}
+			onCreate={create}
+			onAccount={() => (settings = true)}
+			onSearch={() => void openOmnibar('search')}
+			omnibar={omnibarSlot}
+		/>{/if}
 	{#if toast && !settings}<div class="action-toast" role="status">
 			<span>{toast}</span><button
 				class="icon-button"
