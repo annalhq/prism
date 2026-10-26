@@ -6,7 +6,7 @@
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
-	import { Keyboard, Shuffle } from '@lucide/svelte';
+	import { Compass, Globe, Keyboard, Link2, Newspaper, Shuffle } from '@lucide/svelte';
 	import AccountPanel from './AccountPanel.svelte';
 	import KeyboardHelp from './KeyboardHelp.svelte';
 	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
@@ -14,7 +14,7 @@
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
+	import { asset, resolve } from '$app/paths';
 	import { AlertDialog, Dialog, DropdownMenu } from 'bits-ui';
 	import Omnibar from './Omnibar.svelte';
 	import LibrarySidebar from './LibrarySidebar.svelte';
@@ -25,8 +25,19 @@
 	import { cue } from '#lib/client/sounds.svelte.js';
 	import TokenInput from './ui/TokenInput.svelte';
 	import BookmarkCard from './BookmarkCard.svelte';
+	import PostCard, { type PostAuthor } from './PostCard.svelte';
+	import { formatPersonLinks, linkLabel, parsePersonLinks } from '#lib/domain/person-links.js';
 	import { notePreview } from '#lib/client/reference-edits.js';
-	import { isReadLater, moveTag, personSlug, personIdFromSlug } from '#lib/client/workflows.js';
+	import {
+		isReadLater,
+		moveTag,
+		personLinksIndex,
+		personSlug,
+		personIdFromSlug,
+		postTime,
+		syncPersonLinks,
+		xHandle
+	} from '#lib/client/workflows.js';
 	import { sortByPosition } from '#lib/domain/organization.js';
 
 	import { createLibraryClient, type LibraryClient } from '#lib/client/vault/library.js';
@@ -175,6 +186,78 @@
 		void contentVersion;
 		return buildProfileIndex(view === 'people' || profileSlug ? library : null);
 	});
+	// People has two tabs: a feed of everything connected to people, newest first, like a
+	// social timeline, and Explore, a directory of the people themselves.
+	const peopleTab = $derived(
+		view === 'people' && page.url.searchParams.get('tab') === 'explore' ? 'explore' : 'feed'
+	);
+	const feedMode = $derived(!!profileSlug || (view === 'people' && peopleTab === 'feed'));
+	const identityIndex = $derived.by(() => {
+		void version;
+		return personLinksIndex(library);
+	});
+	const peopleById = $derived(new Map(people.map((p) => [String(p.id), p])));
+	const handleOf = (id: string) => xHandle(identityIndex.get(id));
+	const LABEL_RANK = ['Authored', 'About', 'Related', 'Mentioned'];
+	// Bookmark → the people it is connected to, the strongest connection first.
+	const postAuthors = $derived.by(() => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Rebuilt whole on every derivation.
+		const byPost = new Map<string, PostAuthor[]>();
+		for (const [id, entries] of profileLinks) {
+			const row = peopleById.get(id);
+			if (!row) continue;
+			for (const [bookmarkId, labels] of entries) {
+				const list = byPost.get(bookmarkId) ?? [];
+				list.push({
+					id,
+					name: String(row.displayName),
+					handle: handleOf(id),
+					avatarConfig: row.avatarConfig,
+					labels
+				});
+				byPost.set(bookmarkId, list);
+			}
+		}
+		const rank = (author: PostAuthor) =>
+			Math.min(...author.labels.map((l) => LABEL_RANK.indexOf(l)));
+		for (const list of byPost.values()) list.sort((a, b) => rank(a) - rank(b));
+		return byPost;
+	});
+	function authorsFor(bookmarkId: string): PostAuthor[] {
+		const list = postAuthors.get(bookmarkId) ?? [];
+		// On a profile, every post is shown from that person.
+		if (!personId) return list;
+		const own = list.find((a) => a.id === personId);
+		return own ? [own, ...list.filter((a) => a !== own)] : list;
+	}
+	// The people strip above the feed: whoever posted most recently first.
+	const activePeople = $derived.by(() => {
+		if (view !== 'people') return [];
+		const bookmarks = new Map(
+			(library?.list<Row>('bookmarks') ?? []).map((b) => [String(b.id), String(b.createdAt)])
+		);
+		return people
+			.map((p) => {
+				const latest = [...(profileLinks.get(String(p.id))?.keys() ?? [])]
+					.map((id) => bookmarks.get(id) ?? '')
+					.sort()
+					.at(-1);
+				return { person: p, latest: latest ?? '' };
+			})
+			.sort(
+				(a, b) =>
+					b.latest.localeCompare(a.latest) ||
+					String(a.person.displayName).localeCompare(String(b.person.displayName))
+			);
+	});
+	const profileLinksList = $derived(person ? (identityIndex.get(String(person.id)) ?? []) : []);
+	async function setPeopleTab(tab: 'feed' | 'explore') {
+		const url = new SvelteURL(page.url.href);
+		if (tab === 'explore') url.searchParams.set('tab', 'explore');
+		else url.searchParams.delete('tab');
+		limit = 100;
+		await goto(url, { reset: false });
+	}
 	let query = $derived(page.url.searchParams.get('q') ?? '');
 	let content: HTMLElement | undefined = $state();
 	// On mobile the search field is at the bottom, so ranked results read upward from it.
@@ -191,9 +274,14 @@
 		if (!current || !libraryReady || !search || view === 'tags') return;
 		const n = ++generation;
 		const profile = personId;
-		const entries = profileLinks.get(profile ?? '');
+		// A profile shows one person's connections; the people feed shows everyone's.
+		const entries: [string, string[]][] = profile
+			? [...(profileLinks.get(profile) ?? [])]
+			: feedMode
+				? [...profileLinks.values()].flatMap((map) => [...map])
+				: [];
 		const connected = new Set(
-			[...(entries ?? [])]
+			entries
 				.filter(
 					([, labels]) =>
 						feedFilter === 'all' ||
@@ -205,11 +293,12 @@
 				)
 				.map(([id]) => id)
 		);
+		const filterFeed = feedMode;
 		pendingResults = search
-			.query(current, view, query, sort)
+			.query(current, filterFeed && !profileSlug ? 'all' : view, query, sort)
 			.then((value) => {
 				if (n === generation)
-					results = profileSlug
+					results = filterFeed
 						? {
 								...value,
 								items: value.items.filter(
@@ -351,7 +440,14 @@
 		create('person');
 		editingPerson = person;
 		newTitle = String(person.displayName);
-		personUrl = String(person.website ?? '');
+		personUrl = formatPersonLinks(
+			person.website ? String(person.website) : null,
+			(identityIndex.get(String(person.id)) ?? []).map((row) => ({
+				platform: String(row.platform),
+				profileUrl: String(row.profileUrl),
+				handle: row.handle ? String(row.handle) : null
+			}))
+		);
 		newNote = String(person.bio ?? '');
 		avatarConfig =
 			(person.avatarConfig as AvatarConfig | null) ?? avatarFromSeed(String(person.id));
@@ -365,6 +461,9 @@
 		try {
 			// The outbox clones commands; reactive avatar proxies must become plain data first.
 			const savedAvatar = $state.snapshot(avatarConfig);
+			// `@username, site.com, github.com/name`: the first plain site is the website, the
+			// rest become profile links. Parse first so a typo saves nothing.
+			const links = newType === 'person' ? parsePersonLinks(personUrl) : null;
 			const command: Command =
 				newType === 'person'
 					? editingPerson
@@ -374,7 +473,7 @@
 								expectedRevision: String(editingPerson.revision) as Revision,
 								patch: {
 									displayName: newTitle,
-									website: personUrl || null,
+									website: links?.website ?? null,
 									bio: newNote,
 									avatarConfig: savedAvatar
 								}
@@ -383,13 +482,22 @@
 								type: 'person.create',
 								id,
 								displayName: newTitle,
-								website: personUrl || null,
+								website: links?.website ?? null,
 								bio: newNote,
 								avatarConfig: savedAvatar
 							}
 					: { type: 'tag.create', id, name: newTitle };
 			const result = await library.save(command);
 			if (result.status === 'rejected') throw new Error(result.message ?? 'Could not save.');
+			if (links)
+				try {
+					await syncPersonLinks(library, id, links.links);
+				} catch (error) {
+					// The person is saved; reopen as an edit of the saved row so a retry only
+					// touches the links.
+					editingPerson = library.get<Row>('people', id) ?? editingPerson;
+					throw error;
+				}
 			creating = false;
 			cue('success');
 			feedback(status?.online ? 'Saved.' : 'Saved on this device.');
@@ -679,30 +787,99 @@
 		<h1 class="view-title" class:inline-heading={!!profileSlug || view === 'tags'}>{title}</h1>
 		{#if !mobile}<div class="workspace-search">{@render omnibarSlot()}</div>{/if}
 		<div class="library-content" class:results-bottom-up={bottomUp} bind:this={content}>
+			{#snippet feedFilters(label: string)}<div
+					class="feed-filters"
+					role="group"
+					aria-label={label}
+				>
+					{#each [{ id: 'all', label: 'All' }, { id: 'authored', label: 'Authored' }, { id: 'related', label: 'Related' }, { id: 'mentions', label: 'Mentions' }] as option (option.id)}<button
+							aria-pressed={feedFilter === option.id}
+							onclick={() => (feedFilter = option.id)}>{option.label}</button
+						>{/each}
+				</div>{/snippet}
 			{#if profileSlug && person}<div class="person-profile">
 					<div class="profile-cover" aria-hidden="true"></div>
-					<PersonAvatar id={String(person.id)} config={person.avatarConfig} size={88} />
+					<PersonAvatar
+						id={String(person.id)}
+						config={person.avatarConfig}
+						handle={handleOf(String(person.id))}
+						size={88}
+					/>
 					<div class="profile-copy">
 						<h2>{person.displayName}</h2>
-						{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}{#if personWebsite}<a
-								class="source-link"
-								href={personWebsite}
-								target="_blank"
-								rel="noopener noreferrer">{personWebsite}</a
-							>{/if}
+						{#if handleOf(String(person.id))}<p class="profile-handle">
+								@{handleOf(String(person.id))}
+							</p>{/if}
+						{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}
+						{#if personWebsite || profileLinksList.length}<div class="profile-links">
+								{#if personWebsite}<a
+										class="profile-link"
+										href={personWebsite}
+										target="_blank"
+										rel="noopener noreferrer"
+										><Globe />{linkLabel({ platform: 'web', profileUrl: personWebsite })}</a
+									>{/if}
+								{#each profileLinksList as link (String(link.id))}<a
+										class="profile-link"
+										href={String(link.profileUrl)}
+										target="_blank"
+										rel="noopener noreferrer"
+										>{#if link.platform === 'x'}<img
+												src={asset('site-icons/twitter.svg')}
+												alt=""
+												width="14"
+												height="14"
+											/>{:else}<Link2 />{/if}{linkLabel({
+											platform: String(link.platform),
+											profileUrl: String(link.profileUrl),
+											handle: link.handle ? String(link.handle) : null
+										})}</a
+									>{/each}
+							</div>{/if}
+						<p class="profile-stats">
+							<strong>{profileLinks.get(String(person.id))?.size ?? 0}</strong> posts
+						</p>
 					</div>
 					<button class="text-button" onclick={editPerson} data-cuelume-open>Edit profile</button>
 				</div>{/if}
 
 			{#if profileSlug && person}<div class="profile-feed-heading">
-					<span>{profileLinks.get(String(person.id))?.size ?? 0} saved connections</span>
-					<div class="feed-filters" aria-label="Filter profile feed">
-						{#each [{ id: 'all', label: 'All' }, { id: 'authored', label: 'Authored' }, { id: 'related', label: 'Related' }, { id: 'mentions', label: 'Mentions' }] as option (option.id)}<button
-								aria-pressed={feedFilter === option.id}
-								onclick={() => (feedFilter = option.id)}>{option.label}</button
-							>{/each}
-					</div>
+					<span>Posts</span>
+					{@render feedFilters('Filter profile feed')}
 				</div>{/if}
+			{#if view === 'people' && status?.ready}<div class="people-tabs" role="tablist">
+					<button
+						role="tab"
+						aria-selected={peopleTab === 'feed'}
+						onclick={() => setPeopleTab('feed')}><Newspaper />Feed</button
+					><button
+						role="tab"
+						aria-selected={peopleTab === 'explore'}
+						onclick={() => setPeopleTab('explore')}><Compass />Explore</button
+					>
+				</div>
+				{#if peopleTab === 'feed' && !query && activePeople.length}<div
+						class="people-strip"
+						aria-label="People"
+					>
+						{#each activePeople.slice(0, 16) as entry (String(entry.person.id))}<button
+								onclick={() => navigate({ kind: 'person', id: String(entry.person.id) })}
+								title={String(entry.person.displayName)}
+								><PersonAvatar
+									id={String(entry.person.id)}
+									config={entry.person.avatarConfig}
+									handle={handleOf(String(entry.person.id))}
+									size={52}
+								/><span>{String(entry.person.displayName).split(' ')[0]}</span></button
+							>{/each}<button class="people-strip-more" onclick={() => setPeopleTab('explore')}
+							><span class="people-strip-icon"><Compass /></span><span>Explore</span></button
+						>
+					</div>{/if}
+				{#if peopleTab === 'feed'}<div class="profile-feed-heading feed-heading">
+						<span class="muted">Everything your people wrote, appear in, or are linked to.</span>
+						{@render feedFilters('Filter people feed')}
+					</div>{/if}
+			{/if}
 			{#if profileSlug && status?.ready && person}<section class="person-connect">
 					<TokenInput
 						label="Connect existing bookmarks"
@@ -743,12 +920,12 @@
 				/>
 			{:else}
 				<div class="list-toolbar">
-					<button
-						class="column-sort"
-						onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
-						aria-label="Sort by title"
-						>{view === 'people' ? 'Name' : 'Title'}{sort === 'title' ? ' ↑' : ''}</button
-					>
+					{#if !feedMode}<button
+							class="column-sort"
+							onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
+							aria-label="Sort by title"
+							>{view === 'people' ? 'Name' : 'Title'}{sort === 'title' ? ' ↑' : ''}</button
+						>{/if}
 					{#if query}<span class="muted">{results.items.length} found</span>{/if}
 					{#if view === 'people'}<button class="text-button" onclick={() => create('person')}
 							>Add person</button
@@ -776,32 +953,39 @@
 
 				<div
 					class="bookmark-list"
-					class:person-timeline={!!profileSlug}
-					class:people-grid={view === 'people'}
+					class:post-feed={feedMode}
+					class:people-grid={view === 'people' && !feedMode}
 				>
 					{#if profileSlug && !person}<p class="panel-message">
 							This person is unavailable.
 						</p>{:else}
 						{#each results.items.slice(0, limit) as item (String(item.id))}
-							{#if item.entityKind === 'person'}<button
+							{#if item.entityKind === 'person'}{@const handle = handleOf(String(item.id))}<button
 									class="person-card"
 									onclick={() => navigate({ kind: 'person', id: String(item.id) })}
-									><PersonAvatar id={String(item.id)} config={item.avatarConfig} size={56} /><span
-										><strong>{item.displayName}</strong><small
+									><PersonAvatar
+										id={String(item.id)}
+										config={item.avatarConfig}
+										{handle}
+										size={56}
+									/><span
+										><strong>{item.displayName}</strong>{#if handle}<span class="person-handle"
+												>@{handle}</span
+											>{/if}<small
 											>{item.bio || item.website || 'A person worth keeping up with.'}</small
 										><span class="person-count"
-											>{profileLinks.get(String(item.id))?.size ?? 0} saved connections</span
+											>{profileLinks.get(String(item.id))?.size ?? 0} posts{#if activePeople.find((e) => e.person.id === item.id)?.latest}
+												· active {postTime(
+													activePeople.find((e) => e.person.id === item.id)?.latest
+												)}{/if}</span
 										></span
 									></button
 								>
-							{:else}<BookmarkCard
+							{:else if feedMode}<PostCard
 									{item}
+									authors={authorsFor(String(item.id))}
 									{feedback}
 									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
-									timeline={!!profileSlug}
-									relation={profileSlug
-										? (profileLinks.get(personId ?? '')?.get(String(item.id)) ?? []).join(' · ')
-										: ''}
 									tagLabels={((item.tagIds as string[]) ?? [])
 										.map((id) => String(tags.find((t) => t.id === id)?.name ?? ''))
 										.filter(Boolean)}
@@ -809,6 +993,19 @@
 										? () =>
 												void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
 										: undefined}
+									selected={selected?.id === item.id}
+									onPerson={(id) => void navigate({ kind: 'person', id })}
+									onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
+									onAction={(action) => void bookmarkAction(item, action)}
+									onOpen={() => void library?.save({ type: 'activity.open', id: String(item.id) })}
+								/>
+							{:else}<BookmarkCard
+									{item}
+									{feedback}
+									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
+									tagLabels={((item.tagIds as string[]) ?? [])
+										.map((id) => String(tags.find((t) => t.id === id)?.name ?? ''))
+										.filter(Boolean)}
 									selected={selected?.id === item.id}
 									onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
 									onAction={(action) => void bookmarkAction(item, action)}
@@ -819,23 +1016,34 @@
 									<h2>
 										{query
 											? 'Nothing matched this search.'
-											: view === 'people'
-												? 'People behind your bookmarks.'
-												: profileSlug
-													? 'Their saved content appears here.'
-													: 'No bookmarks here yet.'}
+											: profileSlug
+												? 'No posts yet.'
+												: view === 'people' && feedMode
+													? 'Your people feed is quiet.'
+													: view === 'people'
+														? 'People behind your bookmarks.'
+														: 'No bookmarks here yet.'}
 									</h2>
 									<p>
 										{query
-											? 'Try a title, note or #tag.'
+											? 'Try a title, note, #tag or @username.'
 											: profileSlug
 												? 'Connect an existing bookmark above, or save a new one here.'
-												: 'Paste a link above to save your first bookmark.'}
+												: view === 'people' && feedMode
+													? 'Connect bookmarks to people, or mention them in a note, and their posts show up here.'
+													: view === 'people'
+														? 'Add the writers and creators you follow. Use @username for their X account.'
+														: 'Paste a link above to save your first bookmark.'}
 									</p>
 									{#if !query && view !== 'trash'}<button
 											class="primary-button"
-											onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
-											>Add {view === 'people' ? 'person' : 'bookmark'}</button
+											onclick={() =>
+												view === 'people' && feedMode && people.length
+													? setPeopleTab('explore')
+													: create(view === 'people' ? 'person' : 'bookmark')}
+											>{view === 'people' && feedMode && people.length
+												? 'Explore people'
+												: `Add ${view === 'people' ? 'person' : 'bookmark'}`}</button
 										>{/if}
 								</section>{/if}{/each}{/if}
 				</div>
@@ -944,12 +1152,19 @@
 						placeholder={newType === 'person' ? 'Full name' : 'Name'}
 					/>
 					{#if newType === 'person'}
-						<label for="person-url">Website (optional)</label><input
+						<label for="person-url">Links (optional)</label><input
 							id="person-url"
-							type="url"
 							bind:value={personUrl}
-							placeholder="https://…"
+							placeholder="@username, their-site.com, github.com/name"
+							autocomplete="off"
+							autocapitalize="off"
+							spellcheck="false"
+							aria-describedby="person-url-hint"
 						/>
+						<p id="person-url-hint" class="field-hint">
+							Start with @ for an X username; it also brings in their profile photo. Separate more
+							links with commas.
+						</p>
 						<label for="capture-note">About (optional)</label><textarea
 							id="capture-note"
 							bind:value={newNote}

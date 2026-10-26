@@ -64,13 +64,66 @@ export function parseLibraryQuery(
 			);
 		return { id: id(matches[0]), label: label(matches[0]) };
 	};
+	// `@name` is a person bang: an exact handle or name wins, otherwise a unique prefix
+	// of either, so results narrow while the handle is still being typed.
+	const resolvePerson = (name: string) => {
+		const needle = normalizeSearchText(name.replace(/^@/, ''));
+		if (!needle) throw new Error('Type a username or name after @.');
+		const people = library.list<Row>('people').filter((row) => !row.deletedAt && !row.purgedAt);
+		const live = new Set(people.map(id));
+		const handles = library
+			.list<Row>('identities')
+			.filter((row) => !row.deletedAt && row.handle && live.has(String(row.personId)))
+			.map((row) => ({
+				personId: String(row.personId),
+				handle: normalizeSearchText(String(row.handle))
+			}));
+		const compact = (row: Row) => normalizeSearchText(label(row)).replace(/\s+/g, '');
+		const pick = (ids: Set<string>) =>
+			ids.size === 1 ? people.find((row) => id(row) === [...ids][0]) : undefined;
+		const exact = new Set([
+			...handles.filter((h) => h.handle === needle).map((h) => h.personId),
+			...people
+				.filter((row) => normalizeSearchText(label(row)) === needle || compact(row) === needle)
+				.map(id)
+		]);
+		// Handles are what people type after @, so a handle prefix outranks a name prefix.
+		const handlePrefix = new Set(
+			handles.filter((h) => h.handle.startsWith(needle)).map((h) => h.personId)
+		);
+		const namePrefix = new Set(
+			people
+				.filter(
+					(row) =>
+						compact(row).startsWith(needle.replace(/\s+/g, '')) ||
+						normalizeSearchText(label(row))
+							.split(' ')
+							.some((word) => word.startsWith(needle))
+				)
+				.map(id)
+		);
+		const tiers = [exact, handlePrefix, namePrefix];
+		const tier = tiers.find((ids) => ids.size > 0);
+		const found = tier && pick(tier);
+		if (!found)
+			throw new Error(
+				tier
+					? `Several people match “@${name}”. Keep typing to choose one.`
+					: `No person matches “@${name}”.`
+			);
+		return { id: id(found), label: label(found) };
+	};
 	try {
 		for (const token of tokens) {
 			const t = token.text;
 			if (t.startsWith('#')) filter.tags.push(resolve('tags', t.slice(1)));
 			else if (t.startsWith('@')) {
+				const person = resolvePerson(t.slice(1));
+				if (!filter.people.some((p) => p.id === person.id))
+					filter.people.push({ ...person, role: 'any' });
+			} else if (t.startsWith('collection:')) {
 				if (filter.collection) throw new Error('Use one collection per search.');
-				filter.collection = resolve('collections', t.slice(1));
+				filter.collection = resolve('collections', t.slice(11));
 			} else if (t.startsWith('person:')) {
 				const [, ...name] = t.split(':');
 				filter.people.push({
@@ -180,11 +233,19 @@ export function searchLibrary(
 			!(row.domain === filter.site || String(row.domain ?? '').endsWith(`.${filter.site}`))
 		)
 			return false;
+		// A person filter keeps that person's own profile and every bookmark connected to them:
+		// a role, a related link, or a mention in the bookmark's note.
 		if (
 			!filter.people.every(
 				(person) =>
 					active('person', person.id) &&
-					roles.some((r) => r.bookmarkId === row.id && r.personId === person.id)
+					(row.id === person.id ||
+						roles.some((r) => r.bookmarkId === row.id && r.personId === person.id) ||
+						links.some(
+							(link) =>
+								link.sourceId === row.id &&
+								((link.edges as Row[]) ?? []).some((edge) => edge.targetId === person.id)
+						))
 			)
 		)
 			return false;

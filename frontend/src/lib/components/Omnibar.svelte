@@ -452,7 +452,7 @@
 		<input
 			bind:this={input}
 			aria-label={mode === 'search' ? 'Search library' : 'Bookmark URL'}
-			placeholder={mode === 'search' ? 'Search bookmarks…' : 'Paste a link to save…'}
+			placeholder={mode === 'search' ? 'Search, #tag or @person…' : 'Paste a link to save…'}
 			value={mode === 'search' ? query : draft}
 			oninput={(e) => {
 				if (mode === 'search') query = e.currentTarget.value;

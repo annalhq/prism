@@ -19,6 +19,15 @@
 			]
 		},
 		{
+			title: 'Search filters',
+			rows: [
+				['@username', 'Posts by or about a person'],
+				['#tag', 'Bookmarks with a tag'],
+				['site:example.com', 'Links from one site'],
+				['is:social · has:note', 'Narrow by kind or note']
+			]
+		},
+		{
 			title: 'Focused bookmark',
 			rows: [
 				['o / Enter', 'Open the link'],
