@@ -628,7 +628,7 @@
 		onAccount={() => (settings = true)}
 	/>
 	<main id="library-main" class="library-main" tabindex="-1">
-		<h1 class="sr-only">{title}</h1>
+		<h1 class="view-title" class:inline-heading={!!profileSlug || view === 'tags'}>{title}</h1>
 		{#if !mobile}<div class="workspace-search">{@render omnibarSlot()}</div>{/if}
 		<div class="library-content">
 			{#if profileSlug && person}<div class="person-profile">

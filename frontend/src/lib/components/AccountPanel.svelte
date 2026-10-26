@@ -19,7 +19,11 @@
 		X,
 		Folder,
 		Check,
-		AlertCircle
+		AlertCircle,
+		Copy,
+		Globe,
+		Puzzle,
+		Wrench
 	} from '@lucide/svelte';
 	import type { LibraryClient, LibraryState } from '#lib/client/vault/library.js';
 	type Row = Record<string, unknown>;
@@ -164,6 +168,10 @@
 			extensionError = '';
 		}
 	});
+	const themes = [
+		{ value: 'dark', label: 'Dark' },
+		{ value: 'light', label: 'Light' }
+	] as const;
 	function create(type: string) {
 		open = false;
 		onCreate(type);
@@ -183,24 +191,37 @@
 			}}
 		>
 			<header class="account-panel-header">
-				<div>
-					<Dialog.Title class="dialog-title">Account & settings</Dialog.Title><Dialog.Description
-						class="sr-only">Manage your account, sync, and library.</Dialog.Description
-					>
-				</div>
-				<Dialog.Close class="icon-button" aria-label="Close library settings"><X /></Dialog.Close>
+				<Dialog.Title class="dialog-title">Settings</Dialog.Title><Dialog.Description
+					class="sr-only">Manage your account, sync, and library.</Dialog.Description
+				>
+				<Dialog.Close class="icon-button" aria-label="Close settings"><X /></Dialog.Close>
 			</header>
 			<Tabs.Root bind:value={tab} class="account-body">
-				<Tabs.List class="account-tabs" aria-label="Account sections"
-					><Tabs.Trigger value="account">Account</Tabs.Trigger><Tabs.Trigger value="library"
+				<Tabs.List class="segmented account-tabs" aria-label="Settings sections"
+					><Tabs.Trigger value="account">General</Tabs.Trigger><Tabs.Trigger value="library"
 						>Library</Tabs.Trigger
 					></Tabs.List
 				>
 				<div class="account-scroll">
-					<Tabs.Content value="account">
+					<Tabs.Content value="account" class="account-tab">
 						<section class="settings-group">
-							<h3>Preferences</h3>
+							<h3 class="settings-label">Appearance</h3>
 							<div class="settings-card">
+								<div class="setting-row">
+									<span class="setting-icon"
+										>{#if themePreference.value === 'light'}<Sun />{:else}<Moon />{/if}</span
+									><span class="setting-text"
+										><strong>Theme</strong><small>Charcoal or warm paper</small></span
+									>
+									<div class="segmented setting-trailing" role="radiogroup" aria-label="Theme">
+										{#each themes as option (option.value)}<button
+												role="radio"
+												aria-checked={themePreference.value === option.value}
+												data-state={themePreference.value === option.value ? 'active' : undefined}
+												onclick={() => setTheme(option.value)}>{option.label}</button
+											>{/each}
+									</div>
+								</div>
 								<button
 									class="setting-row"
 									role="switch"
@@ -211,39 +232,25 @@
 									}}
 									><span class="setting-icon"
 										>{#if soundPreference.enabled}<Volume2 />{:else}<VolumeX />{/if}</span
-									><span
+									><span class="setting-text"
 										><strong>Subtle sounds</strong><small
 											>Quiet feedback for meaningful moments</small
 										></span
-									><span class="preference-switch" class:enabled={soundPreference.enabled}
-										><span></span></span
-									></button
-								>
-								<button
-									class="setting-row"
-									role="switch"
-									aria-checked={themePreference.value === 'light'}
-									onclick={() => setTheme(themePreference.value === 'light' ? 'dark' : 'light')}
-									><span class="setting-icon"
-										>{#if themePreference.value === 'light'}<Sun />{:else}<Moon />{/if}</span
 									><span
-										><strong>Light appearance</strong><small>Warm paper tones instead of dark</small
-										></span
-									><span class="preference-switch" class:enabled={themePreference.value === 'light'}
-										><span></span></span
+										class="preference-switch setting-trailing"
+										class:enabled={soundPreference.enabled}><span></span></span
 									></button
 								>
 							</div>
 						</section>
 						<section class="settings-group">
-							<h3>Connection & sync</h3>
-							<div class="settings-card sync-card">
-								<div class="sync-heading">
+							<h3 class="settings-label">Sync</h3>
+							<div class="settings-card">
+								<div class="setting-row">
 									<span class="setting-icon"
 										>{#if status?.online}<Cloud />{:else}<CloudOff />{/if}</span
-									>
-									<div>
-										<strong
+									><span class="setting-text"
+										><strong
 											>{status?.loading
 												? 'Syncing your library'
 												: status?.conflicts.length
@@ -255,182 +262,175 @@
 															: status?.ready
 																? 'Everything is up to date'
 																: 'Not connected'}</strong
-										>
-										<p>
-											{status?.pending
+										><small
+											>{status?.pending
 												? `${status.pending} ${status.pending === 1 ? 'change' : 'changes'} saved on this device`
 												: status?.online
-													? 'Connected · Your library stays in sync across devices.'
-													: 'Your changes will sync when you reconnect.'}
-										</p>
-									</div>
-								</div>
-								<button
-									class="text-button sync-button"
-									disabled={!status?.online || status?.loading}
-									onclick={() => library?.sync()}
-									><RefreshCw class={status?.loading ? 'spinning' : ''} />{status?.loading
-										? 'Syncing…'
-										: 'Sync now'}</button
-								>
-								{#if status?.error}<p class="sync-error"><AlertCircle />{status.error}</p>{/if}
-							</div>
-						</section>
-						{#if status?.conflicts.length}<Collapsible.Root class="settings-group conflict-review">
-								<Collapsible.Trigger class="conflict-trigger">
-									<AlertCircle /><span
-										>{status.conflicts.length}
-										{status.conflicts.length === 1 ? 'change needs' : 'changes need'} review</span
-									><ChevronDown />
-								</Collapsible.Trigger>
-								<Collapsible.Content class="conflict-content">
-									<ul class="conflict-list">
-										{#each status.conflicts as conflict (conflict.operationId)}<li
-												class="conflict-entry"
-											>
-												<strong>{changeLabel(conflict.envelope.command.type)}</strong>
-												<p>{conflict.error?.message ?? 'This change could not be synced.'}</p>
-												<button
-													class="text-button"
-													disabled={resolving.includes(conflict.operationId)}
-													onclick={() => keepSaved(conflict.operationId)}
-													>{resolving.includes(conflict.operationId)
-														? 'Updating…'
-														: 'Keep saved version'}</button
-												>
-											</li>{/each}
-									</ul>
-									<p class="conflict-help">
-										Keeping the saved version discards that pending change. Note drafts are kept.
-									</p>
-									{#if conflictError}<p class="form-error" role="alert">{conflictError}</p>{/if}
-								</Collapsible.Content>
-							</Collapsible.Root>{/if}
-						<section class="settings-group">
-							<h3>Firefox extension</h3>
-							<div class="settings-card extension-connections">
-								<p class="muted">
-									Create a one-time code to connect Firefox. The extension can read tag and person
-									names and save bookmarks; revoke access here at any time.
-								</p>
-								<div class="button-row extension-pairing-controls">
-									<label>
-										<span class="sr-only">Pairing code lifetime</span>
-										<select aria-label="Pairing code lifetime" bind:value={pairingLifetime}>
-											<option value={5}>5 minutes</option>
-											<option value={15}>15 minutes</option>
-											<option value={60}>60 minutes</option>
-										</select>
-									</label>
-									<button
-										class="text-button"
-										onclick={generatePairing}
-										disabled={extensionBusy || !status?.online}
+													? 'Your library stays in sync across devices'
+													: 'Changes sync when you reconnect'}</small
+										></span
+									><button
+										class="secondary-button setting-trailing"
+										disabled={!status?.online || status?.loading}
+										onclick={() => library?.sync()}
+										><RefreshCw class={status?.loading ? 'spinning' : ''} />{status?.loading
+											? 'Syncing…'
+											: 'Sync now'}</button
 									>
-										{extensionBusy ? 'Working…' : 'Generate pairing code'}
-									</button>
 								</div>
-								{#if pairingCode}
-									<div class="extension-pairing-code">
-										<strong>Enter this code in Firefox</strong>
-										<code>{pairingCode}</code>
-										<button class="text-button" onclick={copyPairingCode}
-											>{pairingCopied ? 'Copied' : 'Copy code'}</button
+								{#if status?.error}<p class="setting-note setting-error">
+										<AlertCircle />{status.error}
+									</p>{/if}
+								{#if status?.conflicts.length}<Collapsible.Root class="conflict-review">
+										<Collapsible.Trigger class="setting-row conflict-trigger"
+											><span class="setting-icon"><AlertCircle /></span><span class="setting-text"
+												><strong
+													>{status.conflicts.length}
+													{status.conflicts.length === 1 ? 'change needs' : 'changes need'} review</strong
+												><small>Keeping the saved version discards the pending change</small></span
+											><ChevronDown class="setting-trailing" /></Collapsible.Trigger
 										>
-										<small>Expires {new Date(pairingExpiresAt).toLocaleTimeString()}</small>
-										<p class="muted">
-											It works once. Close this panel after pairing to hide the code.
-										</p>
-									</div>
-								{/if}
-								{#if extensionConnections.length}
-									<div class="extension-connection-list" aria-label="Connected extensions">
-										{#each extensionConnections as connection (connection.id)}
-											<div class="extension-connection-row">
-												<span
-													><strong>{connection.name}</strong><small
-														>Connected {new Date(connection.createdAt).toLocaleDateString()}</small
-													></span
-												>
-												<button
-													class="text-button"
-													onclick={() => revokeExtension(connection.id)}
-													disabled={extensionBusy}>Revoke</button
-												>
-											</div>
-										{/each}
-									</div>
-								{:else}<p class="picker-empty">No Firefox extension connections.</p>{/if}
-								{#if extensionError}<p class="form-error" role="alert">{extensionError}</p>{/if}
+										<Collapsible.Content class="conflict-content">
+											<ul class="conflict-list">
+												{#each status.conflicts as conflict (conflict.operationId)}<li
+														class="conflict-entry"
+													>
+														<span class="setting-text"
+															><strong>{changeLabel(conflict.envelope.command.type)}</strong><small
+																>{conflict.error?.message ??
+																	'This change could not be synced.'}</small
+															></span
+														>
+														<button
+															class="text-button"
+															disabled={resolving.includes(conflict.operationId)}
+															onclick={() => keepSaved(conflict.operationId)}
+															>{resolving.includes(conflict.operationId)
+																? 'Updating…'
+																: 'Keep saved'}</button
+														>
+													</li>{/each}
+											</ul>
+											<p class="setting-note">Note drafts are kept either way.</p>
+											{#if conflictError}<p class="form-error" role="alert">{conflictError}</p>{/if}
+										</Collapsible.Content>
+									</Collapsible.Root>{/if}
 							</div>
 						</section>
 						<section class="settings-group">
-							<h3>Personal account</h3>
+							<h3 class="settings-label">Firefox extension</h3>
+							<div class="settings-card">
+								<div class="setting-row">
+									<span class="setting-icon"><Puzzle /></span><span class="setting-text"
+										><strong>Pair a browser</strong><small
+											>A one-time code, revocable any time</small
+										></span
+									>
+									<span class="setting-trailing extension-pairing-controls">
+										<select aria-label="Pairing code lifetime" bind:value={pairingLifetime}>
+											<option value={5}>5 min</option>
+											<option value={15}>15 min</option>
+											<option value={60}>60 min</option>
+										</select>
+										<button
+											class="secondary-button"
+											onclick={generatePairing}
+											disabled={extensionBusy || !status?.online}
+											>{extensionBusy ? 'Working…' : 'Generate'}</button
+										>
+									</span>
+								</div>
+								{#if pairingCode}<div class="extension-pairing-code">
+										<code>{pairingCode}</code>
+										<button class="secondary-button" onclick={copyPairingCode}
+											>{#if pairingCopied}<Check /> Copied{:else}<Copy /> Copy{/if}</button
+										>
+										<small
+											>Works once · expires {new Date(pairingExpiresAt).toLocaleTimeString([], {
+												hour: 'numeric',
+												minute: '2-digit'
+											})}</small
+										>
+									</div>{/if}
+								{#each extensionConnections as connection (connection.id)}<div class="setting-row">
+										<span class="setting-icon"><Globe /></span><span class="setting-text"
+											><strong>{connection.name}</strong><small
+												>Connected {new Date(connection.createdAt).toLocaleDateString()}</small
+											></span
+										><button
+											class="text-button setting-trailing"
+											onclick={() => revokeExtension(connection.id)}
+											disabled={extensionBusy}>Revoke</button
+										>
+									</div>{:else}<p class="setting-note">No browsers connected yet.</p>{/each}
+								{#if extensionError}<p class="setting-note setting-error" role="alert">
+										<AlertCircle />{extensionError}
+									</p>{/if}
+							</div>
+						</section>
+						<section class="settings-group">
+							<h3 class="settings-label">Account</h3>
 							<div class="settings-card">
 								<a class="setting-row" href={resolve('/auth/sign-in')}
-									><span class="setting-icon"><LockKeyhole /></span><span
+									><span class="setting-icon"><LockKeyhole /></span><span class="setting-text"
 										><strong>Sign-in & password</strong></span
-									><ChevronRight /></a
+									><ChevronRight class="setting-trailing" /></a
 								>
 								<form method="POST" action={`${resolve('/auth/sign-in')}?/signOut`}>
 									<button class="setting-row" disabled={!status?.online}
-										><span class="setting-icon"><LogOut /></span><span>Sign out</span><ChevronRight
-										/></button
+										><span class="setting-icon"><LogOut /></span><span class="setting-text"
+											><strong>Sign out</strong></span
+										><ChevronRight class="setting-trailing" /></button
 									>
 								</form>
 							</div>
 						</section>
 					</Tabs.Content>
-					<Tabs.Content value="library">
+					<Tabs.Content value="library" class="account-tab">
 						<section class="settings-group">
-							<div class="section-heading">
-								<h3>Organization</h3>
-								<div class="button-row">
-									<button
-										class="text-button"
-										onclick={() => create('tag')}
-										disabled={!status?.ready}><Plus /> Tag</button
-									>
-								</div>
+							<div class="settings-label-row">
+								<h3 class="settings-label">Tags</h3>
+								<button class="text-button" onclick={() => create('tag')} disabled={!status?.ready}
+									><Plus /> New tag</button
+								>
 							</div>
 							<div class="settings-card">
-								<div class="filter-search">
-									<Search /><input
+								<label class="setting-search"
+									><Search /><input
 										aria-label="Find tags"
 										placeholder="Find tags…"
 										bind:value={query}
-									/>
-								</div>
-								<div class="account-organizations">
-									{#each entries.slice(0, 12) as entry (`${entry.table}:${entry.row.id}`)}<button
-											class="setting-row organization-row"
-											onclick={() => {
-												open = false;
-												onManage(entry);
-											}}
-											><span class="setting-icon"><Folder /></span><span>{entry.row.name}</span
-											><ChevronRight /></button
-										>{:else}<p class="picker-empty">
-											{query ? 'No matching names.' : 'Create a tag to organize your links.'}
-										</p>{/each}
-								</div>
-								{#if entries.length > 12}<p class="filter-footer">
+									/></label
+								>
+								{#each entries.slice(0, 12) as entry (`${entry.table}:${entry.row.id}`)}<button
+										class="setting-row"
+										onclick={() => {
+											open = false;
+											onManage(entry);
+										}}
+										><span class="setting-icon"><Folder /></span><span class="setting-text"
+											><strong>{entry.row.name}</strong></span
+										><ChevronRight class="setting-trailing" /></button
+									>{:else}<p class="setting-note">
+										{query ? 'No matching tags.' : 'Create a tag to organize your links.'}
+									</p>{/each}
+								{#if entries.length > 12}<p class="setting-note">
 										12 of {entries.length} · type to narrow
 									</p>{/if}
 							</div>
 						</section>
 						<section class="settings-group">
-							<h3>Import & export</h3>
+							<h3 class="settings-label">Import & export</h3>
 							<div class="settings-card">
 								<button class="setting-row" onclick={onExport} disabled={!status?.ready}
-									><span class="setting-icon"><Download /></span><span
+									><span class="setting-icon"><Download /></span><span class="setting-text"
 										><strong>Export library</strong><small>Bookmarks, notes and connections</small
 										></span
-									><ChevronRight /></button
+									><ChevronRight class="setting-trailing" /></button
 								><label class="setting-row import-row"
-									><span class="setting-icon"><Upload /></span><span
+									><span class="setting-icon"><Upload /></span><span class="setting-text"
 										><strong>Import library</strong><small>Choose a Prism JSON export</small></span
-									><ChevronRight /><input
+									><ChevronRight class="setting-trailing" /><input
 										type="file"
 										accept="application/json,.json"
 										aria-label="Import library"
@@ -441,27 +441,32 @@
 										disabled={!status?.ready}
 									/></label
 								><button class="setting-row" onclick={onExportPending} disabled={!status?.ready}
-									><span class="setting-icon"><Download /></span><span
-										>Export pending work & drafts</span
-									><ChevronRight /></button
+									><span class="setting-icon"><Download /></span><span class="setting-text"
+										><strong>Export pending work</strong><small>Unsynced changes and drafts</small
+										></span
+									><ChevronRight class="setting-trailing" /></button
 								>
 							</div>
 						</section>
-						<Collapsible.Root class="settings-advanced">
-							<Collapsible.Trigger class="advanced-trigger"
-								>Advanced <ChevronDown /></Collapsible.Trigger
-							><Collapsible.Content class="stack"
-								><button
-									class="secondary-button"
-									disabled={!status?.online || !status?.ready}
-									onclick={onMaintenance}>Run pending profile cleanup</button
-								>
-								<p class="muted">
+						<section class="settings-group">
+							<h3 class="settings-label">Advanced</h3>
+							<div class="settings-card">
+								<div class="setting-row">
+									<span class="setting-icon"><Wrench /></span><span class="setting-text"
+										><strong>Profile cleanup</strong><small>Finish pending person removals</small
+										></span
+									><button
+										class="secondary-button setting-trailing"
+										disabled={!status?.online || !status?.ready}
+										onclick={onMaintenance}>Run</button
+									>
+								</div>
+								<p class="setting-note">
 									Exports contain metadata, not media files. Cached library data is not end-to-end
 									encrypted.
 								</p>
-							</Collapsible.Content></Collapsible.Root
-						>
+							</div>
+						</section>
 					</Tabs.Content>
 				</div>
 			</Tabs.Root>

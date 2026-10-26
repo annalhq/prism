@@ -44,7 +44,9 @@
 		>
 		<button class="shelf" onclick={() => onSelect('people')}
 			><span class="shelf-icon"><Users /></span><span
-				><strong>People</strong><small>{plural(shelves.people, 'person')}</small></span
+				><strong>People</strong><small
+					>{shelves.people === 1 ? '1 person' : `${shelves.people} people`}</small
+				></span
 			></button
 		>
 		<button class="shelf shelf-quiet" onclick={() => onSelect('trash')}
