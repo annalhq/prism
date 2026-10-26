@@ -27,6 +27,7 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "bun scripts/db/migrate.ts",
 		"db:migrate:production:extension": "bun scripts/db/migrate-production-0005.ts",
+		"db:migrate:production:tag-position": "bun scripts/db/migrate-production-0006.ts",
 		"maintenance": "node scripts/not-ready.mjs maintenance",
 		"db:inventory": "bun scripts/db/inventory.ts",
 		"db:init-owner": "bun scripts/db/init-owner.ts"
