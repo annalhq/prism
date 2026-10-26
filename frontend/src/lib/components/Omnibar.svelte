@@ -367,9 +367,19 @@
 
 <section class="omnibar-section" aria-label="Search and save bookmarks">
 	<form class="omnibar" class:search-mode={mode === 'search'} onsubmit={prepare}>
-		<span class="omnibar-leading" aria-hidden="true">
-			{#if mode === 'search'}<Search />{:else}<Plus />{/if}
-		</span>
+		<!-- One leading switch flips the bar between finding and saving; no duplicate buttons. -->
+		<button
+			type="button"
+			class="omnibar-leading"
+			class:insert={mode === 'insert'}
+			disabled={!ready}
+			aria-label={mode === 'search' ? 'Switch to add bookmark' : 'Switch to search'}
+			title={mode === 'search' ? 'Add a bookmark · i' : 'Search · /'}
+			onclick={() => switchMode(mode === 'search' ? 'insert' : 'search')}
+			><span class="omnibar-glyph search-glyph"><Search /></span><span
+				class="omnibar-glyph insert-glyph"><Plus /></span
+			></button
+		>
 		<input
 			bind:this={input}
 			aria-label={mode === 'search' ? 'Search library' : 'Bookmark URL'}
@@ -389,28 +399,12 @@
 				aria-label="Clear search"
 				onclick={() => (query = '')}><X /></button
 			>{:else if mode === 'search'}<kbd class="omnibar-shortcut" aria-hidden="true">/</kbd>{/if}
-		{#if mode === 'search'}<button
-				type="button"
-				class="omnibar-add"
-				disabled={!ready}
-				aria-label="Add bookmark"
-				title="Add bookmark · i"
-				onclick={() => switchMode('insert')}><Plus /></button
-			>{:else}<div class="omnibar-actions">
-				<button
-					type="button"
-					class="omnibar-return"
-					aria-label="Return to search"
-					title="Return to search"
-					onclick={() => switchMode('search')}><Search /></button
-				>
-				{#if !url}<button
-						type="submit"
-						class="omnibar-continue"
-						aria-label="Continue adding bookmark"
-						disabled={!ready || !draft.trim() || busy}><ArrowRight /></button
-					>{/if}
-			</div>{/if}
+		{#if mode === 'insert' && !url}<button
+				type="submit"
+				class="omnibar-continue"
+				aria-label="Continue adding bookmark"
+				disabled={!ready || !draft.trim() || busy}><ArrowRight /></button
+			>{/if}
 	</form>
 	{#if mode === 'insert' && url}
 		<form

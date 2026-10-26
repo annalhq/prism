@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Globe } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { discoverFavicons, faviconSources, isBlankFavicon } from '#lib/client/favicons.js';
 	let { url }: { url: string | null } = $props();
@@ -34,22 +35,6 @@
 		observer.observe(element);
 		return () => observer.disconnect();
 	});
-	const origin = $derived.by(() => {
-		try {
-			const parsed = new URL(url ?? '');
-			return ['https:', 'http:'].includes(parsed.protocol) ? parsed.origin : null;
-		} catch {
-			return null;
-		}
-	});
-	const letter = $derived(
-		origin
-			? new URL(origin).hostname
-					.replace(/^www\./, '')
-					.slice(0, 1)
-					.toUpperCase()
-			: 'B'
-	);
 	$effect(() => {
 		const currentUrl = url;
 		icons = { url: currentUrl, sources: faviconSources(currentUrl), failed: [] };
@@ -64,7 +49,7 @@
 	});
 </script>
 
-<span bind:this={element} class="favicon" aria-hidden="true">
+<span bind:this={element} class="favicon" class:fallback={!source} aria-hidden="true">
 	{#if source}
 		{#key source}
 			<img
@@ -84,5 +69,5 @@
 				}}
 			/>
 		{/key}
-	{:else}{letter}{/if}
+	{:else}<Globe />{/if}
 </span>

@@ -188,13 +188,16 @@
 							onclick={toggleFromTitle}>{item.title}</a
 						>{:else}<button class="bookmark-title" onclick={toggleFromButton}>{item.title}</button
 						>{/if}
-					<span class="bookmark-domain"
-						>{item.domain ?? (source ? new URL(source).hostname : '')}</span
-					>
 					{#if isReadLater(item)}<span class="later-badge" title="Read later"
 							><Clock3Icon /><span class="sr-only">Read later</span></span
 						>{/if}
 				</div>
+				<span class="bookmark-domain"
+					>{String(item.domain ?? (source ? new URL(source).hostname : '')).replace(
+						/^www\./,
+						''
+					)}</span
+				>
 				{#if timeline && note}<p class="bookmark-note">{note}</p>{/if}
 				{#if timeline && tagLabels.length}<div class="post-tags">
 						{#each tagLabels as label (label)}<span class="chip">{label}</span>{/each}

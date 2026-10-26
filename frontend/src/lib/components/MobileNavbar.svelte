@@ -22,7 +22,8 @@
 
 <!-- The search circle grows into the omnibar itself; its search icon becomes the field's leading icon. -->
 <nav class="mobile-navbar" class:searching aria-label="Mobile navigation">
-	<div class="mobile-nav-pill" inert={searching}>
+	<div class="mobile-nav-pill" inert={searching} style={`--tab-index: ${browsing ? 1 : 0}`}>
+		<span class="mobile-nav-indicator" aria-hidden="true"></span>
 		<button
 			class="mobile-nav-item"
 			class:active={view === 'all'}

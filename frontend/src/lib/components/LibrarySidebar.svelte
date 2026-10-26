@@ -5,8 +5,8 @@
 		Users,
 		Trash2,
 		Folder,
-		PanelLeftClose,
-		PanelLeftOpen,
+		PanelLeft,
+		PanelRight,
 		Plus,
 		Settings2
 	} from '@lucide/svelte';
@@ -67,7 +67,7 @@
 			aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 			aria-expanded={!collapsed}
 			onclick={toggle}
-			>{#if collapsed}<PanelLeftOpen />{:else}<PanelLeftClose />{/if}</button
+			>{#if collapsed}<PanelLeft />{:else}<PanelRight />{/if}</button
 		>
 	</div>
 	<nav class="sidebar-navigation" aria-label="Library">
