@@ -87,10 +87,14 @@
 			>{/each}
 		<section class="sidebar-group">
 			<div class="sidebar-section-heading">
-				<span>Tags</span><button
-					class="icon-button"
-					aria-label="Add tag"
-					onclick={() => onCreate('tag')}><Plus /></button
+				<button
+					class="sidebar-heading-link"
+					class:active={view === 'tags'}
+					aria-current={view === 'tags' ? 'page' : undefined}
+					title="Explore all tags"
+					onclick={() => onSelect('tags')}>Tags</button
+				><button class="icon-button" aria-label="Add tag" onclick={() => onCreate('tag')}
+					><Plus /></button
 				>
 			</div>
 			{#each tags as row (String(row.id))}<button

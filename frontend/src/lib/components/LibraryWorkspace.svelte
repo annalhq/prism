@@ -41,6 +41,7 @@
 	import type { VaultIdentity } from '#lib/domain/replica.js';
 	import type { Command, Revision } from '#lib/domain/contracts.js';
 	import LibraryInspector from './LibraryInspector.svelte';
+	import TagsExplorer from './TagsExplorer.svelte';
 	let {
 		openOffline = false,
 		identity = null,
@@ -84,7 +85,7 @@
 		rename = $state('');
 	let omnibar: Omnibar | undefined = $state();
 	let sidebar: LibrarySidebar | undefined = $state();
-	let mobileNav: MobileNavbar | undefined = $state();
+	let tagsExplorer: TagsExplorer | undefined = $state();
 	let helpOpen = $state(false);
 	let lastRow: HTMLElement | null = null;
 	let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -123,7 +124,7 @@
 	const view = $derived(
 		profileSlug
 			? 'person'
-			: ['all', 'later', 'trash', 'people'].includes(requestedView) ||
+			: ['all', 'later', 'trash', 'people', 'tags'].includes(requestedView) ||
 				  requestedView.startsWith('tag:')
 				? requestedView
 				: 'all'
@@ -162,7 +163,8 @@
 					all: 'All bookmarks',
 					later: 'Read later',
 					trash: 'Trash',
-					people: 'People'
+					people: 'People',
+					tags: 'Tags'
 				} as Record<string, string>
 			)[view] ??
 			(view.startsWith('tag:') ? tags.find((t) => t.id === view.slice(4))?.name : undefined) ??
@@ -177,7 +179,7 @@
 		void contentVersion;
 		const current = library,
 			search = searcher;
-		if (!current || !libraryReady || !search) return;
+		if (!current || !libraryReady || !search || view === 'tags') return;
 		const n = ++generation;
 		const profile = personId;
 		const entries = profileLinks.get(profile ?? '');
@@ -230,7 +232,7 @@
 		});
 		const key = libraryKeyboard({
 			insert: () => void openOmnibar('insert'),
-			filter: () => void (mobile ? mobileNav?.focusTags() : sidebar?.focusNavigation()),
+			filter: () => void (mobile ? openTags() : sidebar?.focusNavigation()),
 			account: () => (settings = true),
 			help: () => (helpOpen = true)
 		});
@@ -258,6 +260,12 @@
 		}
 		await (next === 'insert' ? omnibar?.focusInsert() : omnibar?.focusSearch());
 	}
+	async function openTags() {
+		navSearching = false;
+		if (view !== 'tags') await navigate(null, 'tags');
+		await tick();
+		tagsExplorer?.focusSearch();
+	}
 	function feedback(message: string) {
 		toast = message;
 		clearTimeout(feedbackTimer);
@@ -272,6 +280,8 @@
 		if (target?.kind === 'persona') return;
 		const url = new SvelteURL(page.url.href);
 		if (nextView) url.pathname = resolve('/');
+		// The tags page filters its own list; a leftover library search would send it back to all.
+		if (nextView === 'tags') query = '';
 		if (nextView) {
 			url.searchParams.set('view', nextView);
 			url.searchParams.delete('item');
@@ -289,7 +299,28 @@
 		else url.searchParams.delete('q');
 		await goto(url, { reset: false });
 	}
-	function create(type: string) {
+	// Tag counts and shelf sizes for the tags page, from live bookmark rows.
+	const shelfStats = $derived.by(() => {
+		void version;
+		const counts: Record<string, number> = {};
+		const shelves = { later: 0, people: people.length, trash: 0 };
+		if (view !== 'tags') return { counts, shelves };
+		for (const row of library?.list<Row>('bookmarks') ?? []) {
+			if (row.purgedAt) continue;
+			if (row.deletedAt) {
+				shelves.trash++;
+				continue;
+			}
+			if (isReadLater(row)) shelves.later++;
+			for (const id of (row.tagIds as string[]) ?? []) counts[id] = (counts[id] ?? 0) + 1;
+		}
+		return { counts, shelves };
+	});
+	// The tags page has no bookmark list, so a library search moves back to all bookmarks.
+	$effect(() => {
+		if (view === 'tags' && query) void navigate(null, 'all');
+	});
+	function create(type: string, name = '') {
 		if (formBusy) return;
 		if (type === 'bookmark') {
 			void openOmnibar('insert');
@@ -301,7 +332,7 @@
 		editingPerson = null;
 		captureId = crypto.randomUUID();
 		avatarConfig = avatarFromSeed(captureId);
-		newTitle = '';
+		newTitle = name;
 		newNote = '';
 		formError = '';
 		creating = true;
@@ -653,6 +684,15 @@
 								>Open cached library on this trusted device</button
 							>{/if}{/if}
 				</section>
+			{:else if view === 'tags'}
+				<TagsExplorer
+					bind:this={tagsExplorer}
+					{tags}
+					counts={shelfStats.counts}
+					shelves={shelfStats.shelves}
+					onSelect={(value) => void navigate(null, value)}
+					onCreate={(name) => create('tag', name)}
+				/>
 			{:else}
 				<div class="list-toolbar">
 					<button
@@ -759,15 +799,12 @@
 		</div>
 	</main>
 	{#if mobile && status?.ready}<MobileNavbar
-			bind:this={mobileNav}
 			bind:searching={navSearching}
 			{view}
-			{tags}
 			onSelect={(value) => {
 				navSearching = false;
 				void navigate(null, value);
 			}}
-			onCreate={create}
 			onAccount={() => (settings = true)}
 			onSearch={() => void openOmnibar('search')}
 			omnibar={omnibarSlot}
