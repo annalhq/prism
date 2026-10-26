@@ -8,7 +8,8 @@
 		PanelLeft,
 		PanelRight,
 		Plus,
-		Settings2
+		Settings2,
+		Eye
 	} from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
 	import Brand from './ui/Brand.svelte';
@@ -17,6 +18,7 @@
 		view,
 		tags,
 		collapsed = $bindable(false),
+		home,
 		onSelect,
 		onCreate,
 		onAccount
@@ -24,16 +26,20 @@
 		view: string;
 		tags: Row[];
 		collapsed?: boolean;
+		home?: '/' | '/public';
 		onSelect: (value: string) => void;
-		onCreate: (type: string) => void;
-		onAccount: () => void;
+		// Without these the sidebar is view-only: no adding, no trash, no account.
+		onCreate?: (type: string) => void;
+		onAccount?: () => void;
 	} = $props();
-	const views = [
-		{ id: 'all', label: 'All bookmarks', icon: Bookmark },
-		{ id: 'later', label: 'Read later', icon: Clock3 },
-		{ id: 'people', label: 'People', icon: Users },
-		{ id: 'trash', label: 'Trash', icon: Trash2 }
-	];
+	const views = $derived(
+		[
+			{ id: 'all', label: 'All bookmarks', icon: Bookmark },
+			{ id: 'later', label: 'Read later', icon: Clock3 },
+			{ id: 'people', label: 'People', icon: Users },
+			{ id: 'trash', label: 'Trash', icon: Trash2 }
+		].filter((item) => onCreate || item.id !== 'trash')
+	);
 	onMount(() => {
 		try {
 			const preference = localStorage.getItem('prism:sidebar');
@@ -61,7 +67,7 @@
 
 <aside class="library-sidebar" class:collapsed>
 	<div class="sidebar-brand">
-		<Brand compact /><span class="sidebar-label">prism</span>
+		<Brand compact {home} /><span class="sidebar-label">prism</span>
 		<button
 			class="icon-button sidebar-toggle"
 			aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -71,12 +77,12 @@
 		>
 	</div>
 	<nav class="sidebar-navigation" aria-label="Library">
-		<button
-			class="sidebar-link"
-			title="Add bookmark · i"
-			onclick={() => onCreate('bookmark')}
-			data-cuelume-open><Plus /><span class="sidebar-label">Add bookmark</span></button
-		>
+		{#if onCreate}<button
+				class="sidebar-link"
+				title="Add bookmark · i"
+				onclick={() => onCreate('bookmark')}
+				data-cuelume-open><Plus /><span class="sidebar-label">Add bookmark</span></button
+			>{/if}
 		{#each views as item (item.id)}<button
 				class="sidebar-link"
 				class:active={view === item.id}
@@ -93,9 +99,11 @@
 					aria-current={view === 'tags' ? 'page' : undefined}
 					title="Explore all tags"
 					onclick={() => onSelect('tags')}>Tags</button
-				><button class="icon-button" aria-label="Add tag" onclick={() => onCreate('tag')}
-					><Plus /></button
-				>
+				>{#if onCreate}<button
+						class="icon-button"
+						aria-label="Add tag"
+						onclick={() => onCreate('tag')}><Plus /></button
+					>{/if}
 			</div>
 			{#each tags as row (String(row.id))}<button
 					class="sidebar-link"
@@ -107,10 +115,13 @@
 				>{:else}<p class="sidebar-empty">A little room to organize.</p>{/each}
 		</section>
 	</nav>
-	<button
-		class="sidebar-link sidebar-account account-button"
-		title="Account and preferences"
-		onclick={onAccount}
-		data-cuelume-open><Settings2 /><span class="sidebar-label">Account & preferences</span></button
-	>
+	{#if onAccount}<button
+			class="sidebar-link sidebar-account account-button"
+			title="Account and preferences"
+			onclick={onAccount}
+			data-cuelume-open
+			><Settings2 /><span class="sidebar-label">Account & preferences</span></button
+		>{:else}<p class="sidebar-link sidebar-account sidebar-readonly" title="View only">
+			<Eye /><span class="sidebar-label">View only</span>
+		</p>{/if}
 </aside>

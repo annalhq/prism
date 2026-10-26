@@ -15,7 +15,8 @@
 		personId = null,
 		feedback,
 		onNormal,
-		onDismiss
+		onDismiss,
+		readonly = false
 	}: {
 		library: LibraryClient | null;
 		ready: boolean;
@@ -26,6 +27,8 @@
 		feedback: (message: string) => void;
 		onNormal: () => void;
 		onDismiss?: () => void;
+		// Search only: the leading icon stays a plain magnifier and nothing can be saved.
+		readonly?: boolean;
 	} = $props();
 	let mode = $state<'insert' | 'search'>('search');
 	let step = $state<'title' | 'organize'>('title');
@@ -242,6 +245,7 @@
 		await switchMode('insert');
 	}
 	async function switchMode(next: 'insert' | 'search') {
+		if (readonly) next = 'search';
 		mode = next;
 		await tick();
 		if (next === 'insert' && url) {
@@ -365,21 +369,28 @@
 	}
 </script>
 
-<section class="omnibar-section" aria-label="Search and save bookmarks">
+<section
+	class="omnibar-section"
+	aria-label={readonly ? 'Search bookmarks' : 'Search and save bookmarks'}
+>
 	<form class="omnibar" class:search-mode={mode === 'search'} onsubmit={prepare}>
-		<!-- One leading switch flips the bar between finding and saving; no duplicate buttons. -->
-		<button
-			type="button"
-			class="omnibar-leading"
-			class:insert={mode === 'insert'}
-			disabled={!ready}
-			aria-label={mode === 'search' ? 'Switch to add bookmark' : 'Switch to search'}
-			title={mode === 'search' ? 'Add a bookmark · i' : 'Search · /'}
-			onclick={() => switchMode(mode === 'search' ? 'insert' : 'search')}
-			><span class="omnibar-glyph search-glyph"><Search /></span><span
-				class="omnibar-glyph insert-glyph"><Plus /></span
-			></button
-		>
+		{#if readonly}<span class="omnibar-leading" aria-hidden="true"
+				><span class="omnibar-glyph"><Search /></span></span
+			>{:else}
+			<!-- One leading switch flips the bar between finding and saving; no duplicate buttons. -->
+			<button
+				type="button"
+				class="omnibar-leading"
+				class:insert={mode === 'insert'}
+				disabled={!ready}
+				aria-label={mode === 'search' ? 'Switch to add bookmark' : 'Switch to search'}
+				title={mode === 'search' ? 'Add a bookmark · i' : 'Search · /'}
+				onclick={() => switchMode(mode === 'search' ? 'insert' : 'search')}
+				><span class="omnibar-glyph search-glyph"><Search /></span><span
+					class="omnibar-glyph insert-glyph"><Plus /></span
+				></button
+			>
+		{/if}
 		<input
 			bind:this={input}
 			aria-label={mode === 'search' ? 'Search library' : 'Bookmark URL'}

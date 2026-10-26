@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { resolve, asset } from '$app/paths';
-	let { auth = false, compact = false }: { auth?: boolean; compact?: boolean } = $props();
+	let {
+		auth = false,
+		compact = false,
+		home = '/'
+	}: { auth?: boolean; compact?: boolean; home?: '/' | '/public' } = $props();
 </script>
 
 <a
 	class="brand"
 	class:auth-brand={auth}
 	class:compact-brand={compact}
-	href={resolve('/')}
+	href={resolve(home)}
 	aria-label="Prism home"
 >
 	<span class="brand-symbol" aria-hidden="true"

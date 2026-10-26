@@ -17,6 +17,10 @@ export const variables = defineEnvVars({
 		description: 'Server session-cookie signing secret'
 	},
 	OWNER_SUBJECT: { ...optionalPrivate, description: 'Explicit private-vault owner identity' },
+	LIBRARY_PUBLIC_VIEW: {
+		...optionalPrivate,
+		description: "Set to 'enabled' to publish a read-only view of the owner library at /public"
+	},
 	B2_BUCKET: { ...optionalPrivate, description: 'Private Backblaze B2 bucket name' },
 	B2_ENDPOINT: { ...optionalPrivate, description: 'Backblaze B2 regional endpoint' },
 	B2_REGION: { ...optionalPrivate, description: 'Backblaze B2 bucket region' },

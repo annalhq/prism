@@ -7,14 +7,16 @@
 		onSelect,
 		onAccount,
 		onSearch,
-		omnibar
+		omnibar,
+		searchLabel = 'Search and add bookmarks'
 	}: {
 		view: string;
 		searching?: boolean;
 		onSelect: (value: string) => void;
-		onAccount: () => void;
+		onAccount?: () => void;
 		onSearch: () => void;
 		omnibar: Snippet;
+		searchLabel?: string;
 	} = $props();
 	// Every shelf and tag folder is reached through the tags page.
 	const browsing = $derived(view !== 'all');
@@ -22,7 +24,11 @@
 
 <!-- The search circle grows into the omnibar itself; its search icon becomes the field's leading icon. -->
 <nav class="mobile-navbar" class:searching aria-label="Mobile navigation">
-	<div class="mobile-nav-pill" inert={searching} style={`--tab-index: ${browsing ? 1 : 0}`}>
+	<div
+		class="mobile-nav-pill"
+		inert={searching}
+		style={`--tab-index: ${browsing ? 1 : 0}; --tab-count: ${onAccount ? 3 : 2}`}
+	>
 		<span class="mobile-nav-indicator" aria-hidden="true"></span>
 		<button
 			class="mobile-nav-item"
@@ -38,12 +44,12 @@
 			aria-current={view === 'tags' ? 'page' : undefined}
 			onclick={() => onSelect('tags')}><Folder /></button
 		>
-		<button
-			class="mobile-nav-item account-button"
-			aria-label="Settings"
-			onclick={onAccount}
-			data-cuelume-open><Cog /></button
-		>
+		{#if onAccount}<button
+				class="mobile-nav-item account-button"
+				aria-label="Settings"
+				onclick={onAccount}
+				data-cuelume-open><Cog /></button
+			>{/if}
 	</div>
 	<div class="mobile-search">
 		<div class="mobile-search-field" inert={!searching}>{@render omnibar()}</div>
@@ -51,10 +57,7 @@
 				class="mobile-search-close"
 				aria-label="Close search"
 				onclick={() => (searching = false)}><X /></button
-			>{:else}<button
-				class="mobile-search-trigger"
-				aria-label="Search and add bookmarks"
-				onclick={onSearch}
+			>{:else}<button class="mobile-search-trigger" aria-label={searchLabel} onclick={onSearch}
 			></button>{/if}
 	</div>
 </nav>

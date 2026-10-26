@@ -1,11 +1,11 @@
 import { extractReferences } from '#lib/domain/notes.js';
-import type { LibraryClient } from './vault/library.js';
+import type { ReplicaTable } from '#lib/domain/replica.js';
 type Row = Record<string, unknown>;
 
 /** Cache Markdown parsing between local edits; neither sync status nor rendering reparses notes. */
 export function createPeopleFeedIndex() {
 	const cache = new Map<string, { body: string; refs: ReturnType<typeof extractReferences> }>();
-	return (library: LibraryClient | null) => {
+	return (library: { list<T>(table: ReplicaTable): T[] } | null) => {
 		const index = new Map<string, Map<string, string[]>>();
 		if (!library) return index;
 		const people = new Set(

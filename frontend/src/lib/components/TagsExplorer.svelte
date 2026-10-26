@@ -12,7 +12,8 @@
 		counts: Record<string, number>;
 		shelves: { later: number; people: number; trash: number };
 		onSelect: (value: string) => void;
-		onCreate: (name: string) => void;
+		// Absent on the public page, which shows tags without letting anyone add them.
+		onCreate?: (name: string) => void;
 	} = $props();
 	let filter = $state(''),
 		order = $state<'used' | 'name'>('used');
@@ -36,7 +37,7 @@
 </script>
 
 <section class="tags-explorer" aria-labelledby="tags-explorer-title">
-	<div class="shelves" aria-label="Shelves">
+	<div class="shelves" class:two-shelves={!onCreate} aria-label="Shelves">
 		<button class="shelf" onclick={() => onSelect('later')}
 			><span class="shelf-icon"><Clock3 /></span><span
 				><strong>Read later</strong><small>{plural(shelves.later, 'link')} queued</small></span
@@ -49,13 +50,13 @@
 				></span
 			></button
 		>
-		<button class="shelf shelf-quiet" onclick={() => onSelect('trash')}
-			><span class="shelf-icon"><Trash2 /></span><span
-				><strong>Trash</strong><small
-					>{shelves.trash ? `${shelves.trash} to review` : 'Empty'}</small
-				></span
-			></button
-		>
+		{#if onCreate}<button class="shelf shelf-quiet" onclick={() => onSelect('trash')}
+				><span class="shelf-icon"><Trash2 /></span><span
+					><strong>Trash</strong><small
+						>{shelves.trash ? `${shelves.trash} to review` : 'Empty'}</small
+					></span
+				></button
+			>{/if}
 	</div>
 
 	<div class="tags-explorer-heading">
@@ -91,7 +92,8 @@
 			onclick={() => (order = order === 'used' ? 'name' : 'used')}
 			>{order === 'used' ? 'Most used' : 'A–Z'}</button
 		>
-		<button class="text-button" onclick={() => onCreate('')}><Plus /> New tag</button>
+		{#if onCreate}<button class="text-button" onclick={() => onCreate('')}><Plus /> New tag</button
+			>{/if}
 	</div>
 
 	<div class="tag-grid">
@@ -102,13 +104,15 @@
 					>{counts[String(row.id)] ?? 0}</small
 				></button
 			>{/each}
-		{#if needle && !exact}<button
+		{#if onCreate && needle && !exact}<button
 				class="tag-tile tag-tile-new"
 				onclick={() => onCreate(filter.trim())}
 				><Plus /><span class="tag-tile-name">Create “{filter.trim()}”</span></button
 			>{/if}
 	</div>
 	{#if !tags.length}<p class="tags-empty muted">
-			Tags group related links. Create one, or add tags while saving a bookmark.
+			{onCreate
+				? 'Tags group related links. Create one, or add tags while saving a bookmark.'
+				: 'No tags yet.'}
 		</p>{/if}
 </section>

@@ -862,6 +862,18 @@ kbd {
 .sidebar-account.account-button:hover {
 	background: none;
 }
+.sidebar-readonly {
+	margin: 12px 0 0;
+	padding-top: 12px;
+	border-top: 1px solid var(--line);
+	border-radius: 0;
+	color: var(--tertiary);
+	cursor: default;
+}
+.sidebar-readonly:hover {
+	background: none;
+	color: var(--tertiary);
+}
 .collapsed .sidebar-label,
 .collapsed .sidebar-group,
 .collapsed .sidebar-brand > .compact-brand {
@@ -1870,6 +1882,9 @@ kbd {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 10px;
+}
+.shelves.two-shelves {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .shelf {
 	display: flex;

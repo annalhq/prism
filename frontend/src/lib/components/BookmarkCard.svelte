@@ -17,6 +17,7 @@
 		relation = '',
 		tagLabels = [],
 		selected = false,
+		readonly = false,
 		onEdit,
 		onAction,
 		onOpen,
@@ -29,6 +30,8 @@
 		relation?: string;
 		tagLabels?: string[];
 		selected?: boolean;
+		// Public visitors only read: no context menu, swipes or edit affordances.
+		readonly?: boolean;
 		onEdit: () => void;
 		onAction: (action: 'later' | 'trash' | 'restore' | 'purge') => void;
 		onOpen: () => void;
@@ -71,6 +74,7 @@
 			tracking = false,
 			suppress = 0;
 		const down = (e: PointerEvent) => {
+			if (readonly) return;
 			if (e.pointerType !== 'touch' || (e.target as HTMLElement).closest('button')) return;
 			start = { x: e.clientX, y: e.clientY };
 			tracking = false;
@@ -156,6 +160,59 @@
 	}
 </script>
 
+{#snippet row()}
+	<div class="row-leading"><Favicon url={source} /></div>
+
+	<div class="bookmark-content">
+		{#if timeline && relation}<span class="post-relation">{relation}</span>{/if}
+		{#if source}<a
+				class="bookmark-title"
+				title={String(item.title)}
+				href={source}
+				target="_blank"
+				rel="noopener noreferrer"
+				onclick={toggleFromTitle}>{item.title}</a
+			>{:else}<button class="bookmark-title" onclick={toggleFromButton}>{item.title}</button>{/if}
+		{#if isReadLater(item)}<span class="later-badge" title="Read later"
+				><Clock3Icon /><span class="sr-only">Read later</span></span
+			>{/if}
+	</div>
+	<span class="bookmark-domain"
+		>{String(item.domain ?? (source ? new URL(source).hostname : '')).replace(/^www\./, '')}</span
+	>
+	{#if timeline && note}<p class="bookmark-note">{note}</p>{/if}
+	{#if timeline && tagLabels.length}<div class="post-tags">
+			{#each tagLabels as label (label)}<span class="chip">{label}</span>{/each}
+		</div>{/if}
+	<time class="bookmark-date" datetime={String(item.createdAt)}
+		>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
+			month: 'short',
+			day: 'numeric'
+		})}</time
+	>
+	<button
+		hidden
+		class="bookmark-open"
+		tabindex="-1"
+		aria-label={`Open ${item.title}`}
+		onclick={openSource}
+	></button>
+	{#if !readonly}<button
+			hidden
+			class="bookmark-edit"
+			tabindex="-1"
+			aria-label={`Edit ${item.title}`}
+			onclick={onEdit}
+		></button>{/if}
+	{#if source}<button
+			hidden
+			class="bookmark-copy"
+			tabindex="-1"
+			aria-label={`Copy link for ${item.title}`}
+			onclick={copy}
+		></button>{/if}
+{/snippet}
+
 <div
 	class="bookmark-gesture"
 	data-bookmark-id={String(item.id)}
@@ -169,93 +226,48 @@
 		bind:open={expanded}
 		class={`bookmark-disclosure${expanded ? ' expanded' : ''}${hasNote ? ' expandable' : ''}`}
 	>
-		<ContextMenu.Root bind:open={menuOpen}
-			><ContextMenu.Trigger
-				class={`library-row ${selected ? 'selected' : ''}`}
-				style={`transform:translateX(${offset}px)`}
-				onclick={toggleFromRow}
-			>
-				<div class="row-leading"><Favicon url={source} /></div>
-
-				<div class="bookmark-content">
-					{#if timeline && relation}<span class="post-relation">{relation}</span>{/if}
-					{#if source}<a
-							class="bookmark-title"
-							title={String(item.title)}
-							href={source}
-							target="_blank"
-							rel="noopener noreferrer"
-							onclick={toggleFromTitle}>{item.title}</a
-						>{:else}<button class="bookmark-title" onclick={toggleFromButton}>{item.title}</button
-						>{/if}
-					{#if isReadLater(item)}<span class="later-badge" title="Read later"
-							><Clock3Icon /><span class="sr-only">Read later</span></span
-						>{/if}
-				</div>
-				<span class="bookmark-domain"
-					>{String(item.domain ?? (source ? new URL(source).hostname : '')).replace(
-						/^www\./,
-						''
-					)}</span
+		{#if readonly}
+			<!-- The title link and keyboard shortcuts carry the same actions as this row click. -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<div class={`library-row ${selected ? 'selected' : ''}`} onclick={toggleFromRow}>
+				{@render row()}
+			</div>
+		{:else}<ContextMenu.Root bind:open={menuOpen}
+				><ContextMenu.Trigger
+					class={`library-row ${selected ? 'selected' : ''}`}
+					style={`transform:translateX(${offset}px)`}
+					onclick={toggleFromRow}
 				>
-				{#if timeline && note}<p class="bookmark-note">{note}</p>{/if}
-				{#if timeline && tagLabels.length}<div class="post-tags">
-						{#each tagLabels as label (label)}<span class="chip">{label}</span>{/each}
-					</div>{/if}
-				<time class="bookmark-date" datetime={String(item.createdAt)}
-					>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
-						month: 'short',
-						day: 'numeric'
-					})}</time
-				>
-				<button
-					hidden
-					class="bookmark-open"
-					tabindex="-1"
-					aria-label={`Open ${item.title}`}
-					onclick={openSource}
-				></button>
-				<button
-					hidden
-					class="bookmark-edit"
-					tabindex="-1"
-					aria-label={`Edit ${item.title}`}
-					onclick={onEdit}
-				></button>
-				{#if source}<button
-						hidden
-						class="bookmark-copy"
-						tabindex="-1"
-						aria-label={`Copy link for ${item.title}`}
-						onclick={copy}
-					></button>{/if}
-			</ContextMenu.Trigger><ContextMenu.Portal
-				><ContextMenu.Content class="menu-content">
-					<ContextMenu.Item class="menu-item" onSelect={onEdit}><PencilIcon />Edit</ContextMenu.Item
-					>
-					{#if item.deletedAt}<ContextMenu.Item
-							class="menu-item"
-							onSelect={() => onAction('restore')}><RotateCcwIcon />Restore</ContextMenu.Item
-						>{:else}
-						<ContextMenu.Item class="menu-item" onSelect={() => onAction('later')}
-							><Clock3Icon />{isReadLater(item)
-								? 'Remove from Read later'
-								: 'Read later'}</ContextMenu.Item
+					{@render row()}
+				</ContextMenu.Trigger><ContextMenu.Portal
+					><ContextMenu.Content class="menu-content">
+						<ContextMenu.Item class="menu-item" onSelect={onEdit}
+							><PencilIcon />Edit</ContextMenu.Item
 						>
-						{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
-								>Disconnect from this person</ContextMenu.Item
-							>{/if}<ContextMenu.Separator class="menu-separator" />
-						<ContextMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
-							><Trash2Icon />Delete</ContextMenu.Item
-						>
-					{/if}
-					{#if item.deletedAt}<ContextMenu.Item
-							class="menu-item danger-text"
-							onSelect={() => onAction('purge')}><Trash2Icon />Delete permanently</ContextMenu.Item
-						>{/if}
-				</ContextMenu.Content></ContextMenu.Portal
-			></ContextMenu.Root
-		>
+						{#if item.deletedAt}<ContextMenu.Item
+								class="menu-item"
+								onSelect={() => onAction('restore')}><RotateCcwIcon />Restore</ContextMenu.Item
+							>{:else}
+							<ContextMenu.Item class="menu-item" onSelect={() => onAction('later')}
+								><Clock3Icon />{isReadLater(item)
+									? 'Remove from Read later'
+									: 'Read later'}</ContextMenu.Item
+							>
+							{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
+									>Disconnect from this person</ContextMenu.Item
+								>{/if}<ContextMenu.Separator class="menu-separator" />
+							<ContextMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
+								><Trash2Icon />Delete</ContextMenu.Item
+							>
+						{/if}
+						{#if item.deletedAt}<ContextMenu.Item
+								class="menu-item danger-text"
+								onSelect={() => onAction('purge')}
+								><Trash2Icon />Delete permanently</ContextMenu.Item
+							>{/if}
+					</ContextMenu.Content></ContextMenu.Portal
+				></ContextMenu.Root
+			>{/if}
 		<Collapsible.Content class="bookmark-expansion">
 			{#if hasNote}<p>{note}</p>{/if}
 		</Collapsible.Content>
