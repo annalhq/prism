@@ -1,3 +1,9 @@
+<script lang="ts" module>
+	// bits-ui does not treat a right-click on another context-menu trigger as an outside
+	// interaction, so each row's menu would stay open. Only one row menu may be open at a time.
+	let closeOpenMenu: (() => void) | null = null;
+</script>
+
 <script lang="ts">
 	import {
 		Pencil as PencilIcon,
@@ -42,6 +48,23 @@
 		menuOpen = $state(false),
 		expanded = $state(false);
 	const hasNote = $derived(note.trim().length > 0);
+	$effect(() => {
+		if (!menuOpen) return;
+		const close = () => (menuOpen = false);
+		if (closeOpenMenu !== close) closeOpenMenu?.();
+		closeOpenMenu = close;
+		// A fixed-position menu left behind by scrolling no longer points at its row.
+		const scroll = (event: Event) => {
+			if (!(event.target as HTMLElement | null)?.closest?.('.menu-content')) close();
+		};
+		window.addEventListener('scroll', scroll, true);
+		window.addEventListener('blur', close);
+		return () => {
+			window.removeEventListener('scroll', scroll, true);
+			window.removeEventListener('blur', close);
+			if (closeOpenMenu === close) closeOpenMenu = null;
+		};
+	});
 	$effect(() => {
 		if (!hasNote) expanded = false;
 	});

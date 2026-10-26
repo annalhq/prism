@@ -175,6 +175,14 @@
 		return buildProfileIndex(view === 'people' || profileSlug ? library : null);
 	});
 	let query = $derived(page.url.searchParams.get('q') ?? '');
+	let content: HTMLElement | undefined = $state();
+	// On mobile the search field is at the bottom, so ranked results read upward from it.
+	const bottomUp = $derived(mobile && !!query && view !== 'people' && !profileSlug);
+	$effect(() => {
+		if (!bottomUp) return;
+		void results;
+		void tick().then(() => content?.scrollTo({ top: content.scrollHeight }));
+	});
 	$effect(() => {
 		void contentVersion;
 		const current = library,
@@ -426,6 +434,8 @@
 	}
 	async function purgeBookmark() {
 		const target = purgeTarget;
+		// AlertDialog.Action does not close the dialog by itself.
+		purgeOpen = false;
 		if (!library || !target) return;
 		const row = library.get<Row>('bookmarks', String(target.id));
 		if (!row) return;
@@ -578,21 +588,49 @@
 	async function manageSave(remove = false) {
 		if (!library || !manage) return;
 		const entry = manage;
-		const command: Command = remove
-			? {
-					type: 'tag.delete',
-					id: String(entry.row.id),
-					expectedRevision: String(entry.row.revision) as Revision
-				}
-			: {
-					type: 'tag.rename',
-					id: String(entry.row.id),
-					expectedRevision: String(entry.row.revision) as Revision,
-					name: rename
-				};
-		const outcome = await library.save(command as Command);
-		feedback(outcome.message ?? 'Saved.');
-		if (outcome.status !== 'rejected') manage = null;
+		const id = String(entry.row.id);
+		try {
+			if (remove) {
+				// The server refuses to delete a tag that still has members, so detach it first.
+				for (const table of ['bookmarks', 'people', 'personas'] as const)
+					for (const row of library.list<Row>(table)) {
+						if (row.purgedAt || !((row.tagIds as string[] | undefined) ?? []).includes(id))
+							continue;
+						const result = await library.save({
+							type: 'tag.remove',
+							id: String(row.id),
+							tagId: id
+						});
+						if (result.status === 'rejected')
+							throw new Error(result.message ?? 'Could not remove this tag from every item.');
+					}
+			}
+			const current = library.get<Row>('tags', id) ?? entry.row;
+			const command: Command = remove
+				? {
+						type: 'tag.delete',
+						id,
+						expectedRevision: String(current.revision) as Revision
+					}
+				: {
+						type: 'tag.rename',
+						id,
+						expectedRevision: String(current.revision) as Revision,
+						name: rename
+					};
+			const outcome = await library.save(command);
+			feedback(outcome.message ?? (remove ? 'Tag deleted.' : 'Saved.'));
+			if (outcome.status === 'rejected') {
+				cue('error');
+				return;
+			}
+			cue(remove ? 'warning' : 'success');
+			manage = null;
+			if (remove && view === `tag:${id}`) await navigate(null, 'tags');
+		} catch (e) {
+			cue('error');
+			feedback((e as Error).message);
+		}
 	}
 </script>
 
@@ -630,7 +668,7 @@
 	<main id="library-main" class="library-main" tabindex="-1">
 		<h1 class="view-title" class:inline-heading={!!profileSlug || view === 'tags'}>{title}</h1>
 		{#if !mobile}<div class="workspace-search">{@render omnibarSlot()}</div>{/if}
-		<div class="library-content">
+		<div class="library-content" class:results-bottom-up={bottomUp} bind:this={content}>
 			{#if profileSlug && person}<div class="person-profile">
 					<div class="profile-cover" aria-hidden="true"></div>
 					<PersonAvatar id={String(person.id)} config={person.avatarConfig} size={88} />
@@ -1005,7 +1043,8 @@
 		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content v0-dialog"
 			><Dialog.Title class="dialog-title">Manage {manage?.row.name}</Dialog.Title
 			><Dialog.Description class="dialog-description"
-				>Renaming preserves connections. Remove memberships before deleting an in-use tag.</Dialog.Description
+				>Renaming preserves connections. Deleting removes the tag from its bookmarks; the bookmarks
+				stay.</Dialog.Description
 			>
 			<div class="stack">
 				<label for="manage-name">Name</label><input

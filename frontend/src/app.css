@@ -67,10 +67,6 @@
 	--avatar-bg: #dedbd3;
 	--cover-glow: #52514b66;
 	--cover-base: #282827;
-	/* Frosted glass: a thin tint, a strong blur, a lit top edge. */
-	--glass: rgb(38 38 38 / 48%);
-	--glass-edge: rgb(255 255 255 / 9%);
-	--glass-sheen: rgb(255 255 255 / 7%);
 	/* Text and controls laid over the photographic auth backdrop, in both themes. */
 	--on-image: #ffffff;
 	--on-image-soft: rgb(255 255 255 / 16%);
@@ -142,9 +138,6 @@
 	--avatar-bg: #e6e5e0;
 	--cover-glow: #f54e0022;
 	--cover-base: #ebeae5;
-	--glass: rgb(255 255 255 / 52%);
-	--glass-edge: rgb(255 255 255 / 70%);
-	--glass-sheen: rgb(255 255 255 / 80%);
 }
 
 /* 2. Base ---------------------------------------------------------------- */
@@ -1262,6 +1255,26 @@ kbd {
 	--row-columns: 16px minmax(0, 1fr) minmax(0, 200px) 52px;
 	margin-top: 4px;
 }
+/* Mobile search sits at the bottom, so the best match goes nearest to it and weaker
+   matches stack upward. DOM order stays ranked for assistive technology. */
+.results-bottom-up {
+	display: flex;
+	flex-direction: column;
+}
+.results-bottom-up .bookmark-list {
+	display: flex;
+	flex-direction: column-reverse;
+}
+.results-bottom-up:not(:has(.load-more)) .bookmark-list,
+.results-bottom-up .load-more {
+	margin-top: auto;
+}
+.results-bottom-up .load-more {
+	order: -1;
+}
+.results-bottom-up .list-toolbar {
+	order: -2;
+}
 .bookmark-gesture {
 	position: relative;
 	overflow: hidden;
@@ -1272,14 +1285,16 @@ kbd {
 	border-radius: var(--radius-control);
 	transition: background-color 120ms ease-out;
 }
-.bookmark-disclosure:hover,
-.bookmark-disclosure:focus-within,
+@media (hover: hover) {
+	.bookmark-disclosure:hover {
+		background: var(--selection);
+	}
+}
 .bookmark-disclosure.expanded {
 	background: var(--selection);
 }
 .bookmark-disclosure.expanded .library-row,
-.bookmark-disclosure.expanded .library-row:hover,
-.bookmark-disclosure.expanded .library-row:focus-within {
+.bookmark-disclosure.expanded .library-row:hover {
 	border-radius: var(--radius-control) var(--radius-control) 0 0;
 	background: transparent;
 }
@@ -1311,8 +1326,13 @@ kbd {
 .bookmark-disclosure.expandable .library-row {
 	cursor: pointer;
 }
-.library-row:hover,
-.library-row:focus-within,
+/* Only real hover, keyboard focus or the open editor light a row. A click leaves focus in
+   the row, and touch screens keep :hover after a tap, so neither may paint it. */
+@media (hover: hover) {
+	.library-row:hover {
+		background: var(--selection);
+	}
+}
 .library-row.selected {
 	background: var(--selection);
 }
@@ -2231,6 +2251,16 @@ svg.setting-trailing {
 	align-items: center;
 	gap: 6px;
 }
+.select-trigger svg {
+	width: 14px;
+	height: 14px;
+	color: var(--secondary);
+}
+.select-item .select-check {
+	width: 14px;
+	height: 14px;
+	margin-left: auto;
+}
 .extension-pairing-code {
 	display: flex;
 	align-items: center;
@@ -2466,7 +2496,7 @@ svg.setting-trailing {
 	margin-top: 12px;
 }
 
-/* 12. Mobile navbar: a glass pill of destinations, and a search circle that becomes the field. */
+/* 12. Mobile navbar: a solid pill of destinations, and a search circle that becomes the field. */
 .mobile-navbar {
 	position: fixed;
 	z-index: 40;
@@ -2480,14 +2510,10 @@ svg.setting-trailing {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	border: 1px solid var(--glass-edge);
+	border: 1px solid var(--line);
 	border-radius: var(--radius-pill);
-	background: linear-gradient(180deg, var(--glass-sheen), transparent 55%), var(--glass);
-	box-shadow:
-		inset 0 1px 0 var(--glass-sheen),
-		0 12px 32px var(--shadow-strong);
-	backdrop-filter: blur(24px) saturate(1.8);
-	-webkit-backdrop-filter: blur(24px) saturate(1.8);
+	background: var(--elevated);
+	box-shadow: 0 12px 32px var(--shadow-strong);
 }
 .mobile-nav-pill {
 	--tab-count: 3;
@@ -2943,6 +2969,51 @@ svg.setting-trailing {
 	}
 }
 @media (max-width: 420px) {
+	/* Small phones: a compact sheet that leaves the backdrop visible, with a little motion. */
+	.auth-sheet {
+		padding: 8px 20px max(20px, env(safe-area-inset-bottom));
+		border-radius: 24px 24px 0 0;
+		animation: sheet-rise 420ms var(--ease-out) both;
+	}
+	.auth-sheet-handle {
+		margin-bottom: 12px;
+	}
+	.auth-icon {
+		display: none;
+	}
+	.auth-step {
+		animation: fade-in 260ms 120ms both;
+	}
+	.auth-step h1 {
+		font-size: var(--text-lg);
+	}
+	.auth-intro {
+		margin-top: 2px;
+		font-size: var(--text-sm);
+	}
+	.auth-form {
+		gap: 10px;
+		margin-top: 14px;
+		padding-top: 0;
+		border-top: 0;
+	}
+	.auth-form .field label {
+		font-size: var(--text-sm);
+	}
+	.auth-actions {
+		gap: 4px;
+		margin-top: 4px;
+	}
+	.auth-step > .auth-actions {
+		margin-top: 16px;
+	}
+	.auth-submit {
+		min-height: 44px;
+		transition: scale 120ms var(--ease-out);
+	}
+	.auth-submit:active:not(:disabled) {
+		scale: 0.98;
+	}
 	.setting-row:has(.extension-pairing-controls) {
 		flex-wrap: wrap;
 	}
@@ -2961,6 +3032,16 @@ svg.setting-trailing {
 	to {
 		opacity: 1;
 		translate: 0 0;
+	}
+}
+@keyframes sheet-rise {
+	from {
+		translate: 0 24px;
+		opacity: 0;
+	}
+	to {
+		translate: 0 0;
+		opacity: 1;
 	}
 }
 @keyframes fade-in {

@@ -144,6 +144,20 @@
 		url = '';
 		step = 'title';
 	}
+	// Text still in the organizer is a tag or person the user meant to add, e.g. typing
+	// "cyber" and pressing Ctrl+Enter. Prefer an exact match; otherwise create the tag.
+	function commitOrganizer(fallback = false) {
+		const name = organizer.trim().replace(/^[#@]/, '');
+		if (!name) return;
+		const lower = name.toLocaleLowerCase();
+		const choice =
+			choices.find((c) => c.name.toLocaleLowerCase() === lower) ??
+			(fallback ? choices[0] : undefined) ??
+			(canCreate ? { kind: 'new-tag' as const, id: '', name: tagName } : undefined);
+		if (!choice) return;
+		if (!selected.some((c) => key(c) === key(choice))) selected = [...selected, choice];
+		organizer = '';
+	}
 	function toggle(choice: Choice) {
 		const id = key(choice);
 		selected = selected.some((c) => key(c) === id)
@@ -301,6 +315,7 @@
 	}
 	async function save() {
 		if (!library || busy || !ready || !url) return;
+		if (step === 'organize') commitOrganizer();
 		busy = true;
 		error = '';
 		const stopLoading = foregroundSound();
@@ -478,7 +493,8 @@
 								onkeydown={(e) => {
 									if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
 										e.preventDefault();
-										if (choices[0]) toggle(choices[0]);
+										if (organizer.trim()) commitOrganizer(true);
+										else if (choices[0]) toggle(choices[0]);
 									}
 								}}
 							/>

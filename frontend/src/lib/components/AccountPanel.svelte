@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Collapsible, Dialog, Tabs } from 'bits-ui';
+	import { Collapsible, Dialog, Select, Tabs } from 'bits-ui';
 	import { soundPreference, setSounds, cue } from '#lib/client/sounds.svelte.js';
 	import { themePreference, setTheme } from '#lib/client/theme.svelte.js';
 	import { Volume2, VolumeX, Sun, Moon } from '@lucide/svelte';
@@ -72,6 +72,7 @@
 		pairingCode = $state(''),
 		pairingExpiresAt = $state(''),
 		pairingLifetime = $state(15);
+	const pairingLifetimes = [5, 15, 60].map((m) => ({ value: String(m), label: `${m} min` }));
 	async function loadExtensionConnections() {
 		try {
 			const response = await fetch('/api/v1/account/extensions', { cache: 'no-store' });
@@ -327,11 +328,30 @@
 										></span
 									>
 									<span class="setting-trailing extension-pairing-controls">
-										<select aria-label="Pairing code lifetime" bind:value={pairingLifetime}>
-											<option value={5}>5 min</option>
-											<option value={15}>15 min</option>
-											<option value={60}>60 min</option>
-										</select>
+										<Select.Root
+											type="single"
+											value={String(pairingLifetime)}
+											onValueChange={(value) => (pairingLifetime = Number(value))}
+											items={pairingLifetimes}
+											><Select.Trigger
+												class="secondary-button select-trigger"
+												aria-label="Pairing code lifetime"
+												>{pairingLifetime} min<ChevronDown /></Select.Trigger
+											><Select.Portal
+												><Select.Content class="select-content" sideOffset={5} align="end"
+													><Select.Viewport
+														>{#each pairingLifetimes as option (option.value)}<Select.Item
+																class="select-item"
+																value={option.value}
+																label={option.label}
+																>{#snippet children({ selected })}{option.label}{#if selected}<Check
+																			class="select-check"
+																		/>{/if}{/snippet}</Select.Item
+															>{/each}</Select.Viewport
+													></Select.Content
+												></Select.Portal
+											></Select.Root
+										>
 										<button
 											class="secondary-button"
 											onclick={generatePairing}
