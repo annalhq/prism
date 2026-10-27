@@ -1,15 +1,24 @@
 <script lang="ts">
 	import {
 		X as XIcon,
-		Bookmark as BookmarkIcon,
 		ArrowUpRight as ArrowUpRightIcon,
-		Clock3 as Clock3Icon
+		Clock3 as Clock3Icon,
+		Ellipsis as EllipsisIcon,
+		Hash as HashIcon,
+		Pencil as PencilIcon,
+		RotateCcw as RotateCcwIcon,
+		Trash2 as Trash2Icon,
+		Users as UsersIcon,
+		CornerDownRight as BacklinkIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links are validated external HTTP URLs. */
 	import { onMount, onDestroy } from 'svelte';
 	import { cue } from '#lib/client/sounds.svelte.js';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { AlertDialog } from 'bits-ui';
+	import { AlertDialog, DropdownMenu } from 'bits-ui';
+	import { autosize } from '#lib/client/attachments.js';
+	import Favicon from './ui/Favicon.svelte';
+	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { Command, Revision } from '#lib/domain/contracts.js';
@@ -40,7 +49,8 @@
 		dirty = $state(false),
 		busy = $state(false),
 		error = $state(''),
-		purgeOpen = $state(false);
+		purgeOpen = $state(false),
+		editingSource = $state(false);
 	let draftWrites = Promise.resolve();
 	let draftTimer: ReturnType<typeof setTimeout> | undefined;
 	const draftId = $derived(`bookmark-details:${entity.id}`);
@@ -203,6 +213,19 @@
 		const tagId = create ? await ensureTag(library, value) : value;
 		await act({ type: 'tag.add', id: entity.id, tagId });
 	}
+	async function moveToTrash() {
+		try {
+			await act({
+				type: 'bookmark.trash',
+				id: entity.id,
+				expectedRevision: String(row?.revision ?? '0') as Revision
+			});
+			close();
+		} catch (e) {
+			error = (e as Error).message;
+		}
+	}
+	const host = $derived(safeSource ? new URL(safeSource).hostname.replace(/^www\./, '') : '');
 	async function removePerson(id: string) {
 		for (const r of relationships.filter((r) => r.personId === id))
 			await act({
@@ -215,79 +238,110 @@
 </script>
 
 <aside class="library-inspector simple-editor" aria-label="Edit bookmark">
-	<div class="inspector-top">
-		<div class="editor-heading">
-			<span class="editor-mark"><BookmarkIcon /></span>
-			<div>
-				<h2>Edit bookmark</h2>
-				<p>Changes save automatically.</p>
-			</div>
-		</div>
-		<button class="icon-button" onclick={close} aria-label="Close editor"><XIcon /></button>
-	</div>
+	<header class="editor-bar">
+		{#if editingSource && row && !row.deletedAt}<input
+				class="editor-source-input"
+				type="url"
+				aria-label="Source URL"
+				placeholder="https://"
+				bind:value={url}
+				oninput={(e) => edited('url', e.currentTarget.value)}
+				onblur={() => {
+					editingSource = false;
+					void details();
+				}}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === 'Escape') {
+						e.preventDefault();
+						e.stopPropagation();
+						e.currentTarget.blur();
+					}
+				}}
+				{@attach (node) => node.focus()}
+			/>{:else if safeSource}<a
+				class="editor-source"
+				href={safeSource}
+				target="_blank"
+				rel="noopener noreferrer"
+				title={safeSource}
+				onclick={() => void library.save({ type: 'activity.open', id: entity.id })}
+				><Favicon url={safeSource} /><span>{host}</span><ArrowUpRightIcon /></a
+			>{:else}<span class="editor-source muted">No link</span>{/if}
+		<span class="editor-bar-actions">
+			{#if row && !row.deletedAt}<button
+					class={['icon-button', 'editor-later', isReadLater(row) && 'on']}
+					aria-pressed={isReadLater(row)}
+					aria-label={isReadLater(row) ? 'Remove from Read later' : 'Read later'}
+					title={isReadLater(row) ? 'In Read later' : 'Read later'}
+					onclick={() => organize({ readingStatus: isReadLater(row) ? 'unread' : 'reading' })}
+					><Clock3Icon /></button
+				><DropdownMenu.Root
+					><DropdownMenu.Trigger class="icon-button" aria-label="More actions"
+						><EllipsisIcon /></DropdownMenu.Trigger
+					><DropdownMenu.Portal
+						><DropdownMenu.Content class="menu-content" align="end" sideOffset={6}
+							><DropdownMenu.Item class="menu-item" onSelect={() => (editingSource = true)}
+								><PencilIcon /><span>Edit link</span></DropdownMenu.Item
+							><DropdownMenu.Separator class="menu-separator" /><DropdownMenu.Item
+								class="menu-item danger-text"
+								onSelect={moveToTrash}><Trash2Icon /><span>Move to trash</span></DropdownMenu.Item
+							></DropdownMenu.Content
+						></DropdownMenu.Portal
+					></DropdownMenu.Root
+				>{/if}
+			<button class="icon-button" onclick={close} aria-label="Close editor"><XIcon /></button>
+		</span>
+	</header>
 	<div class="inspector-body">
 		{#if !row}<p class="panel-message">This bookmark is unavailable.</p>{:else}
-			{#if row.deletedAt}<div class="notice">
-					In trash <button onclick={() => lifecycle('restore')}>Restore</button><button
-						data-cuelume-warning
-						onclick={() => (purgeOpen = true)}>Delete permanently</button
+			{#if row.deletedAt}<div class="editor-trash" role="status">
+					<Trash2Icon /><span>In trash</span><button onclick={() => lifecycle('restore')}
+						><RotateCcwIcon />Restore</button
+					><button class="danger" data-cuelume-warning onclick={() => (purgeOpen = true)}
+						>Delete forever</button
 					>
 				</div>{/if}
-			<section class="inspector-section bookmark-details">
-				<label for="item-title">Title</label><textarea
-					id="item-title"
-					rows="2"
-					bind:value={title}
-					oninput={(e) => edited('title', e.currentTarget.value)}
-					onblur={details}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-							e.preventDefault();
-							void details();
-						}
-					}}
-					maxlength="500"
-					disabled={!!row.deletedAt}></textarea>
-				<div class="bookmark-source-row">
-					{#if safeSource}<a
-							class="source-link"
-							href={safeSource}
-							target="_blank"
-							rel="noopener noreferrer"
-							onclick={() => void library.save({ type: 'activity.open', id: entity.id })}
-							>{new URL(safeSource).hostname}<ArrowUpRightIcon /></a
-						>{/if}
-					{#if !row.deletedAt}<button
-							class="secondary-button later-toggle"
-							aria-pressed={isReadLater(row)}
-							onclick={() => organize({ readingStatus: isReadLater(row) ? 'unread' : 'reading' })}
-							><Clock3Icon />{isReadLater(row) ? 'Saved for later' : 'Read later'}</button
-						>{/if}
-				</div>
-			</section>
-			{#if error}<p class="form-error" role="alert">{error}</p>
-				{#if dirty}<button class="text-button" onclick={details}>Retry saving title</button
-					>{/if}{/if}
+			<label class="sr-only" for="item-title">Title</label><textarea
+				id="item-title"
+				class="editor-title"
+				rows="1"
+				placeholder="Untitled"
+				bind:value={title}
+				oninput={(e) => edited('title', e.currentTarget.value)}
+				onblur={details}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+						e.preventDefault();
+						void details();
+						e.currentTarget.blur();
+					}
+				}}
+				maxlength="500"
+				disabled={!!row.deletedAt}
+				{@attach autosize(title)}></textarea>
+			{#if error}<p class="form-error editor-error" role="alert">
+					{error}{#if dirty}<button class="text-button" onclick={details}>Retry</button>{/if}
+				</p>{/if}
 			{#if !row.deletedAt}
-				<NoteEditor {library} {entity} {version} {feedback} {navigate} />
-				<div class="editor-organization">
-					<section class="inspector-section">
-						<h3>Tags</h3>
+				<!-- Properties: one quiet row each, an icon instead of a label. -->
+				<div class="editor-props">
+					<div class="editor-prop">
+						<span class="editor-prop-icon" title="Tags"><HashIcon /></span>
 						<TokenInput
 							label="Tags"
-							placeholder="Add tags…"
+							placeholder="Add a tag"
 							allowCreate
 							items={tags.map((t) => ({ value: String(t.id), label: String(t.name) }))}
 							selected={(row.tagIds as string[]) ?? []}
 							onAdd={addTag}
 							onRemove={(tagId) => act({ type: 'tag.remove', id: entity.id, tagId })}
 						/>
-					</section>
-					<section class="inspector-section">
-						<h3>People</h3>
+					</div>
+					<div class="editor-prop">
+						<span class="editor-prop-icon" title="People"><UsersIcon /></span>
 						<TokenInput
 							label="Connect people"
-							placeholder="Find a person…"
+							placeholder="Connect a person"
 							items={people.map((p) => ({ value: String(p.id), label: String(p.displayName) }))}
 							selected={linkedPeople}
 							onAdd={(id) =>
@@ -299,29 +353,23 @@
 									provenance: 'manual'
 								})}
 							onRemove={removePerson}
-						/>
-					</section>
+						>
+							{#snippet glyph(item)}<PersonAvatar name={item.label} size={16} />{/snippet}
+						</TokenInput>
+					</div>
 				</div>
-				{#if incoming.length}<section class="inspector-section">
+				<NoteEditor {library} {entity} {version} {feedback} {navigate} />
+				{#if incoming.length}<section class="editor-backlinks" aria-label="Linked here">
 						<h3>Linked here</h3>
 						{#each incoming as item (item.id)}<button
-								class="connection-link"
+								class="editor-backlink"
 								onclick={() => navigate({ kind: item.entityKind, id: String(item.id) })}
-								>{entityLabel(item)}</button
+								>{#if item.entityKind === 'person'}<PersonAvatar
+										name={String(item.displayName)}
+										size={16}
+									/>{:else}<BacklinkIcon />{/if}<span>{entityLabel(item)}</span></button
 							>{/each}
 					</section>{/if}
-				<section class="inspector-section source-section">
-					<h3>Source</h3>
-					<div class="field">
-						<label for="item-url">Source URL</label><input
-							id="item-url"
-							type="url"
-							bind:value={url}
-							oninput={(e) => edited('url', e.currentTarget.value)}
-							onblur={details}
-						/>
-					</div>
-				</section>
 			{/if}
 		{/if}
 	</div>

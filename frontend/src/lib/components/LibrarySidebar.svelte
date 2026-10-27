@@ -4,13 +4,14 @@
 		Clock3,
 		Users,
 		Trash2,
-		Folder,
+		Hash,
 		PanelLeft,
 		PanelRight,
 		Plus,
 		Settings2,
 		Eye
 	} from '@lucide/svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import Brand from './ui/Brand.svelte';
@@ -20,6 +21,7 @@
 		tags,
 		collapsed = $bindable(false),
 		home,
+		counts,
 		onSelect,
 		onCreate,
 		onAccount,
@@ -29,6 +31,11 @@
 		tags: Row[];
 		collapsed?: boolean;
 		home?: '/' | '/public';
+		// Item counts beside each view and tag; absent until the library has loaded.
+		counts?: {
+			counts: Record<string, number>;
+			shelves: { all: number; later: number; people: number; trash: number };
+		};
 		onSelect: (value: string) => void;
 		// Without these the sidebar is view-only: no adding, no trash, no account.
 		onCreate?: (type: string) => void;
@@ -124,6 +131,46 @@
 			/* Optional preference. */
 		}
 	}
+	const countOf = (id: string) =>
+		counts
+			? id.startsWith('tag:')
+				? counts.counts[id.slice(4)]
+				: counts.shelves[id as keyof typeof counts.shelves]
+			: undefined;
+	// One highlight glides to whichever row is current, instead of each row lighting up on
+	// its own. Re-runs when the view, the tag order or the panel width changes.
+	function highlight(current: string, order: unknown, narrow: boolean): Attachment<HTMLElement> {
+		return (nav) => {
+			void order;
+			void narrow;
+			let frame = 0;
+			// Measured from the rendered boxes, after layout, so nested groups and webfont
+			// swaps can't throw it off.
+			const place = () => {
+				cancelAnimationFrame(frame);
+				frame = requestAnimationFrame(() => {
+					const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+					const box = active?.getBoundingClientRect();
+					if (!active || !box?.height) {
+						nav.dataset.indicator = 'off';
+						return;
+					}
+					const top = box.top - nav.getBoundingClientRect().top + nav.scrollTop;
+					nav.style.setProperty('--indicator-y', `${top}px`);
+					nav.style.setProperty('--indicator-h', `${box.height}px`);
+					nav.dataset.indicator = 'on';
+				});
+			};
+			place();
+			const observer = new ResizeObserver(place);
+			observer.observe(nav);
+			void document.fonts?.ready.then(place);
+			return () => {
+				cancelAnimationFrame(frame);
+				observer.disconnect();
+			};
+		};
+	}
 	export async function focusNavigation() {
 		if (collapsed) toggle();
 		await tick();
@@ -133,31 +180,32 @@
 	}
 </script>
 
-<aside class="library-sidebar" class:collapsed>
+<aside class={['library-sidebar', collapsed && 'collapsed']}>
 	<div class="sidebar-brand">
 		<Brand compact {home} /><span class="sidebar-label">prism</span>
 		<button
 			class="icon-button sidebar-toggle"
 			aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 			aria-expanded={!collapsed}
+			title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 			onclick={toggle}
 			>{#if collapsed}<PanelLeft />{:else}<PanelRight />{/if}</button
 		>
 	</div>
-	<nav class="sidebar-navigation" aria-label="Library">
-		{#if onCreate}<button
-				class="sidebar-link"
-				title="Add bookmark · i"
-				onclick={() => onCreate('bookmark')}
-				data-cuelume-open><Plus /><span class="sidebar-label">Add bookmark</span></button
-			>{/if}
+	<nav
+		class="sidebar-navigation"
+		aria-label="Library"
+		{@attach highlight(view, shown.map((t) => t.id).join(), collapsed)}
+	>
+		<span class="sidebar-indicator" aria-hidden="true"></span>
 		{#each views as item (item.id)}<button
-				class="sidebar-link"
-				class:active={view === item.id}
+				class={['sidebar-link', view === item.id && 'active']}
 				aria-current={view === item.id ? 'page' : undefined}
 				title={item.label}
 				onclick={() => onSelect(item.id)}
-				><item.icon /><span class="sidebar-label">{item.label}</span></button
+				><item.icon /><span class="sidebar-label">{item.label}</span>{#if countOf(item.id)}<small
+						class="sidebar-count sidebar-label">{countOf(item.id)}</small
+					>{/if}</button
 			>{/each}
 		<!-- Drops anywhere in the group, including gaps between rows, commit the preview. -->
 		<section
@@ -175,22 +223,24 @@
 		>
 			<div class="sidebar-section-heading">
 				<button
-					class="sidebar-heading-link"
-					class:active={view === 'tags'}
+					class={['sidebar-heading-link', view === 'tags' && 'active']}
 					aria-current={view === 'tags' ? 'page' : undefined}
 					title="Explore all tags"
 					onclick={() => onSelect('tags')}>Tags</button
 				>{#if onCreate}<button
 						class="icon-button"
 						aria-label="Add tag"
+						title="Add tag"
 						onclick={() => onCreate('tag')}><Plus /></button
 					>{/if}
 			</div>
 			{#each shown as row (String(row.id))}<button
 					animate:flip={{ duration: reduceMotion ? 0 : 180 }}
-					class="sidebar-link"
-					class:active={view === `tag:${row.id}`}
-					class:dragging={dragId === row.id}
+					class={[
+						'sidebar-link',
+						view === `tag:${row.id}` && 'active',
+						dragId === row.id && 'dragging'
+					]}
 					aria-current={view === `tag:${row.id}` ? 'page' : undefined}
 					aria-keyshortcuts={onReorder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
 					title={onReorder ? `${row.name} · drag or Alt+↑/↓ to reorder` : String(row.name)}
@@ -209,16 +259,17 @@
 					ondragend={cancelDrag}
 					onkeydown={(event) => void nudge(event, String(row.id))}
 					onclick={() => onSelect(`tag:${row.id}`)}
-					><Folder /><span class="sidebar-label">{row.name}</span></button
+					><Hash /><span class="sidebar-label">{row.name}</span>{#if countOf(`tag:${row.id}`)}<small
+							class="sidebar-count sidebar-label">{countOf(`tag:${row.id}`)}</small
+						>{/if}</button
 				>{:else}<p class="sidebar-empty">A little room to organize.</p>{/each}
 		</section>
 	</nav>
 	{#if onAccount}<button
 			class="sidebar-link sidebar-account account-button"
-			title="Account and preferences"
+			title="Settings · ,"
 			onclick={onAccount}
-			data-cuelume-open
-			><Settings2 /><span class="sidebar-label">Account & preferences</span></button
+			data-cuelume-open><Settings2 /><span class="sidebar-label">Settings</span></button
 		>{:else}<p class="sidebar-link sidebar-account sidebar-readonly" title="View only">
 			<Eye /><span class="sidebar-label">View only</span>
 		</p>{/if}

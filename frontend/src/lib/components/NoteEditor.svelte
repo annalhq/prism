@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
+	import { Link2 as LinkIcon } from '@lucide/svelte';
+	import { autosize } from '#lib/client/attachments.js';
 	import TokenInput from './ui/TokenInput.svelte';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { NoteProjection, Revision } from '#lib/domain/contracts.js';
@@ -230,29 +232,20 @@
 	}
 </script>
 
-<section class="inspector-section note-section" aria-labelledby="note-heading">
-	<div class="section-heading">
-		<h3 id="note-heading">Note</h3>
-		<span class="muted" role="status"
-			>{busy
-				? 'Saving…'
-				: queued
-					? 'Saved on this device · pending sync'
-					: dirty
-						? 'Saving draft…'
-						: 'Saved'}</span
+<section class="editor-note" aria-label="Note">
+	{#if (dirty || queued) && current && current.revision !== base}<div
+			class="editor-conflict"
+			role="status"
 		>
-	</div>
-	{#if (dirty || queued) && current && current.revision !== base}<p class="notice">
-			A newer note is available. Your draft is preserved.
-		</p>
-		<div class="button-row">
-			<button onclick={rebase}>Keep my draft</button><button onclick={useCurrent}
-				>Use current note</button
-			><button onclick={downloadDraft}>Export draft</button>
+			<p>A newer note arrived from another device. Your draft is kept.</p>
+			<div>
+				<button onclick={rebase}>Keep mine</button><button onclick={useCurrent}>Use newer</button
+				><button onclick={downloadDraft}>Export draft</button>
+			</div>
 		</div>{/if}
 	<label class="sr-only" for="note-body">Note</label><textarea
 		id="note-body"
+		class="editor-note-body"
 		bind:this={editor}
 		value={noteText}
 		oninput={(event) => {
@@ -268,19 +261,32 @@
 				void save();
 			}
 		}}
-		placeholder="Your thoughts, in your own words…"
-		rows="4"></textarea>
-	<div class="linked-content-field">
-		<span class="field-label">Linked content</span>
+		placeholder="Write a note…"
+		rows="5"
+		{@attach autosize(noteText)}></textarea>
+	<div class="editor-prop">
+		<span class="editor-prop-icon" title="Linked in this note"><LinkIcon /></span>
 		<TokenInput
 			label="Link saved content"
-			placeholder="Link content or people…"
+			placeholder="Link a bookmark or person"
 			items={referenceChoices}
 			selected={references}
 			onAdd={(value) => insertReference(value)}
 			onRemove={removeReference}
 		/>
 	</div>
-	{#if error}<p class="form-error" role="alert">{error}</p>
-		<button class="text-button" onclick={save}>Try saving again</button>{/if}
+	<p class={['editor-status', (busy || dirty) && 'pending', error && 'failed']} role="status">
+		<span class="editor-status-dot" aria-hidden="true"></span>{error
+			? 'Not saved'
+			: busy
+				? 'Saving…'
+				: queued
+					? 'Saved on this device'
+					: dirty
+						? 'Editing'
+						: 'Saved'}
+	</p>
+	{#if error}<p class="form-error" role="alert">
+			{error} <button class="text-button" onclick={save}>Try again</button>
+		</p>{/if}
 </section>

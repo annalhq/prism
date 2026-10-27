@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { X as XIcon } from '@lucide/svelte';
 	import { Combobox } from 'bits-ui';
-	import { tick } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import { tagNames } from '#lib/client/workflows.js';
 	export type TokenOption = { value: string; label: string; detail?: string; search?: string };
 	let {
@@ -12,7 +12,8 @@
 		allowCreate = false,
 		showSelected = true,
 		onAdd,
-		onRemove
+		onRemove,
+		glyph
 	}: {
 		items: TokenOption[];
 		selected?: string[];
@@ -22,7 +23,10 @@
 		showSelected?: boolean;
 		onAdd: (value: string, create: boolean) => void | Promise<void>;
 		onRemove?: (value: string) => void | Promise<void>;
+		// Drawn before each chip and suggestion: a # for tags, an avatar for people.
+		glyph?: Snippet<[TokenOption]>;
 	} = $props();
+	const byValue = $derived(new Map(items.map((item) => [item.value, item])));
 	let query = $state(''),
 		selection = $state<string[]>([]),
 		open = $state(false),
@@ -86,10 +90,12 @@
 
 <div class="token-editor">
 	<div class="token-field">
-		{#each showSelected ? selected : [] as value (value)}<span class="chip"
-				>{items.find((i) => i.value === value)?.label ?? 'Unavailable'}{#if onRemove}<button
+		{#each showSelected ? selected : [] as value (value)}{@const item = byValue.get(value)}<span
+				class="token-chip"
+				>{#if item && glyph}{@render glyph(item)}{/if}<span>{item?.label ?? 'Unavailable'}</span
+				>{#if onRemove}<button
 						type="button"
-						aria-label={`Remove ${items.find((i) => i.value === value)?.label ?? 'item'}`}
+						aria-label={`Remove ${item?.label ?? 'item'}`}
 						onclick={() => {
 							chain = chain
 								.then(() => onRemove?.(value))
@@ -153,7 +159,7 @@
 								value={item.value}
 								label={item.label}
 								class="select-item"
-								><span
+								>{#if glyph}{@render glyph(item)}{/if}<span
 									>{item.label}{#if item.detail}<small>{item.detail}</small>{/if}</span
 								></Combobox.Item
 							>{/each}

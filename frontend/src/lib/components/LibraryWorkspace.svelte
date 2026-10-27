@@ -6,7 +6,8 @@
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
-	import { Check, Keyboard, UserPlus } from '@lucide/svelte';
+	import { Check, Keyboard, Trash2, UserPlus } from '@lucide/svelte';
+	import { autosize } from '#lib/client/attachments.js';
 	import AccountPanel from './AccountPanel.svelte';
 	import KeyboardHelp from './KeyboardHelp.svelte';
 	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
@@ -92,7 +93,8 @@
 		purgeOpen = $state(false),
 		purgeTarget = $state<Row | null>(null),
 		manage = $state<{ table: 'tags'; row: Row } | null>(null),
-		rename = $state('');
+		rename = $state(''),
+		deleteArmed = $state(false);
 	let omnibar: Omnibar | undefined = $state();
 	let sidebar: LibrarySidebar | undefined = $state();
 	let tagsExplorer: TagsExplorer | undefined = $state();
@@ -395,14 +397,15 @@
 	const shelfStats = $derived.by(() => {
 		void version;
 		const counts: Record<string, number> = {};
-		const shelves = { later: 0, people: people.length, trash: 0 };
-		if (view !== 'tags') return { counts, shelves };
+		// Counted on every view now: the sidebar shows them too. One pass over the bookmarks.
+		const shelves = { all: 0, later: 0, people: people.length, trash: 0 };
 		for (const row of library?.list<Row>('bookmarks') ?? []) {
 			if (row.purgedAt) continue;
 			if (row.deletedAt) {
 				shelves.trash++;
 				continue;
 			}
+			shelves.all++;
 			if (isReadLater(row)) shelves.later++;
 			for (const id of (row.tagIds as string[]) ?? []) counts[id] = (counts[id] ?? 0) + 1;
 		}
@@ -590,6 +593,20 @@
 			)
 		];
 	});
+	// Typing the name of a tag that already exists offers that tag instead of an error.
+	const existingTag = $derived.by(() => {
+		if (newType !== 'tag' || !newTitle.trim()) return undefined;
+		const name = newTitle.trim().replace(/^#/, '').toLocaleLowerCase();
+		return tags.find((t) => String(t.name).toLocaleLowerCase() === name);
+	});
+	const renamed = $derived(
+		!!manage && !!rename.trim() && rename.trim() !== String(manage.row.name)
+	);
+	function openManage(entry: { table: 'tags'; row: Row }) {
+		manage = entry;
+		rename = String(entry.row.name);
+		deleteArmed = false;
+	}
 	const contentChoices = $derived.by(() => {
 		void version;
 		return (
@@ -755,8 +772,9 @@
 >
 	<LibrarySidebar
 		bind:this={sidebar}
-		{view}
+		view={profileSlug ? 'people' : view}
 		{tags}
+		counts={status?.ready ? shelfStats : undefined}
 		bind:collapsed={sidebarCollapsed}
 		onSelect={(value) => void navigate(null, value)}
 		onCreate={create}
@@ -1023,55 +1041,100 @@
 
 <Dialog.Root bind:open={creating}
 	><Dialog.Portal
-		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content capture-dialog">
-			<Dialog.Title class="dialog-title"
+		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content
+			class={['dialog-content', 'name-sheet', newType === 'person' && 'person-sheet']}
+		>
+			<header class="name-sheet-head">
+				<Dialog.Title class="name-sheet-title"
+					>{newType === 'person'
+						? editingPerson
+							? 'Edit person'
+							: 'New person'
+						: 'New tag'}</Dialog.Title
+				>
+				<Dialog.Close
+					class="icon-button name-sheet-close"
+					disabled={formBusy}
+					aria-label="Close creation form"><XIcon /></Dialog.Close
+				>
+			</header>
+			<Dialog.Description class="sr-only"
 				>{newType === 'person'
-					? editingPerson
-						? 'Edit person'
-						: 'Add person'
-					: 'Add tag'}</Dialog.Title
+					? 'A name, their links and a little context.'
+					: 'Name a tag to group related links.'}</Dialog.Description
 			>
-			<Dialog.Description class="sr-only">Add a name and optional details.</Dialog.Description>
-			<form class="stack capture-form" onsubmit={submitCreate}>
+			<form class="name-sheet-form" onsubmit={submitCreate}>
 				<fieldset disabled={formBusy}>
-					<label for="capture-title">Name</label><input
-						id="capture-title"
-						bind:value={newTitle}
-						required
-						maxlength={newType === 'person' ? 200 : 64}
-						placeholder={newType === 'person' ? 'Full name' : 'Name'}
-					/>
-					{#if newType === 'person'}
-						<label for="person-url">Links (optional)</label><input
-							id="person-url"
-							bind:value={personUrl}
-							placeholder="@username, their-site.com, github.com/name"
+					<label class="name-sheet-name">
+						<span class="sr-only">Name</span>
+						{#if newType === 'tag'}<span class="name-sheet-glyph" aria-hidden="true">#</span>{/if}
+						<input
+							id="capture-title"
+							bind:value={newTitle}
+							required
+							maxlength={newType === 'person' ? 200 : 64}
+							placeholder={newType === 'person' ? 'Full name' : 'tag-name'}
 							autocomplete="off"
-							autocapitalize="off"
 							spellcheck="false"
-							aria-describedby="person-url-hint"
 						/>
-						<p id="person-url-hint" class="field-hint">
-							Start with @ for an X username; it also brings in their profile photo. Separate more
-							links with commas.
+					</label>
+					{#if newType === 'tag'}<p class={['name-sheet-hint', existingTag && 'exists']}>
+							{#if existingTag}#{existingTag.name} already exists.
+								<button
+									type="button"
+									class="text-button"
+									onclick={() => {
+										creating = false;
+										void navigate(null, `tag:${existingTag?.id}`);
+									}}>Open it</button
+								>{:else}Shows in your sidebar. Add it to links from the editor or while saving with
+								#name.{/if}
+						</p>{:else}
+						<div class="name-sheet-fields">
+							<label class="name-sheet-field">
+								<span>Links</span>
+								<input
+									id="person-url"
+									bind:value={personUrl}
+									placeholder="@username, site.com, github.com/name"
+									autocomplete="off"
+									autocapitalize="off"
+									spellcheck="false"
+									aria-describedby="person-url-hint"
+								/>
+							</label>
+							<label class="name-sheet-field">
+								<span>About</span>
+								<textarea
+									id="capture-note"
+									bind:value={newNote}
+									rows="2"
+									placeholder="A little context"
+									{@attach autosize(newNote)}></textarea>
+							</label>
+						</div>
+						<p id="person-url-hint" class="name-sheet-hint">
+							@ for an X username. Separate links with commas.
 						</p>
-						<label for="capture-note">About (optional)</label><textarea
-							id="capture-note"
-							bind:value={newNote}
-							rows="2"
-							placeholder="A little context about this person"></textarea>
 					{/if}
 					{#if formError}<p class="form-error" role="alert">{formError}</p>{/if}
-					<button type="submit" class="primary-button" disabled={formBusy}
-						>{formBusy ? 'Saving…' : 'Save'}</button
-					>
+					<footer class="name-sheet-actions">
+						<Dialog.Close class="name-sheet-cancel" type="button">Cancel</Dialog.Close>
+						<button
+							type="submit"
+							class="name-sheet-submit"
+							disabled={formBusy || !newTitle.trim() || !!existingTag}
+							>{formBusy
+								? 'Saving…'
+								: editingPerson
+									? 'Save'
+									: newType === 'person'
+										? 'Add person'
+										: 'Create tag'}</button
+						>
+					</footer>
 				</fieldset>
 			</form>
-			<Dialog.Close
-				class="icon-button dialog-close"
-				disabled={formBusy}
-				aria-label="Close creation form"><XIcon /></Dialog.Close
-			>
 		</Dialog.Content></Dialog.Portal
 	></Dialog.Root
 >
@@ -1083,10 +1146,7 @@
 	{toast}
 	{feedback}
 	onCreate={create}
-	onManage={(entry) => {
-		manage = entry;
-		rename = String(entry.row.name);
-	}}
+	onManage={openManage}
 	onExport={exportData}
 	onImport={pickImport}
 	onExportPending={async () => {
@@ -1155,25 +1215,61 @@
 		if (!value) manage = null;
 	}}
 	><Dialog.Portal
-		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content v0-dialog"
-			><Dialog.Title class="dialog-title">Manage {manage?.row.name}</Dialog.Title
-			><Dialog.Description class="dialog-description"
-				>Renaming preserves connections. Deleting removes the tag from its bookmarks; the bookmarks
-				stay.</Dialog.Description
-			>
-			<div class="stack">
-				<label for="manage-name">Name</label><input
-					id="manage-name"
-					bind:value={rename}
-					maxlength="64"
-				/><button class="primary-button" onclick={() => manageSave()}>Rename</button><button
-					onclick={() => manageSave(true)}>Delete</button
+		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content name-sheet"
+			>{#if manage}{@const count = shelfStats.counts[String(manage.row.id)] ?? 0}
+				<header class="name-sheet-head">
+					<Dialog.Title class="name-sheet-title">Edit tag</Dialog.Title>
+					<Dialog.Close class="icon-button name-sheet-close" aria-label="Close tag editor"
+						><XIcon /></Dialog.Close
+					>
+				</header>
+				<Dialog.Description class="sr-only"
+					>Rename or delete this tag. Renaming keeps every connection.</Dialog.Description
 				>
-			</div>
-			<p role="status">{toast}</p>
-			<Dialog.Close class="icon-button dialog-close" aria-label="Close management"
-				><XIcon /></Dialog.Close
-			></Dialog.Content
+				<form
+					class="name-sheet-form"
+					onsubmit={(event) => {
+						event.preventDefault();
+						if (renamed) void manageSave();
+					}}
+				>
+					<label class="name-sheet-name">
+						<span class="sr-only">Name</span>
+						<span class="name-sheet-glyph" aria-hidden="true">#</span>
+						<input
+							id="manage-name"
+							bind:value={rename}
+							maxlength="64"
+							autocomplete="off"
+							spellcheck="false"
+						/>
+					</label>
+					<p class="name-sheet-hint">
+						{count === 0
+							? 'Not on any bookmarks yet.'
+							: `On ${count} ${count === 1 ? 'bookmark' : 'bookmarks'}.`} Renaming keeps every connection.
+					</p>
+					<footer class="name-sheet-actions">
+						{#if deleteArmed}<span class="name-sheet-confirm"
+								><span>Delete #{manage.row.name}?{count ? ' Bookmarks stay.' : ''}</span><button
+									type="button"
+									class="name-sheet-cancel"
+									onclick={() => (deleteArmed = false)}>Keep</button
+								><button
+									type="button"
+									class="name-sheet-danger"
+									data-cuelume-warning
+									onclick={() => manageSave(true)}>Delete</button
+								></span
+							>{:else}<button
+								type="button"
+								class="name-sheet-delete"
+								onclick={() => (deleteArmed = true)}><Trash2 />Delete</button
+							><button type="submit" class="name-sheet-submit" disabled={!renamed}>Rename</button
+							>{/if}
+					</footer>
+				</form>
+			{/if}</Dialog.Content
 		></Dialog.Portal
 	></Dialog.Root
 >

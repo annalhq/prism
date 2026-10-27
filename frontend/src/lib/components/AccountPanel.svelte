@@ -34,6 +34,7 @@
 		Wrench
 	} from '@lucide/svelte';
 	import type { LibraryClient, LibraryState } from '#lib/client/vault/library.js';
+	import { syncSummary } from '#lib/client/sync-status.js';
 	type Row = Record<string, unknown>;
 	type Entry = { table: 'tags'; row: Row };
 	type ExtensionConnection = {
@@ -190,28 +191,9 @@
 		open = false;
 		onCreate(type);
 	}
-	const syncTitle = $derived(
-		status?.loading
-			? 'Syncing'
-			: status?.conflicts.length
-				? 'Needs review'
-				: !status?.online
-					? 'Offline'
-					: status?.pending
-						? 'Waiting to sync'
-						: status?.ready
-							? 'Up to date'
-							: 'Not connected'
-	);
-	const syncTone = $derived(
-		status?.conflicts.length || status?.error
-			? 'warn'
-			: !status?.online || !status?.ready
-				? 'off'
-				: status?.pending || status?.loading
-					? 'busy'
-					: 'ok'
-	);
+	const sync = $derived(syncSummary(status));
+	const syncTitle = $derived(sync.title);
+	const syncTone = $derived(sync.tone);
 	const sections = $derived([
 		{ id: 'general', label: 'General', icon: SlidersHorizontal, hint: '' },
 		{
