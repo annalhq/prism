@@ -6,7 +6,7 @@
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
-	import { Keyboard, UserPlus } from '@lucide/svelte';
+	import { Check, Keyboard, UserPlus } from '@lucide/svelte';
 	import AccountPanel from './AccountPanel.svelte';
 	import KeyboardHelp from './KeyboardHelp.svelte';
 	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
@@ -777,11 +777,9 @@
 		<div class="library-content" class:results-bottom-up={bottomUp} bind:this={content}>
 			{#if profileSlug && person}<PersonHeader
 					{person}
-					handle={handleOf(String(person.id))}
 					website={personWebsite}
 					links={profileLinksList}
 					count={connections.get(String(person.id))?.size ?? 0}
-					lastAdded={lastAdded.get(String(person.id))}
 					onBack={() => void navigate(null, 'people')}
 					onEdit={editPerson}
 				/>
@@ -825,11 +823,9 @@
 						{#each recentPeople as entry (String(entry.id))}<button
 								onclick={() => navigate({ kind: 'person', id: String(entry.id) })}
 								title={String(entry.displayName)}
-								><PersonAvatar
-									name={String(entry.displayName)}
-									handle={handleOf(String(entry.id))}
-									size={40}
-								/><span>{String(entry.displayName).split(' ')[0]}</span></button
+								><PersonAvatar name={String(entry.displayName)} size={40} /><span
+									>{String(entry.displayName).split(' ')[0]}</span
+								></button
 							>{/each}
 					</nav>{/if}
 			{/if}
@@ -881,7 +877,10 @@
 								><DropdownMenu.Content class="menu-content" align="end" sideOffset={5}>
 									{#each [{ value: 'newest', label: 'Newest first' }, { value: 'title', label: 'Title A–Z' }, { value: 'recently_opened', label: 'Recently opened' }] as option (option.value)}<DropdownMenu.Item
 											class="menu-item"
-											onSelect={() => (sort = option.value)}>{option.label}</DropdownMenu.Item
+											onSelect={() => (sort = option.value)}
+											><span>{option.label}</span>{#if sort === option.value}<Check
+													class="menu-check"
+												/>{/if}</DropdownMenu.Item
 										>{/each}
 								</DropdownMenu.Content></DropdownMenu.Portal
 							></DropdownMenu.Root
@@ -894,6 +893,7 @@
 					class="bookmark-list"
 					class:post-feed={feedMode}
 					class:people-list={view === 'people' && !feedMode}
+					class:searching={!!query}
 				>
 					{#if profileSlug && !person}<p class="panel-message">
 							This person is unavailable.
@@ -903,7 +903,6 @@
 									person={item}
 									handle={handleOf(String(item.id))}
 									count={connections.get(String(item.id))?.size ?? 0}
-									lastAdded={lastAdded.get(String(item.id))}
 									onOpen={() => navigate({ kind: 'person', id: String(item.id) })}
 								/>
 							{:else if feedMode}<PostCard
@@ -911,9 +910,6 @@
 									people={profileSlug ? [] : (peopleOnPost.get(String(item.id)) ?? [])}
 									{feedback}
 									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
-									tagLabels={((item.tagIds as string[]) ?? [])
-										.map((id) => String(tags.find((t) => t.id === id)?.name ?? ''))
-										.filter(Boolean)}
 									onDisconnect={profileSlug && connectedIds.includes(String(item.id))
 										? () =>
 												void disconnectContent(String(item.id)).catch((e) => feedback(e.message))

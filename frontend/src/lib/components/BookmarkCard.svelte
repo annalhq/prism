@@ -6,10 +6,13 @@
 
 <script lang="ts">
 	import {
+		ArrowUpRight as ArrowUpRightIcon,
+		Copy as CopyIcon,
 		Pencil as PencilIcon,
 		Clock3 as Clock3Icon,
 		Trash2 as Trash2Icon,
-		RotateCcw as RotateCcwIcon
+		RotateCcw as RotateCcwIcon,
+		Unlink as UnlinkIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
 	import { Collapsible, ContextMenu } from 'bits-ui';
@@ -248,30 +251,36 @@
 					{@render row()}
 				</ContextMenu.Trigger><ContextMenu.Portal
 					><ContextMenu.Content class="menu-content">
-						<ContextMenu.Item class="menu-item" onSelect={onEdit}
-							><PencilIcon />Edit</ContextMenu.Item
-						>
 						{#if item.deletedAt}<ContextMenu.Item
 								class="menu-item"
-								onSelect={() => onAction('restore')}><RotateCcwIcon />Restore</ContextMenu.Item
-							>{:else}
-							<ContextMenu.Item class="menu-item" onSelect={() => onAction('later')}
-								><Clock3Icon />{isReadLater(item)
-									? 'Remove from Read later'
-									: 'Read later'}</ContextMenu.Item
-							>
-							{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
-									>Disconnect from this person</ContextMenu.Item
-								>{/if}<ContextMenu.Separator class="menu-separator" />
-							<ContextMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
-								><Trash2Icon />Delete</ContextMenu.Item
-							>
-						{/if}
-						{#if item.deletedAt}<ContextMenu.Item
+								onSelect={() => onAction('restore')}
+								><RotateCcwIcon /><span>Restore</span></ContextMenu.Item
+							><ContextMenu.Separator class="menu-separator" /><ContextMenu.Item
 								class="menu-item danger-text"
 								onSelect={() => onAction('purge')}
-								><Trash2Icon />Delete permanently</ContextMenu.Item
-							>{/if}
+								><Trash2Icon /><span>Delete permanently</span></ContextMenu.Item
+							>{:else}
+							{#if source}<ContextMenu.Item class="menu-item" onSelect={openSource}
+									><ArrowUpRightIcon /><span>Open link</span><kbd>o</kbd></ContextMenu.Item
+								>{/if}
+							<ContextMenu.Item class="menu-item" onSelect={onEdit}
+								><PencilIcon /><span>Edit</span><kbd>e</kbd></ContextMenu.Item
+							>
+							{#if source}<ContextMenu.Item class="menu-item" onSelect={copy}
+									><CopyIcon /><span>Copy link</span><kbd>y</kbd></ContextMenu.Item
+								>{/if}
+							<ContextMenu.Item class="menu-item" onSelect={() => onAction('later')}
+								><Clock3Icon /><span
+									>{isReadLater(item) ? 'Remove from Read later' : 'Read later'}</span
+								></ContextMenu.Item
+							>
+							{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
+									><UnlinkIcon /><span>Disconnect</span></ContextMenu.Item
+								>{/if}<ContextMenu.Separator class="menu-separator" />
+							<ContextMenu.Item class="menu-item danger-text" onSelect={() => onAction('trash')}
+								><Trash2Icon /><span>Move to trash</span></ContextMenu.Item
+							>
+						{/if}
 					</ContextMenu.Content></ContextMenu.Portal
 				></ContextMenu.Root
 			>{/if}

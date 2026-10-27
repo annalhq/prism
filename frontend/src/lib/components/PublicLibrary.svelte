@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { sortByPosition } from '#lib/domain/organization.js';
-	import { ChevronDown as ChevronDownIcon } from '@lucide/svelte';
+	import { Check, ChevronDown as ChevronDownIcon } from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
 	import { SvelteURL } from 'svelte/reactivity';
@@ -60,14 +60,6 @@
 		}
 	});
 	const connections = $derived(connectionIndex(library));
-	const createdAt = $derived(
-		new Map(library.list<Row>('bookmarks').map((b) => [String(b.id), String(b.createdAt)]))
-	);
-	const lastAdded = (id: string) =>
-		[...(connections.get(id) ?? [])]
-			.map((b) => createdAt.get(b) ?? '')
-			.sort()
-			.at(-1);
 	const noteBodies = $derived(
 		new Map(library.list<Row>('notes').map((n) => [String(n.entityId), String(n.bodyMarkdown)]))
 	);
@@ -87,6 +79,15 @@
 						: 'Library'))
 	);
 	let query = $derived(page.url.searchParams.get('q') ?? '');
+	let content: HTMLElement | undefined = $state();
+	// On mobile the search field is at the bottom, so ranked results read upward from it,
+	// exactly as in the private library.
+	const bottomUp = $derived(mobile && !!query && view !== 'people' && !person);
+	$effect(() => {
+		if (!bottomUp) return;
+		void results;
+		void tick().then(() => content?.scrollTo({ top: content.scrollHeight }));
+	});
 	$effect(() => {
 		const search = searcher;
 		if (!search || view === 'tags') return;
@@ -113,7 +114,6 @@
 		}
 		return { counts, shelves };
 	});
-	const tagLabels = $derived(new Map(tags.map((t) => [String(t.id), String(t.name)])));
 	$effect(() => {
 		if (view === 'tags' && query) void navigate('all');
 	});
@@ -196,7 +196,7 @@
 	<main id="library-main" class="library-main" tabindex="-1">
 		<h1 class="view-title" class:inline-heading={!!person || view === 'tags'}>{title}</h1>
 		{#if !mobile}<div class="workspace-search">{@render omnibarSlot()}</div>{/if}
-		<div class="library-content">
+		<div class="library-content" class:results-bottom-up={bottomUp} bind:this={content}>
 			{#if view === 'tags'}
 				<TagsExplorer
 					bind:this={tagsExplorer}
@@ -210,7 +210,6 @@
 						{person}
 						website={personWebsite}
 						count={connections.get(String(person.id))?.size ?? 0}
-						lastAdded={lastAdded(String(person.id))}
 						onBack={() => void navigate('people')}
 					/>{/if}
 				{#if !person && view !== 'people'}<div class="list-toolbar">
@@ -228,28 +227,32 @@
 								><DropdownMenu.Content class="menu-content" align="end" sideOffset={5}>
 									{#each [{ value: 'newest', label: 'Newest first' }, { value: 'title', label: 'Title A–Z' }] as option (option.value)}<DropdownMenu.Item
 											class="menu-item"
-											onSelect={() => (sort = option.value)}>{option.label}</DropdownMenu.Item
+											onSelect={() => (sort = option.value)}
+											><span>{option.label}</span>{#if sort === option.value}<Check
+													class="menu-check"
+												/>{/if}</DropdownMenu.Item
 										>{/each}
 								</DropdownMenu.Content></DropdownMenu.Portal
 							></DropdownMenu.Root
 						>
 					</div>{/if}
 				{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
-				<div class="bookmark-list" class:post-feed={!!person} class:people-list={view === 'people'}>
+				<div
+					class="bookmark-list"
+					class:post-feed={!!person}
+					class:people-list={view === 'people'}
+					class:searching={!!query}
+				>
 					{#each results.items.slice(0, limit) as item (String(item.id))}
 						{#if item.entityKind === 'person'}<PersonRow
 								person={item}
 								count={connections.get(String(item.id))?.size ?? 0}
-								lastAdded={lastAdded(String(item.id))}
 								onOpen={() => void navigate(`person:${item.id}`)}
 							/>
 						{:else if person}<PostCard
 								{item}
 								readonly
 								note={notePreview(noteBodies.get(String(item.id)) ?? '')}
-								tagLabels={((item.tagIds as string[]) ?? [])
-									.map((id) => tagLabels.get(id) ?? '')
-									.filter(Boolean)}
 								onEdit={noop}
 								onAction={noop}
 								onOpen={noop}

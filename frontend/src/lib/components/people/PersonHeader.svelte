@@ -3,25 +3,20 @@
 	/* eslint-disable svelte/no-navigation-without-resolve -- Profile links are validated external HTTP URLs. */
 	import { asset } from '$app/paths';
 	import { linkLabel } from '#lib/domain/person-links.js';
-	import { postTime } from '#lib/client/workflows.js';
 	import PersonAvatar from '../ui/PersonAvatar.svelte';
 	type Row = Record<string, unknown>;
 	let {
 		person,
-		handle = null,
 		website = null,
 		links = [],
 		count,
-		lastAdded = '',
 		onBack,
 		onEdit
 	}: {
 		person: Row;
-		handle?: string | null;
 		website?: string | null;
 		links?: Row[];
 		count: number;
-		lastAdded?: string;
 		onBack: () => void;
 		// Absent on the public page, which shows the profile without letting anyone change it.
 		onEdit?: () => void;
@@ -32,7 +27,7 @@
 <header class="person-head">
 	<button class="person-back" onclick={onBack}><ArrowLeft />People</button>
 	<div class="person-head-main">
-		<PersonAvatar {name} {handle} size={64} />
+		<PersonAvatar {name} size={64} />
 		<div class="person-head-copy">
 			<h2>{name}</h2>
 			{#if website || links.length}<p class="person-links">
@@ -66,7 +61,6 @@
 	{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}
 	<p class="person-stats">
 		<strong>{count}</strong>
-		{count === 1 ? 'link' : 'links'}{#if lastAdded}<span aria-hidden="true">·</span>last added
-			{postTime(lastAdded)}{/if}
+		{count === 1 ? 'link' : 'links'}
 	</p>
 </header>

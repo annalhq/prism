@@ -1,9 +1,5 @@
 <script lang="ts">
-	let {
-		name,
-		size = 32,
-		handle = null
-	}: { name: string; size?: number; handle?: string | null } = $props();
+	let { name, size = 32 }: { name: string; size?: number } = $props();
 	// Two letters at most: first and last word, so "Ada King Lovelace" reads "AL".
 	const initials = $derived.by(() => {
 		const words = name.trim().split(/\s+/).filter(Boolean);
@@ -15,34 +11,19 @@
 				.toLocaleUpperCase() || '?'
 		);
 	});
-	// A person with an X username shows their real profile picture. `fallback=false` makes
-	// unavatar answer 404 for unknown accounts, so the monogram takes over instead of a
-	// generic placeholder; a rate limit or network error falls back the same way.
-	let failed = $state<string | null>(null),
-		loaded = $state<string | null>(null);
-	const photo = $derived(
-		handle && failed !== handle
-			? `https://unavatar.io/x/${encodeURIComponent(handle)}?fallback=false`
-			: null
-	);
+	// A stable hue from the name, so a person keeps the same colour everywhere with nothing
+	// stored. The theme turns it into a pastel: pale tint on paper, muted tint at night.
+	const hue = $derived.by(() => {
+		let hash = 0;
+		for (const char of name.trim().toLocaleLowerCase())
+			hash = (Math.imul(hash, 31) + char.codePointAt(0)!) | 0;
+		return Math.abs(hash) % 360;
+	});
 </script>
 
 <span
 	class="person-avatar"
-	class:has-photo={!!photo && loaded === handle}
 	style:--avatar-size={`${size}px`}
-	aria-hidden="true"
+	style:--avatar-hue={hue}
+	aria-hidden="true">{initials}</span
 >
-	<span class="person-initials">{initials}</span>
-	{#if photo}<img
-			src={photo}
-			alt=""
-			width={size}
-			height={size}
-			loading="lazy"
-			decoding="async"
-			referrerpolicy="no-referrer"
-			onload={() => (loaded = handle)}
-			onerror={() => (failed = handle)}
-		/>{/if}
-</span>
