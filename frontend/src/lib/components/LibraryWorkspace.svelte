@@ -6,7 +6,7 @@
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
-	import { Compass, Globe, Keyboard, Link2, Newspaper, Shuffle } from '@lucide/svelte';
+	import { Keyboard, UserPlus } from '@lucide/svelte';
 	import AccountPanel from './AccountPanel.svelte';
 	import KeyboardHelp from './KeyboardHelp.svelte';
 	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
@@ -14,20 +14,21 @@
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { asset, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import { AlertDialog, Dialog, DropdownMenu } from 'bits-ui';
 	import Omnibar from './Omnibar.svelte';
 	import LibrarySidebar from './LibrarySidebar.svelte';
 	import MobileNavbar from './MobileNavbar.svelte';
 	import PersonAvatar from './ui/PersonAvatar.svelte';
-	import { avatarFromSeed, type AvatarConfig } from '#lib/domain/avatars.js';
-	import { createPeopleFeedIndex } from '#lib/client/people-feed.js';
+	import PersonHeader from './people/PersonHeader.svelte';
+	import PersonRow from './people/PersonRow.svelte';
+	import { connectionIndex } from '#lib/client/people-feed.js';
 	import { cue } from '#lib/client/sounds.svelte.js';
 	import TokenInput from './ui/TokenInput.svelte';
 	import Toast, { type Notice } from './ui/Toast.svelte';
 	import BookmarkCard from './BookmarkCard.svelte';
-	import PostCard, { type PostAuthor } from './PostCard.svelte';
-	import { formatPersonLinks, linkLabel, parsePersonLinks } from '#lib/domain/person-links.js';
+	import PostCard, { type PostPerson } from './PostCard.svelte';
+	import { formatPersonLinks, parsePersonLinks } from '#lib/domain/person-links.js';
 	import { notePreview } from '#lib/client/reference-edits.js';
 	import {
 		isReadLater,
@@ -35,7 +36,6 @@
 		personLinksIndex,
 		personSlug,
 		personIdFromSlug,
-		postTime,
 		syncPersonLinks,
 		xHandle
 	} from '#lib/client/workflows.js';
@@ -77,13 +77,10 @@
 		personUrl = $state(''),
 		editingPerson = $state<Row | null>(null);
 	let captureId = $state('');
-	let avatarConfig = $state<AvatarConfig | null>(null);
 	let sidebarCollapsed = $state(false),
 		mobile = $state(false),
 		navSearching = $state(false),
 		wideEditor = $state(false);
-	let feedFilter = $state('all');
-	const buildProfileIndex = createPeopleFeedIndex();
 	let results = $state<ReturnType<typeof searchLibrary>>({ items: [], filter: emptySearch() }),
 		limit = $state(100);
 	let importData = $state<unknown>(null),
@@ -184,14 +181,17 @@
 			(view.startsWith('tag:') ? tags.find((t) => t.id === view.slice(4))?.name : undefined) ??
 			'Library'
 	);
-	const profileLinks = $derived.by(() => {
+	// Person → connected bookmarks. Only the people pages need it.
+	const connections = $derived.by(() => {
 		void contentVersion;
-		return buildProfileIndex(view === 'people' || profileSlug ? library : null);
+		return connectionIndex(view === 'people' || profileSlug ? library : null);
 	});
-	// People has two tabs: a feed of everything connected to people, newest first, like a
-	// social timeline, and Explore, a directory of the people themselves.
+	// People has two tabs: the feed, everything connected to anyone newest first, and the
+	// directory of the people themselves.
 	const peopleTab = $derived(
-		view === 'people' && page.url.searchParams.get('tab') === 'explore' ? 'explore' : 'feed'
+		view === 'people' && ['directory', 'explore'].includes(page.url.searchParams.get('tab') ?? '')
+			? 'directory'
+			: 'feed'
 	);
 	const feedMode = $derived(!!profileSlug || (view === 'people' && peopleTab === 'feed'));
 	const identityIndex = $derived.by(() => {
@@ -200,62 +200,54 @@
 	});
 	const peopleById = $derived(new Map(people.map((p) => [String(p.id), p])));
 	const handleOf = (id: string) => xHandle(identityIndex.get(id));
-	const LABEL_RANK = ['Authored', 'About', 'Related', 'Mentioned'];
-	// Bookmark → the people it is connected to, the strongest connection first.
-	const postAuthors = $derived.by(() => {
+	const createdAt = $derived.by(() => {
+		void contentVersion;
+		if (!connections.size) return new Map<string, string>();
+		return new Map(
+			(library?.list<Row>('bookmarks') ?? []).map((b) => [String(b.id), String(b.createdAt)])
+		);
+	});
+	// Bookmark → the people connected to it, by name.
+	const peopleOnPost = $derived.by(() => {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Rebuilt whole on every derivation.
-		const byPost = new Map<string, PostAuthor[]>();
-		for (const [id, entries] of profileLinks) {
+		const byPost = new Map<string, PostPerson[]>();
+		for (const [id, bookmarkIds] of connections) {
 			const row = peopleById.get(id);
 			if (!row) continue;
-			for (const [bookmarkId, labels] of entries) {
+			for (const bookmarkId of bookmarkIds) {
 				const list = byPost.get(bookmarkId) ?? [];
-				list.push({
-					id,
-					name: String(row.displayName),
-					handle: handleOf(id),
-					avatarConfig: row.avatarConfig,
-					labels
-				});
+				list.push({ id, name: String(row.displayName), handle: handleOf(id) });
 				byPost.set(bookmarkId, list);
 			}
 		}
-		const rank = (author: PostAuthor) =>
-			Math.min(...author.labels.map((l) => LABEL_RANK.indexOf(l)));
-		for (const list of byPost.values()) list.sort((a, b) => rank(a) - rank(b));
+		for (const list of byPost.values()) list.sort((a, b) => a.name.localeCompare(b.name));
 		return byPost;
 	});
-	function authorsFor(bookmarkId: string): PostAuthor[] {
-		const list = postAuthors.get(bookmarkId) ?? [];
-		// On a profile, every post is shown from that person.
-		if (!personId) return list;
-		const own = list.find((a) => a.id === personId);
-		return own ? [own, ...list.filter((a) => a !== own)] : list;
-	}
-	// The people strip above the feed: whoever posted most recently first.
-	const activePeople = $derived.by(() => {
-		if (view !== 'people') return [];
-		const bookmarks = new Map(
-			(library?.list<Row>('bookmarks') ?? []).map((b) => [String(b.id), String(b.createdAt)])
-		);
-		return people
-			.map((p) => {
-				const latest = [...(profileLinks.get(String(p.id))?.keys() ?? [])]
-					.map((id) => bookmarks.get(id) ?? '')
-					.sort()
-					.at(-1);
-				return { person: p, latest: latest ?? '' };
-			})
-			.sort(
-				(a, b) =>
-					b.latest.localeCompare(a.latest) ||
-					String(a.person.displayName).localeCompare(String(b.person.displayName))
-			);
+	// When each person last had a link connected; the directory and the strip sort by it.
+	const lastAdded = $derived.by(() => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Rebuilt whole on every derivation.
+		const latest = new Map<string, string>();
+		for (const [id, bookmarkIds] of connections)
+			for (const bookmarkId of bookmarkIds) {
+				const at = createdAt.get(bookmarkId) ?? '';
+				if (at > (latest.get(id) ?? '')) latest.set(id, at);
+			}
+		return latest;
 	});
+	const recentPeople = $derived(
+		view === 'people'
+			? people
+					.filter((p) => lastAdded.has(String(p.id)))
+					.sort((a, b) =>
+						(lastAdded.get(String(b.id)) ?? '').localeCompare(lastAdded.get(String(a.id)) ?? '')
+					)
+					.slice(0, 12)
+			: []
+	);
 	const profileLinksList = $derived(person ? (identityIndex.get(String(person.id)) ?? []) : []);
-	async function setPeopleTab(tab: 'feed' | 'explore') {
+	async function setPeopleTab(tab: 'feed' | 'directory') {
 		const url = new SvelteURL(page.url.href);
-		if (tab === 'explore') url.searchParams.set('tab', 'explore');
+		if (tab === 'directory') url.searchParams.set('tab', 'directory');
 		else url.searchParams.delete('tab');
 		limit = 100;
 		await goto(url, { reset: false });
@@ -275,27 +267,18 @@
 			search = searcher;
 		if (!current || !libraryReady || !search || view === 'tags') return;
 		const n = ++generation;
-		const profile = personId;
 		// A profile shows one person's connections; the people feed shows everyone's.
-		const entries: [string, string[]][] = profile
-			? [...(profileLinks.get(profile) ?? [])]
-			: feedMode
-				? [...profileLinks.values()].flatMap((map) => [...map])
-				: [];
 		const connected = new Set(
-			entries
-				.filter(
-					([, labels]) =>
-						feedFilter === 'all' ||
-						(feedFilter === 'authored'
-							? labels.includes('Authored')
-							: feedFilter === 'mentions'
-								? labels.includes('Mentioned')
-								: labels.some((label) => label === 'Related' || label === 'About'))
-				)
-				.map(([id]) => id)
+			personId
+				? (connections.get(personId) ?? [])
+				: feedMode
+					? [...connections.values()].flatMap((set) => [...set])
+					: []
 		);
 		const filterFeed = feedMode;
+		// The directory lists people by their latest connection, unless sorted by name.
+		const byActivity = view === 'people' && !feedMode && sort !== 'title' && !query;
+		const recency = lastAdded;
 		pendingResults = search
 			.query(current, filterFeed && !profileSlug ? 'all' : view, query, sort)
 			.then((value) => {
@@ -307,7 +290,17 @@
 									(i) => i.entityKind === 'bookmark' && connected.has(String(i.id))
 								)
 							}
-						: value;
+						: byActivity
+							? {
+									...value,
+									items: [...value.items].sort(
+										(x, y) =>
+											(recency.get(String(y.id)) ?? '').localeCompare(
+												recency.get(String(x.id)) ?? ''
+											) || String(x.displayName).localeCompare(String(y.displayName))
+									)
+								}
+							: value;
 			})
 			.catch((e) => {
 				if (n === generation) feedback((e as Error).message);
@@ -430,7 +423,6 @@
 		personUrl = '';
 		editingPerson = null;
 		captureId = crypto.randomUUID();
-		avatarConfig = avatarFromSeed(captureId);
 		newTitle = name;
 		newNote = '';
 		formError = '';
@@ -450,8 +442,6 @@
 			}))
 		);
 		newNote = String(person.bio ?? '');
-		avatarConfig =
-			(person.avatarConfig as AvatarConfig | null) ?? avatarFromSeed(String(person.id));
 	}
 	async function submitCreate(event: SubmitEvent) {
 		event.preventDefault();
@@ -460,8 +450,6 @@
 		formError = '';
 		const id = editingPerson ? String(editingPerson.id) : captureId;
 		try {
-			// The outbox clones commands; reactive avatar proxies must become plain data first.
-			const savedAvatar = $state.snapshot(avatarConfig);
 			// `@username, site.com, github.com/name`: the first plain site is the website, the
 			// rest become profile links. Parse first so a typo saves nothing.
 			const links = newType === 'person' ? parsePersonLinks(personUrl) : null;
@@ -475,8 +463,7 @@
 								patch: {
 									displayName: newTitle,
 									website: links?.website ?? null,
-									bio: newNote,
-									avatarConfig: savedAvatar
+									bio: newNote
 								}
 							}
 						: {
@@ -484,8 +471,7 @@
 								id,
 								displayName: newTitle,
 								website: links?.website ?? null,
-								bio: newNote,
-								avatarConfig: savedAvatar
+								bio: newNote
 							}
 					: { type: 'tag.create', id, name: newTitle };
 			const result = await library.save(command);
@@ -789,110 +775,64 @@
 		<h1 class="view-title" class:inline-heading={!!profileSlug || view === 'tags'}>{title}</h1>
 		{#if !mobile}<div class="workspace-search">{@render omnibarSlot()}</div>{/if}
 		<div class="library-content" class:results-bottom-up={bottomUp} bind:this={content}>
-			{#snippet feedFilters(label: string)}<div
-					class="feed-filters"
-					role="group"
-					aria-label={label}
-				>
-					{#each [{ id: 'all', label: 'All' }, { id: 'authored', label: 'Authored' }, { id: 'related', label: 'Related' }, { id: 'mentions', label: 'Mentions' }] as option (option.id)}<button
-							aria-pressed={feedFilter === option.id}
-							onclick={() => (feedFilter = option.id)}>{option.label}</button
-						>{/each}
-				</div>{/snippet}
-			{#if profileSlug && person}<div class="person-profile">
-					<div class="profile-cover" aria-hidden="true"></div>
-					<PersonAvatar
-						id={String(person.id)}
-						config={person.avatarConfig}
-						handle={handleOf(String(person.id))}
-						size={88}
-					/>
-					<div class="profile-copy">
-						<h2>{person.displayName}</h2>
-						{#if handleOf(String(person.id))}<p class="profile-handle">
-								@{handleOf(String(person.id))}
-							</p>{/if}
-						{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}
-						{#if personWebsite || profileLinksList.length}<div class="profile-links">
-								{#if personWebsite}<a
-										class="profile-link"
-										href={personWebsite}
-										target="_blank"
-										rel="noopener noreferrer"
-										><Globe />{linkLabel({ platform: 'web', profileUrl: personWebsite })}</a
-									>{/if}
-								{#each profileLinksList as link (String(link.id))}<a
-										class="profile-link"
-										href={String(link.profileUrl)}
-										target="_blank"
-										rel="noopener noreferrer"
-										>{#if link.platform === 'x'}<img
-												src={asset('site-icons/twitter.svg')}
-												alt=""
-												width="14"
-												height="14"
-											/>{:else}<Link2 />{/if}{linkLabel({
-											platform: String(link.platform),
-											profileUrl: String(link.profileUrl),
-											handle: link.handle ? String(link.handle) : null
-										})}</a
-									>{/each}
-							</div>{/if}
-						<p class="profile-stats">
-							<strong>{profileLinks.get(String(person.id))?.size ?? 0}</strong> posts
-						</p>
+			{#if profileSlug && person}<PersonHeader
+					{person}
+					handle={handleOf(String(person.id))}
+					website={personWebsite}
+					links={profileLinksList}
+					count={connections.get(String(person.id))?.size ?? 0}
+					lastAdded={lastAdded.get(String(person.id))}
+					onBack={() => void navigate(null, 'people')}
+					onEdit={editPerson}
+				/>
+				{#if status?.ready}<section class="person-connect">
+						<TokenInput
+							label="Connect saved links"
+							placeholder="Connect a saved link…"
+							showSelected={false}
+							items={contentChoices}
+							selected={connectedIds}
+							onAdd={connectContent}
+							onRemove={disconnectContent}
+						/>
+					</section>{/if}{/if}
+			{#if view === 'people' && status?.ready}<div class="people-bar">
+					<div class="people-tabs" role="tablist" aria-label="People">
+						<button
+							role="tab"
+							aria-selected={peopleTab === 'feed'}
+							onclick={() => setPeopleTab('feed')}>Feed</button
+						><button
+							role="tab"
+							aria-selected={peopleTab === 'directory'}
+							onclick={() => setPeopleTab('directory')}
+							>People{#if people.length}<span>{people.length}</span>{/if}</button
+						>
 					</div>
-					<button class="text-button" onclick={editPerson} data-cuelume-open>Edit profile</button>
-				</div>{/if}
-
-			{#if profileSlug && person}<div class="profile-feed-heading">
-					<span>Posts</span>
-					{@render feedFilters('Filter profile feed')}
-				</div>{/if}
-			{#if view === 'people' && status?.ready}<div class="people-tabs" role="tablist">
-					<button
-						role="tab"
-						aria-selected={peopleTab === 'feed'}
-						onclick={() => setPeopleTab('feed')}><Newspaper />Feed</button
-					><button
-						role="tab"
-						aria-selected={peopleTab === 'explore'}
-						onclick={() => setPeopleTab('explore')}><Compass />Explore</button
+					{#if peopleTab === 'directory' && people.length > 1}<button
+							class="column-sort"
+							onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
+							>{sort === 'title' ? 'A–Z' : 'Recent'}</button
+						>{/if}
+					<button class="text-button people-add" onclick={() => create('person')}
+						><UserPlus />Add</button
 					>
 				</div>
-				{#if peopleTab === 'feed' && !query && activePeople.length}<div
+				{#if peopleTab === 'feed' && !query && recentPeople.length > 1}<nav
 						class="people-strip"
-						aria-label="People"
+						aria-label="Recently connected people"
 					>
-						{#each activePeople.slice(0, 16) as entry (String(entry.person.id))}<button
-								onclick={() => navigate({ kind: 'person', id: String(entry.person.id) })}
-								title={String(entry.person.displayName)}
+						{#each recentPeople as entry (String(entry.id))}<button
+								onclick={() => navigate({ kind: 'person', id: String(entry.id) })}
+								title={String(entry.displayName)}
 								><PersonAvatar
-									id={String(entry.person.id)}
-									config={entry.person.avatarConfig}
-									handle={handleOf(String(entry.person.id))}
-									size={52}
-								/><span>{String(entry.person.displayName).split(' ')[0]}</span></button
-							>{/each}<button class="people-strip-more" onclick={() => setPeopleTab('explore')}
-							><span class="people-strip-icon"><Compass /></span><span>Explore</span></button
-						>
-					</div>{/if}
-				{#if peopleTab === 'feed'}<div class="profile-feed-heading feed-heading">
-						<span class="muted">Everything your people wrote, appear in, or are linked to.</span>
-						{@render feedFilters('Filter people feed')}
-					</div>{/if}
+									name={String(entry.displayName)}
+									handle={handleOf(String(entry.id))}
+									size={40}
+								/><span>{String(entry.displayName).split(' ')[0]}</span></button
+							>{/each}
+					</nav>{/if}
 			{/if}
-			{#if profileSlug && status?.ready && person}<section class="person-connect">
-					<TokenInput
-						label="Connect existing bookmarks"
-						placeholder="Connect saved content to this person…"
-						showSelected={false}
-						items={contentChoices}
-						selected={connectedIds}
-						onAdd={connectContent}
-						onRemove={disconnectContent}
-					/>
-				</section>{/if}
 
 			{#if !status?.ready}<section class="welcome-panel">
 					<div class="empty-icon"><BookmarkIcon /></div>
@@ -921,71 +861,54 @@
 					onCreate={(name) => create('tag', name)}
 				/>
 			{:else}
-				<div class="list-toolbar">
-					{#if !feedMode}<button
+				{#if !feedMode && view !== 'people'}<div class="list-toolbar">
+						<button
 							class="column-sort"
 							onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
-							aria-label="Sort by title"
-							>{view === 'people' ? 'Name' : 'Title'}{sort === 'title' ? ' ↑' : ''}</button
-						>{/if}
-					{#if query}<span class="muted">{results.items.length} found</span>{/if}
-					{#if view === 'people'}<button class="text-button" onclick={() => create('person')}
-							>Add person</button
-						>{:else}<button
+							aria-label="Sort by title">Title{sort === 'title' ? ' ↑' : ''}</button
+						>
+						{#if query}<span class="muted">{results.items.length} found</span>{/if}
+						<button
 							class="list-shortcuts"
 							aria-label="Keyboard shortcuts"
 							onclick={() => (helpOpen = true)}><kbd>?</kbd> shortcuts</button
-						>{/if}
-					<DropdownMenu.Root
-						><DropdownMenu.Trigger class="column-sort date-sort" aria-label="Sort results"
-							>{sort === 'recently_opened' ? 'Last opened' : 'Created at'}<ChevronDownIcon
-							/></DropdownMenu.Trigger
-						><DropdownMenu.Portal
-							><DropdownMenu.Content class="menu-content" align="end" sideOffset={5}>
-								{#each [{ value: 'newest', label: 'Newest first' }, { value: 'title', label: 'Title A–Z' }, { value: 'recently_opened', label: 'Recently opened' }] as option (option.value)}<DropdownMenu.Item
-										class="menu-item"
-										onSelect={() => (sort = option.value)}>{option.label}</DropdownMenu.Item
-									>{/each}
-							</DropdownMenu.Content></DropdownMenu.Portal
-						></DropdownMenu.Root
-					>
-				</div>
+						>
+						<DropdownMenu.Root
+							><DropdownMenu.Trigger class="column-sort date-sort" aria-label="Sort results"
+								>{sort === 'recently_opened' ? 'Last opened' : 'Created at'}<ChevronDownIcon
+								/></DropdownMenu.Trigger
+							><DropdownMenu.Portal
+								><DropdownMenu.Content class="menu-content" align="end" sideOffset={5}>
+									{#each [{ value: 'newest', label: 'Newest first' }, { value: 'title', label: 'Title A–Z' }, { value: 'recently_opened', label: 'Recently opened' }] as option (option.value)}<DropdownMenu.Item
+											class="menu-item"
+											onSelect={() => (sort = option.value)}>{option.label}</DropdownMenu.Item
+										>{/each}
+								</DropdownMenu.Content></DropdownMenu.Portal
+							></DropdownMenu.Root
+						>
+					</div>{/if}
 
 				{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
 
 				<div
 					class="bookmark-list"
 					class:post-feed={feedMode}
-					class:people-grid={view === 'people' && !feedMode}
+					class:people-list={view === 'people' && !feedMode}
 				>
 					{#if profileSlug && !person}<p class="panel-message">
 							This person is unavailable.
 						</p>{:else}
 						{#each results.items.slice(0, limit) as item (String(item.id))}
-							{#if item.entityKind === 'person'}{@const handle = handleOf(String(item.id))}<button
-									class="person-card"
-									onclick={() => navigate({ kind: 'person', id: String(item.id) })}
-									><PersonAvatar
-										id={String(item.id)}
-										config={item.avatarConfig}
-										{handle}
-										size={56}
-									/><span
-										><strong>{item.displayName}</strong>{#if handle}<span class="person-handle"
-												>@{handle}</span
-											>{/if}<small
-											>{item.bio || item.website || 'A person worth keeping up with.'}</small
-										><span class="person-count"
-											>{profileLinks.get(String(item.id))?.size ?? 0} posts{#if activePeople.find((e) => e.person.id === item.id)?.latest}
-												· active {postTime(
-													activePeople.find((e) => e.person.id === item.id)?.latest
-												)}{/if}</span
-										></span
-									></button
-								>
+							{#if item.entityKind === 'person'}<PersonRow
+									person={item}
+									handle={handleOf(String(item.id))}
+									count={connections.get(String(item.id))?.size ?? 0}
+									lastAdded={lastAdded.get(String(item.id))}
+									onOpen={() => navigate({ kind: 'person', id: String(item.id) })}
+								/>
 							{:else if feedMode}<PostCard
 									{item}
-									authors={authorsFor(String(item.id))}
+									people={profileSlug ? [] : (peopleOnPost.get(String(item.id)) ?? [])}
 									{feedback}
 									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
 									tagLabels={((item.tagIds as string[]) ?? [])
@@ -1005,47 +928,39 @@
 									{item}
 									{feedback}
 									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
-									tagLabels={((item.tagIds as string[]) ?? [])
-										.map((id) => String(tags.find((t) => t.id === id)?.name ?? ''))
-										.filter(Boolean)}
 									selected={selected?.id === item.id}
 									onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
 									onAction={(action) => void bookmarkAction(item, action)}
 									onOpen={() => void library?.save({ type: 'activity.open', id: String(item.id) })}
 								/>{/if}
-						{:else}{#if !results.error}<section class="welcome-panel compact">
-									<div class="empty-state-mark"><BookmarkIcon /></div>
+						{:else}{#if !results.error}{@const peopleEmpty = !query && view === 'people'}
+								<section class="welcome-panel compact">
 									<h2>
 										{query
 											? 'Nothing matched this search.'
 											: profileSlug
-												? 'No posts yet.'
-												: view === 'people' && feedMode
-													? 'Your people feed is quiet.'
-													: view === 'people'
-														? 'People behind your bookmarks.'
+												? 'Nothing connected yet.'
+												: peopleEmpty && feedMode
+													? people.length
+														? 'No connected links yet.'
+														: 'Keep people close to what they make.'
+													: peopleEmpty
+														? 'No people yet.'
 														: 'No bookmarks here yet.'}
 									</h2>
 									<p>
 										{query
 											? 'Try a title, note, #tag or @username.'
 											: profileSlug
-												? 'Connect an existing bookmark above, or save a new one here.'
-												: view === 'people' && feedMode
-													? 'Connect bookmarks to people, or mention them in a note, and their posts show up here.'
-													: view === 'people'
-														? 'Add the writers and creators you follow. Use @username for their X account.'
-														: 'Paste a link above to save your first bookmark.'}
+												? 'Connect a saved link above, or tag them with @ while saving one.'
+												: peopleEmpty
+													? 'Add someone, then connect links to them. Everything they make collects on their page and here.'
+													: 'Paste a link above to save your first bookmark.'}
 									</p>
-									{#if !query && view !== 'trash'}<button
+									{#if !query && view !== 'trash' && !profileSlug && !(peopleEmpty && feedMode && people.length)}<button
 											class="primary-button"
-											onclick={() =>
-												view === 'people' && feedMode && people.length
-													? setPeopleTab('explore')
-													: create(view === 'people' ? 'person' : 'bookmark')}
-											>{view === 'people' && feedMode && people.length
-												? 'Explore people'
-												: `Add ${view === 'people' ? 'person' : 'bookmark'}`}</button
+											onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
+											>{view === 'people' ? 'Add person' : 'Add bookmark'}</button
 										>{/if}
 								</section>{/if}{/each}{/if}
 				</div>
@@ -1123,23 +1038,6 @@
 			<Dialog.Description class="sr-only">Add a name and optional details.</Dialog.Description>
 			<form class="stack capture-form" onsubmit={submitCreate}>
 				<fieldset disabled={formBusy}>
-					{#if newType === 'person'}<div class="avatar-picker">
-							<PersonAvatar
-								id={editingPerson ? String(editingPerson.id) : captureId}
-								config={avatarConfig}
-								size={88}
-							/>
-							<div>
-								<strong>A face for the name</strong>
-								<p class="muted">A little personality. One click.</p>
-								<button
-									type="button"
-									class="secondary-button"
-									onclick={() => (avatarConfig = avatarFromSeed(crypto.randomUUID()))}
-									><Shuffle /> Randomize</button
-								>
-							</div>
-						</div>{/if}
 					<label for="capture-title">Name</label><input
 						id="capture-title"
 						bind:value={newTitle}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Clock3, Folder, Plus, Search, Trash2, Users, X } from '@lucide/svelte';
+	import { ChevronRight, Clock3, Hash, Plus, Search, Trash2, Users, X } from '@lucide/svelte';
 	type Row = Record<string, unknown>;
 	let {
 		tags,
@@ -18,7 +18,7 @@
 	let filter = $state(''),
 		order = $state<'used' | 'name' | 'custom'>('used');
 	let searchInput = $state<HTMLInputElement>();
-	const needle = $derived(filter.trim().toLocaleLowerCase());
+	const needle = $derived(filter.trim().replace(/^#/, '').toLocaleLowerCase());
 	const visible = $derived(
 		tags
 			.filter((t) => String(t.name).toLocaleLowerCase().includes(needle))
@@ -33,45 +33,36 @@
 			)
 	);
 	const exact = $derived(tags.some((t) => String(t.name).toLocaleLowerCase() === needle));
+	const orderLabel = { used: 'Most used', name: 'A–Z', custom: 'Your order' } as const;
 	export function focusSearch() {
 		searchInput?.focus();
 	}
-	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 </script>
 
-<section class="tags-explorer" aria-labelledby="tags-explorer-title">
-	<div class="shelves" class:two-shelves={!onCreate} aria-label="Shelves">
+<section class="tags-explorer" aria-label="Tags and shelves">
+	<nav class="shelves" aria-label="Shelves">
 		<button class="shelf" onclick={() => onSelect('later')}
-			><span class="shelf-icon"><Clock3 /></span><span
-				><strong>Read later</strong><small>{plural(shelves.later, 'link')} queued</small></span
-			></button
+			><Clock3 /><span>Read later</span>{#if shelves.later}<small>{shelves.later}</small
+				>{/if}</button
 		>
 		<button class="shelf" onclick={() => onSelect('people')}
-			><span class="shelf-icon"><Users /></span><span
-				><strong>People</strong><small
-					>{shelves.people === 1 ? '1 person' : `${shelves.people} people`}</small
-				></span
-			></button
+			><Users /><span>People</span>{#if shelves.people}<small>{shelves.people}</small>{/if}</button
 		>
-		{#if onCreate}<button class="shelf shelf-quiet" onclick={() => onSelect('trash')}
-				><span class="shelf-icon"><Trash2 /></span><span
-					><strong>Trash</strong><small
-						>{shelves.trash ? `${shelves.trash} to review` : 'Empty'}</small
-					></span
-				></button
+		{#if onCreate}<button class="shelf" onclick={() => onSelect('trash')}
+				><Trash2 /><span>Trash</span>{#if shelves.trash}<small>{shelves.trash}</small>{/if}</button
 			>{/if}
-	</div>
+	</nav>
 
-	<div class="tags-explorer-heading">
-		<h2 id="tags-explorer-title">Tags <span class="muted">{tags.length}</span></h2>
-		<label class="tags-filter">
+	<div class="tags-head">
+		<label class="tags-search">
 			<Search /><input
 				bind:this={searchInput}
 				bind:value={filter}
-				placeholder="Filter tags"
-				aria-label="Filter tags"
+				placeholder="Find a tag"
+				aria-label="Find a tag"
 				autocomplete="off"
 				spellcheck="false"
+				enterkeyhint="go"
 				onkeydown={(e) => {
 					if (e.key === 'Escape' && filter) {
 						e.preventDefault();
@@ -84,38 +75,50 @@
 				}}
 			/>{#if filter}<button
 					type="button"
-					class="tags-filter-clear"
+					class="tags-search-clear"
 					aria-label="Clear tag filter"
-					onclick={() => (filter = '')}><X /></button
+					onclick={() => {
+						filter = '';
+						searchInput?.focus();
+					}}><X /></button
 				>{/if}
 		</label>
-		<button
-			class="column-sort"
-			aria-label="Sort tags"
-			onclick={() => (order = order === 'used' ? 'name' : order === 'name' ? 'custom' : 'used')}
-			>{order === 'used' ? 'Most used' : order === 'name' ? 'A–Z' : 'Your order'}</button
-		>
-		{#if onCreate}<button class="text-button" onclick={() => onCreate('')}><Plus /> New tag</button
+		<h2>
+			{needle ? 'Matching tags' : 'Tags'}<span>{needle ? visible.length : tags.length}</span>
+		</h2>
+		{#if tags.length > 1}<button
+				class="column-sort"
+				aria-label={`Sort tags: ${orderLabel[order]}`}
+				onclick={() => (order = order === 'used' ? 'name' : order === 'name' ? 'custom' : 'used')}
+				>{orderLabel[order]}</button
+			>{/if}
+		{#if onCreate}<button
+				class="icon-button tags-new"
+				aria-label="New tag"
+				title="New tag"
+				onclick={() => onCreate('')}><Plus /></button
 			>{/if}
 	</div>
 
-	<div class="tag-grid">
-		{#each visible as row (String(row.id))}<button
-				class="tag-tile"
-				onclick={() => onSelect(`tag:${row.id}`)}
-				><Folder /><span class="tag-tile-name">{row.name}</span><small
-					>{counts[String(row.id)] ?? 0}</small
-				></button
-			>{/each}
-		{#if onCreate && needle && !exact}<button
-				class="tag-tile tag-tile-new"
-				onclick={() => onCreate(filter.trim())}
-				><Plus /><span class="tag-tile-name">Create “{filter.trim()}”</span></button
-			>{/if}
-	</div>
-	{#if !tags.length}<p class="tags-empty muted">
-			{onCreate
-				? 'Tags group related links. Create one, or add tags while saving a bookmark.'
-				: 'No tags yet.'}
+	{#if visible.length || (onCreate && needle && !exact)}<ul class="tag-list">
+			{#each visible as row, index (String(row.id))}<li style:--i={Math.min(index, 12)}>
+					<button class="tag-row" onclick={() => onSelect(`tag:${row.id}`)}
+						><Hash /><span>{row.name}</span><small>{counts[String(row.id)] ?? 0}</small
+						><ChevronRight class="tag-row-go" /></button
+					>
+				</li>{/each}
+			{#if onCreate && needle && !exact}<li>
+					<button
+						class="tag-row tag-row-new"
+						onclick={() => onCreate(filter.trim().replace(/^#/, ''))}
+						><Plus /><span>Create #{filter.trim().replace(/^#/, '')}</span></button
+					>
+				</li>{/if}
+		</ul>{:else}<p class="tags-empty">
+			{needle
+				? 'No tag by that name.'
+				: onCreate
+					? 'Tags group related links. Add one here, or type #name while saving a link.'
+					: 'No tags yet.'}
 		</p>{/if}
 </section>

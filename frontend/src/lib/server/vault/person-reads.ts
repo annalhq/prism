@@ -113,9 +113,7 @@ export async function readPersonFeed(
 	return inTransaction(async (tx) => {
 		await readablePerson(tx, owner.vaultId, id, false);
 		const { mode, cursor } = parameters;
-		const role =
-			mode === 'authored' ? 'author' : mode === 'about' || mode === 'related' ? mode : undefined;
-		// A membership subquery yields one bookmark row even when several roles match.
+		// A membership subquery yields one bookmark row even when legacy rows hold several roles.
 		const linked = tx
 			.select({ id: contentPeople.bookmarkId })
 			.from(contentPeople)
@@ -124,8 +122,7 @@ export async function readPersonFeed(
 					eq(contentPeople.vaultId, owner.vaultId),
 					eq(contentPeople.personId, id),
 					isNull(contentPeople.deletedAt),
-					isNull(contentPeople.purgedAt),
-					role ? eq(contentPeople.role, role) : undefined
+					isNull(contentPeople.purgedAt)
 				)
 			);
 		const rows = await tx

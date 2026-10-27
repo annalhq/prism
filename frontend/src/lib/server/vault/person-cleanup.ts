@@ -126,7 +126,7 @@ export async function beginPersonPurge(
 	// A scrubbed FK anchor survives only while bounded cleanup still has children.
 	await tx
 		.update(people)
-		.set({ displayName: 'Deleted person', bio: '', website: null, avatarConfig: null })
+		.set({ displayName: 'Deleted person', bio: '', website: null })
 		.where(and(eq(people.vaultId, vaultId), eq(people.id, id)));
 	await tx
 		.delete(noteRevisions)

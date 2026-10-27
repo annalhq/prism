@@ -220,8 +220,7 @@ export const people = pgTable(
 		entityKind: entityKind('entity_kind').notNull().default('person'),
 		displayName: text('display_name').notNull(),
 		bio: text('bio').notNull().default(''),
-		website: text('website'),
-		avatarConfig: jsonb('avatar_config').$type<import('#lib/domain/avatars.js').AvatarConfig>()
+		website: text('website')
 	},
 	(t) => [
 		primaryKey({ columns: [t.vaultId, t.id] }),

@@ -40,7 +40,7 @@ export type ExtensionBookmarkCommand = {
 	title: string;
 	url: string;
 	tagIds: string[];
-	person?: { id: string; role: import('./relationships.js').PersonRole };
+	person?: { id: string };
 };
 export type NoteCommand = {
 	type: 'note.replace';

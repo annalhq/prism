@@ -103,8 +103,7 @@ export async function personProjection(
 		.select({
 			displayName: people.displayName,
 			bio: people.bio,
-			website: people.website,
-			avatarConfig: people.avatarConfig
+			website: people.website
 		})
 		.from(people)
 		.where(and(eq(people.vaultId, vaultId), eq(people.id, id)));

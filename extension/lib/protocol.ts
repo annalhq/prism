@@ -1,4 +1,3 @@
-export type PersonRole = 'author' | 'about' | 'related';
 export type Capture = { title: string; url: string; kind: 'page' | 'social' };
 export type Catalog = {
 	tags: { id: string; name: string }[];
@@ -14,7 +13,7 @@ export type SaveInput = {
 		title: string;
 		url: string;
 		tagIds: string[];
-		person?: { id: string; role: PersonRole };
+		person?: { id: string };
 	};
 };
 

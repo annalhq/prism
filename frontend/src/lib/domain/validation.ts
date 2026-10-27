@@ -92,10 +92,9 @@ export function parseCommand(value: unknown): Command {
 		let person: ExtensionBookmarkCommand['person'];
 		if (c.person !== undefined && c.person !== null) {
 			const value = object(c.person);
+			// Older extensions also send a role; every connection is the same now, so it is ignored.
 			keys(value, ['id', 'role']);
-			if (value.role !== 'author' && value.role !== 'about' && value.role !== 'related')
-				throw new ValidationError('Choose author, about, or related for the person link.');
-			person = { id: uuid(value.id), role: value.role };
+			person = { id: uuid(value.id) };
 		}
 		return {
 			type: c.type,

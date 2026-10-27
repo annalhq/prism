@@ -9,7 +9,7 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
-	import { createPeopleFeedIndex } from '#lib/client/people-feed.js';
+	import { connectionIndex } from '#lib/client/people-feed.js';
 	import { notePreview } from '#lib/client/reference-edits.js';
 	import { createSearchClient } from '#lib/client/search-client.js';
 	import { emptySearch, type searchLibrary } from '#lib/client/search.js';
@@ -21,7 +21,9 @@
 	import MobileNavbar from './MobileNavbar.svelte';
 	import Omnibar from './Omnibar.svelte';
 	import TagsExplorer from './TagsExplorer.svelte';
-	import PersonAvatar from './ui/PersonAvatar.svelte';
+	import PostCard from './PostCard.svelte';
+	import PersonHeader from './people/PersonHeader.svelte';
+	import PersonRow from './people/PersonRow.svelte';
 
 	// The owner's library, read-only: the same views, search and tags, with nothing to change.
 	let { snapshot }: { snapshot: PublicSnapshot } = $props();
@@ -30,7 +32,6 @@
 
 	let sort = $state('newest'),
 		limit = $state(100),
-		feedFilter = $state('all'),
 		sidebarCollapsed = $state(false),
 		mobile = $state(false),
 		navSearching = $state(false);
@@ -58,7 +59,15 @@
 			return null;
 		}
 	});
-	const profileLinks = $derived(createPeopleFeedIndex()(library));
+	const connections = $derived(connectionIndex(library));
+	const createdAt = $derived(
+		new Map(library.list<Row>('bookmarks').map((b) => [String(b.id), String(b.createdAt)]))
+	);
+	const lastAdded = (id: string) =>
+		[...(connections.get(id) ?? [])]
+			.map((b) => createdAt.get(b) ?? '')
+			.sort()
+			.at(-1);
 	const noteBodies = $derived(
 		new Map(library.list<Row>('notes').map((n) => [String(n.entityId), String(n.bodyMarkdown)]))
 	);
@@ -82,20 +91,7 @@
 		const search = searcher;
 		if (!search || view === 'tags') return;
 		const n = ++generation;
-		const entries = profileLinks.get(personId ?? '');
-		const connected = new Set(
-			[...(entries ?? [])]
-				.filter(
-					([, labels]) =>
-						feedFilter === 'all' ||
-						(feedFilter === 'authored'
-							? labels.includes('Authored')
-							: feedFilter === 'mentions'
-								? labels.includes('Mentioned')
-								: labels.some((label) => label === 'Related' || label === 'About'))
-				)
-				.map(([id]) => id)
-		);
+		const connected = connections.get(personId ?? '') ?? new Set<string>();
 		void search.query(library, personId ? 'all' : view, query, sort).then((value) => {
 			if (n !== generation) return;
 			results = personId
@@ -210,79 +206,59 @@
 					onSelect={(value) => void navigate(value)}
 				/>
 			{:else}
-				{#if person}<div class="person-profile">
-						<div class="profile-cover" aria-hidden="true"></div>
-						<PersonAvatar id={String(person.id)} config={person.avatarConfig} size={88} />
-						<div class="profile-copy">
-							<h2>{person.displayName}</h2>
-							{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}{#if personWebsite}<a
-									class="source-link"
-									href={personWebsite}
-									target="_blank"
-									rel="noopener noreferrer">{personWebsite}</a
-								>{/if}
-						</div>
-					</div>
-					<div class="profile-feed-heading">
-						<span>{profileLinks.get(String(person.id))?.size ?? 0} saved connections</span>
-						<div class="feed-filters" aria-label="Filter profile feed">
-							{#each [{ id: 'all', label: 'All' }, { id: 'authored', label: 'Authored' }, { id: 'related', label: 'Related' }, { id: 'mentions', label: 'Mentions' }] as option (option.id)}<button
-									aria-pressed={feedFilter === option.id}
-									onclick={() => (feedFilter = option.id)}>{option.label}</button
-								>{/each}
-						</div>
+				{#if person}<PersonHeader
+						{person}
+						website={personWebsite}
+						count={connections.get(String(person.id))?.size ?? 0}
+						lastAdded={lastAdded(String(person.id))}
+						onBack={() => void navigate('people')}
+					/>{/if}
+				{#if !person && view !== 'people'}<div class="list-toolbar">
+						<button
+							class="column-sort"
+							onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
+							aria-label="Sort by title">Title{sort === 'title' ? ' ↑' : ''}</button
+						>
+						{#if query}<span class="muted">{results.items.length} found</span>{/if}
+						<DropdownMenu.Root
+							><DropdownMenu.Trigger class="column-sort date-sort" aria-label="Sort results"
+								>{sort === 'title' ? 'Title A–Z' : 'Created at'}<ChevronDownIcon
+								/></DropdownMenu.Trigger
+							><DropdownMenu.Portal
+								><DropdownMenu.Content class="menu-content" align="end" sideOffset={5}>
+									{#each [{ value: 'newest', label: 'Newest first' }, { value: 'title', label: 'Title A–Z' }] as option (option.value)}<DropdownMenu.Item
+											class="menu-item"
+											onSelect={() => (sort = option.value)}>{option.label}</DropdownMenu.Item
+										>{/each}
+								</DropdownMenu.Content></DropdownMenu.Portal
+							></DropdownMenu.Root
+						>
 					</div>{/if}
-				<div class="list-toolbar">
-					<button
-						class="column-sort"
-						onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
-						aria-label="Sort by title"
-						>{view === 'people' ? 'Name' : 'Title'}{sort === 'title' ? ' ↑' : ''}</button
-					>
-					{#if query}<span class="muted">{results.items.length} found</span>{/if}
-					<DropdownMenu.Root
-						><DropdownMenu.Trigger class="column-sort date-sort" aria-label="Sort results"
-							>{sort === 'title' ? 'Title A–Z' : 'Created at'}<ChevronDownIcon
-							/></DropdownMenu.Trigger
-						><DropdownMenu.Portal
-							><DropdownMenu.Content class="menu-content" align="end" sideOffset={5}>
-								{#each [{ value: 'newest', label: 'Newest first' }, { value: 'title', label: 'Title A–Z' }] as option (option.value)}<DropdownMenu.Item
-										class="menu-item"
-										onSelect={() => (sort = option.value)}>{option.label}</DropdownMenu.Item
-									>{/each}
-							</DropdownMenu.Content></DropdownMenu.Portal
-						></DropdownMenu.Root
-					>
-				</div>
 				{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
-				<div
-					class="bookmark-list"
-					class:person-timeline={!!person}
-					class:people-grid={view === 'people'}
-				>
+				<div class="bookmark-list" class:post-feed={!!person} class:people-list={view === 'people'}>
 					{#each results.items.slice(0, limit) as item (String(item.id))}
-						{#if item.entityKind === 'person'}<button
-								class="person-card"
-								onclick={() => void navigate(`person:${item.id}`)}
-								><PersonAvatar id={String(item.id)} config={item.avatarConfig} size={56} /><span
-									><strong>{item.displayName}</strong><small
-										>{item.bio || item.website || 'A person worth keeping up with.'}</small
-									><span class="person-count"
-										>{profileLinks.get(String(item.id))?.size ?? 0} saved connections</span
-									></span
-								></button
-							>
+						{#if item.entityKind === 'person'}<PersonRow
+								person={item}
+								count={connections.get(String(item.id))?.size ?? 0}
+								lastAdded={lastAdded(String(item.id))}
+								onOpen={() => void navigate(`person:${item.id}`)}
+							/>
+						{:else if person}<PostCard
+								{item}
+								readonly
+								note={notePreview(noteBodies.get(String(item.id)) ?? '')}
+								tagLabels={((item.tagIds as string[]) ?? [])
+									.map((id) => tagLabels.get(id) ?? '')
+									.filter(Boolean)}
+								onEdit={noop}
+								onAction={noop}
+								onOpen={noop}
+								onPerson={noop}
+							/>
 						{:else}<BookmarkCard
 								{item}
 								readonly
 								note={notePreview(noteBodies.get(String(item.id)) ?? '')}
-								timeline={!!person}
-								relation={person
-									? (profileLinks.get(String(person.id))?.get(String(item.id)) ?? []).join(' · ')
-									: ''}
-								tagLabels={((item.tagIds as string[]) ?? [])
-									.map((id) => tagLabels.get(id) ?? '')
-									.filter(Boolean)}
 								onEdit={noop}
 								onAction={noop}
 								onOpen={noop}

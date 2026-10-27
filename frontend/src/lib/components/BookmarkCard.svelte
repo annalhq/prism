@@ -19,9 +19,6 @@
 	let {
 		item,
 		note = '',
-		timeline = false,
-		relation = '',
-		tagLabels = [],
 		selected = false,
 		readonly = false,
 		onEdit,
@@ -32,9 +29,6 @@
 	}: {
 		item: Row;
 		note?: string;
-		timeline?: boolean;
-		relation?: string;
-		tagLabels?: string[];
 		selected?: boolean;
 		// Public visitors only read: no context menu, swipes or edit affordances.
 		readonly?: boolean;
@@ -187,7 +181,6 @@
 	<div class="row-leading"><Favicon url={source} /></div>
 
 	<div class="bookmark-content">
-		{#if timeline && relation}<span class="post-relation">{relation}</span>{/if}
 		{#if source}<a
 				class="bookmark-title"
 				title={String(item.title)}
@@ -203,10 +196,6 @@
 	<span class="bookmark-domain"
 		>{String(item.domain ?? (source ? new URL(source).hostname : '')).replace(/^www\./, '')}</span
 	>
-	{#if timeline && note}<p class="bookmark-note">{note}</p>{/if}
-	{#if timeline && tagLabels.length}<div class="post-tags">
-			{#each tagLabels as label (label)}<span class="chip">{label}</span>{/each}
-		</div>{/if}
 	<time class="bookmark-date" datetime={String(item.createdAt)}
 		>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
 			month: 'short',
@@ -236,12 +225,7 @@
 		></button>{/if}
 {/snippet}
 
-<div
-	class="bookmark-gesture"
-	data-bookmark-id={String(item.id)}
-	class:timeline-card={timeline}
-	use:swipe
->
+<div class="bookmark-gesture" data-bookmark-id={String(item.id)} use:swipe>
 	{#if offset}<span class="swipe-hint" class:to-later={offset < 0}
 			>{offset < 0 ? 'Read later' : 'Edit'}</span
 		>{/if}

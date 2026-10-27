@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatPersonLinks, parsePersonLinks } from '../../src/lib/domain/person-links.js';
 import { searchLibrary } from '../../src/lib/client/search.js';
 import { postTime } from '../../src/lib/client/workflows.js';
+import { connectionIndex } from '../../src/lib/client/people-feed.js';
 
 describe('person links field', () => {
 	it('reads an @username, a website and more links', () => {
@@ -76,6 +77,24 @@ describe('@ search filter', () => {
 
 	it('keeps the person themselves in the people view', () => {
 		expect(searchLibrary(reader, 'people', '@jane').items.map((r) => r.id)).toEqual([jane]);
+	});
+});
+
+describe('connections', () => {
+	it('counts every stored role as one connection and skips removed rows', () => {
+		const tables: Record<string, Record<string, unknown>[]> = {
+			people: [{ id: 'p1' }, { id: 'p2', deletedAt: '2026-01-01' }],
+			bookmarks: [{ id: 'b1' }, { id: 'b2' }, { id: 'b3', purgedAt: '2026-01-01' }],
+			relationships: [
+				{ bookmarkId: 'b1', personId: 'p1', role: 'author' },
+				{ bookmarkId: 'b1', personId: 'p1', role: 'related' },
+				{ bookmarkId: 'b2', personId: 'p1', role: 'about', deletedAt: '2026-01-02' },
+				{ bookmarkId: 'b3', personId: 'p1', role: 'related' },
+				{ bookmarkId: 'b2', personId: 'p2', role: 'related' }
+			]
+		};
+		const index = connectionIndex({ list: <T>(t: string) => (tables[t] ?? []) as T[] });
+		expect([...index.entries()].map(([id, set]) => [id, [...set]])).toEqual([['p1', ['b1']]]);
 	});
 });
 

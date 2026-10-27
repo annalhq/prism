@@ -3,6 +3,7 @@ import { applyPersonaCommand } from './personas.js';
 import { changePerson } from './people.js';
 import { changeIdentity } from './identities.js';
 import { changeContentPerson } from './relationships.js';
+import { CONNECTION_ROLE } from '#lib/domain/relationships.js';
 import { createHash } from 'node:crypto';
 import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import {
@@ -288,7 +289,7 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 									type: 'content-person.add',
 									bookmarkId: command.id,
 									personId: person.id,
-									role: person.role,
+									role: CONNECTION_ROLE,
 									provenance: 'manual'
 								},
 								seq,

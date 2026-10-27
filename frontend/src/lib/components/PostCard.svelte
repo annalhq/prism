@@ -13,19 +13,14 @@
 	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { isReadLater, postTime, type Row } from '#lib/client/workflows.js';
-	export type PostAuthor = {
-		id: string;
-		name: string;
-		handle: string | null;
-		avatarConfig: unknown;
-		labels: string[];
-	};
+	export type PostPerson = { id: string; name: string; handle: string | null };
 	let {
 		item,
-		authors,
+		people = [],
 		note = '',
 		tagLabels = [],
 		selected = false,
+		readonly = false,
 		onEdit,
 		onAction,
 		onOpen,
@@ -34,11 +29,12 @@
 		feedback = () => {}
 	}: {
 		item: Row;
-		// The first author is the one the post is shown "from"; the rest are tagged along.
-		authors: PostAuthor[];
+		// The people this link is connected to. Empty on a profile, where the person is the page.
+		people?: PostPerson[];
 		note?: string;
 		tagLabels?: string[];
 		selected?: boolean;
+		readonly?: boolean;
 		onEdit: () => void;
 		onAction: (action: 'later' | 'trash') => void;
 		onOpen: () => void;
@@ -46,8 +42,7 @@
 		onDisconnect?: () => void;
 		feedback?: (message: string) => void;
 	} = $props();
-	const author = $derived(authors[0]);
-	const others = $derived(authors.slice(1));
+	const lead = $derived(people[0]);
 	const source = $derived.by(() => {
 		try {
 			return normalizeUrl(String(item.url)).url;
@@ -78,69 +73,60 @@
 <article
 	class="post bookmark-gesture"
 	class:selected
+	class:with-people={!!lead}
 	data-bookmark-id={String(item.id)}
-	aria-label={`${author?.name ?? 'Someone'}: ${item.title}`}
+	aria-label={lead ? `${lead.name}: ${item.title}` : String(item.title)}
 >
-	{#if author}<button
-			class="post-avatar"
-			aria-label={`Open ${author.name}`}
-			tabindex="-1"
-			onclick={() => onPerson(author.id)}
-			><PersonAvatar
-				id={author.id}
-				config={author.avatarConfig}
-				handle={author.handle}
-				size={40}
-			/></button
-		>{/if}
+	<div class="post-gutter">
+		{#if lead}<button
+				class="post-avatar"
+				aria-label={`Open ${lead.name}`}
+				tabindex="-1"
+				onclick={() => onPerson(lead.id)}
+				><PersonAvatar name={lead.name} handle={lead.handle} size={32} /></button
+			>{:else}<span class="post-site"><Favicon url={source} /></span>{/if}
+	</div>
 	<div class="post-body">
 		<header class="post-header">
-			{#if author}<button class="post-author" tabindex="-1" onclick={() => onPerson(author.id)}
-					>{author.name}</button
-				>{#if author.handle}<span class="post-handle">@{author.handle}</span>{/if}<span
-					class="post-dot"
-					aria-hidden="true">·</span
-				>{/if}<time
+			{#if lead}<span class="post-people"
+					>{#each people.slice(0, 2) as person, index (person.id)}{index ? ', ' : ''}<button
+							tabindex="-1"
+							onclick={() => onPerson(person.id)}>{person.name}</button
+						>{/each}{#if people.length > 2}<span class="post-more">
+							+{people.length - 2}</span
+						>{/if}</span
+				>{:else if domain}<span class="post-domain">{domain}</span>{/if}<time
 				class="post-time"
 				datetime={created.toISOString()}
 				title={created.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })}
 				>{postTime(item.createdAt)}</time
 			>
-			{#if author?.labels.length}<span class="post-relation">{author.labels.join(' · ')}</span>{/if}
 			{#if isReadLater(item)}<span class="later-badge" title="Read later"
 					><Clock3Icon /><span class="sr-only">Read later</span></span
 				>{/if}
-			<DropdownMenu.Root
-				><DropdownMenu.Trigger class="icon-button post-menu" aria-label="Post actions"
-					><EllipsisIcon /></DropdownMenu.Trigger
-				><DropdownMenu.Portal
-					><DropdownMenu.Content class="menu-content" align="end" sideOffset={4}
-						><DropdownMenu.Item class="menu-item" onSelect={onEdit}
-							><PencilIcon />Edit</DropdownMenu.Item
-						>{#if source}<DropdownMenu.Item class="menu-item" onSelect={copy}
-								><CopyIcon />Copy link</DropdownMenu.Item
-							>{/if}<DropdownMenu.Item class="menu-item" onSelect={() => onAction('later')}
-							><Clock3Icon />{isReadLater(item)
-								? 'Remove from Read later'
-								: 'Read later'}</DropdownMenu.Item
-						>{#if onDisconnect}<DropdownMenu.Item class="menu-item" onSelect={onDisconnect}
-								><UnlinkIcon />Disconnect from {author?.name ?? 'this person'}</DropdownMenu.Item
-							>{/if}<DropdownMenu.Separator class="menu-separator" /><DropdownMenu.Item
-							class="menu-item danger-text"
-							onSelect={() => onAction('trash')}><Trash2Icon />Delete</DropdownMenu.Item
-						></DropdownMenu.Content
-					></DropdownMenu.Portal
-				></DropdownMenu.Root
-			>
+			{#if !readonly}<DropdownMenu.Root
+					><DropdownMenu.Trigger class="icon-button post-menu" aria-label="Post actions"
+						><EllipsisIcon /></DropdownMenu.Trigger
+					><DropdownMenu.Portal
+						><DropdownMenu.Content class="menu-content" align="end" sideOffset={4}
+							><DropdownMenu.Item class="menu-item" onSelect={onEdit}
+								><PencilIcon />Edit</DropdownMenu.Item
+							>{#if source}<DropdownMenu.Item class="menu-item" onSelect={copy}
+									><CopyIcon />Copy link</DropdownMenu.Item
+								>{/if}<DropdownMenu.Item class="menu-item" onSelect={() => onAction('later')}
+								><Clock3Icon />{isReadLater(item)
+									? 'Remove from Read later'
+									: 'Read later'}</DropdownMenu.Item
+							>{#if onDisconnect}<DropdownMenu.Item class="menu-item" onSelect={onDisconnect}
+									><UnlinkIcon />Disconnect</DropdownMenu.Item
+								>{/if}<DropdownMenu.Separator class="menu-separator" /><DropdownMenu.Item
+								class="menu-item danger-text"
+								onSelect={() => onAction('trash')}><Trash2Icon />Delete</DropdownMenu.Item
+							></DropdownMenu.Content
+						></DropdownMenu.Portal
+					></DropdownMenu.Root
+				>{/if}
 		</header>
-		{#if others.length}<p class="post-with">
-				with {#each others as other, index (other.id)}{index ? ', ' : ''}<button
-						tabindex="-1"
-						onclick={() => onPerson(other.id)}
-						>{other.handle ? `@${other.handle}` : other.name}</button
-					>{/each}
-			</p>{/if}
-		{#if note}<p class="post-text">{note}</p>{/if}
 		<a
 			class="post-link bookmark-title"
 			href={source ?? undefined}
@@ -152,13 +138,14 @@
 					onEdit();
 				} else onOpen();
 			}}
-			><span class="post-link-icon"><Favicon url={source} /></span><span class="post-link-copy"
-				><strong>{item.title}</strong>{#if domain}<small>{domain}</small>{/if}</span
-			></a
+			>{#if lead}<Favicon url={source} />{/if}<span>{item.title}</span>{#if lead && domain}<small
+					>{domain}</small
+				>{/if}</a
 		>
-		{#if tagLabels.length}<div class="post-tags">
-				{#each tagLabels as label (label)}<span class="post-tag">#{label}</span>{/each}
-			</div>{/if}
+		{#if note}<p class="post-text">{note}</p>{/if}
+		{#if tagLabels.length}<p class="post-tags">
+				{#each tagLabels as label (label)}<span>#{label}</span>{/each}
+			</p>{/if}
 	</div>
 	<button
 		hidden
@@ -167,13 +154,13 @@
 		aria-label={`Open ${item.title}`}
 		onclick={openSource}
 	></button>
-	<button
-		hidden
-		class="bookmark-edit"
-		tabindex="-1"
-		aria-label={`Edit ${item.title}`}
-		onclick={onEdit}
-	></button>
+	{#if !readonly}<button
+			hidden
+			class="bookmark-edit"
+			tabindex="-1"
+			aria-label={`Edit ${item.title}`}
+			onclick={onEdit}
+		></button>{/if}
 	{#if source}<button
 			hidden
 			class="bookmark-copy"

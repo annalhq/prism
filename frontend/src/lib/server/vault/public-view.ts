@@ -122,7 +122,6 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 					displayName: p.displayName,
 					bio: p.bio,
 					website: p.website,
-					avatarConfig: p.avatarConfig ?? null,
 					tagIds: tagsOf.get(p.id) ?? [],
 					deletedAt: null,
 					purgedAt: null,
