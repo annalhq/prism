@@ -2187,6 +2187,241 @@ kbd {
 	box-shadow: inset 0 0 0 1px var(--secondary);
 }
 
+/* Posts from X, drawn in Prism's own quiet card instead of X's embed. */
+.tweet-slot {
+	min-width: 0;
+}
+.tweet-card {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px;
+	border-radius: var(--radius-control);
+	background: var(--canvas);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	animation: fade-in 220ms ease;
+}
+.tweet-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	margin: -4px;
+	padding: 4px;
+	border-radius: var(--radius-sm);
+	outline: none;
+}
+.tweet-head:focus-visible {
+	box-shadow: inset 0 0 0 1px var(--secondary);
+}
+.tweet-avatar {
+	flex-shrink: 0;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	background: var(--selection);
+	object-fit: cover;
+}
+.tweet-avatar.small {
+	width: 18px;
+	height: 18px;
+}
+.tweet-who {
+	display: flex;
+	flex: 1;
+	align-items: baseline;
+	gap: 6px;
+	min-width: 0;
+	font-size: var(--text-md);
+}
+.tweet-who strong {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--ink);
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tweet-who > span {
+	flex-shrink: 1;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--tertiary);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tweet-who .tweet-verified {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+	color: #1d9bf0;
+}
+.tweet-x {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+	fill: var(--tertiary);
+	transition: fill 150ms ease;
+}
+.tweet-head:hover .tweet-x {
+	fill: var(--ink);
+}
+@media (hover: hover) {
+	.tweet-head:hover strong {
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+}
+.tweet-reply {
+	margin-top: -4px;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+.tweet-text {
+	color: var(--ink);
+	font-size: var(--text-base);
+	line-height: var(--leading);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.tweet-card > .tweet-text a {
+	color: var(--secondary);
+	text-decoration: underline;
+	text-decoration-color: var(--line);
+	text-underline-offset: 3px;
+}
+.tweet-card > .tweet-text a:hover {
+	color: var(--ink);
+	text-decoration-color: currentColor;
+}
+.tweet-media {
+	display: grid;
+	gap: 2px;
+	overflow: hidden;
+	border-radius: var(--radius-control);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.tweet-media[data-count='2'],
+.tweet-media[data-count='4'] {
+	grid-template-columns: 1fr 1fr;
+	aspect-ratio: 16 / 9;
+}
+.tweet-media[data-count='3'] {
+	grid-template-columns: 1fr 1fr;
+	grid-template-rows: 1fr 1fr;
+	aspect-ratio: 16 / 9;
+}
+.tweet-media[data-count='3'] > :first-child {
+	grid-row: span 2;
+}
+.tweet-media-item {
+	position: relative;
+	min-height: 0;
+	max-height: 420px;
+	margin: 0;
+	overflow: hidden;
+	background: var(--field);
+}
+.tweet-media-item :is(img, video) {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.tweet-play {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	display: grid;
+	place-items: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: rgb(0 0 0 / 55%);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	color: #fff;
+	translate: -50% -50%;
+	transition: scale 160ms var(--ease-out);
+}
+.tweet-play svg {
+	width: 20px;
+	height: 20px;
+	margin-left: 2px;
+	fill: currentColor;
+}
+.tweet-play:hover {
+	scale: 1.06;
+}
+.tweet-quote {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 10px 12px;
+	border-radius: var(--radius-control);
+	box-shadow: inset 0 0 0 1px var(--line);
+	transition: background-color 150ms ease;
+}
+.tweet-quote:hover {
+	background: var(--hover);
+}
+.tweet-quote .tweet-who {
+	align-items: center;
+	font-size: var(--text-sm);
+}
+.tweet-quote .tweet-text {
+	display: -webkit-box;
+	overflow: hidden;
+	color: var(--muted-ink);
+	font-size: var(--text-md);
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+}
+.tweet-quote .tweet-media {
+	max-height: 180px;
+}
+.tweet-skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px;
+	border-radius: var(--radius-control);
+	background: var(--canvas);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.tweet-skeleton-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.tweet-skeleton :is(i, b, .tweet-skeleton-line) {
+	display: block;
+	border-radius: var(--radius-pill);
+	background: linear-gradient(90deg, var(--field) 25%, var(--hover) 50%, var(--field) 75%);
+	background-size: 200% 100%;
+	animation: shimmer 1.4s linear infinite;
+}
+.tweet-skeleton i {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+}
+.tweet-skeleton b {
+	width: 140px;
+	height: 10px;
+}
+.tweet-skeleton-line {
+	width: 100%;
+	height: 10px;
+}
+.tweet-skeleton-line.short {
+	width: 62%;
+}
+
 /* 8. Inspector ----------------------------------------------------------- */
 .editor-dialog {
 	top: 10px;
@@ -4121,6 +4356,14 @@ kbd {
 @keyframes pulse {
 	50% {
 		opacity: 0.45;
+	}
+}
+@keyframes shimmer {
+	from {
+		background-position: 100% 0;
+	}
+	to {
+		background-position: -100% 0;
 	}
 }
 @keyframes capture-in {

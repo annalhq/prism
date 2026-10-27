@@ -3,6 +3,7 @@ import { applyPersonaCommand } from './personas.js';
 import { changePerson } from './people.js';
 import { changeIdentity } from './identities.js';
 import { changeContentPerson } from './relationships.js';
+import { tagTweet } from './tweets.js';
 import { CONNECTION_ROLE } from '#lib/domain/relationships.js';
 import { createHash } from 'node:crypto';
 import { and, eq, isNull, ne, sql } from 'drizzle-orm';
@@ -280,6 +281,9 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 							))
 						);
 					}
+					changes.push(
+						...(await tagTweet(mutation, owner.vaultId, command.id, command.url, seq, now))
+					);
 					if (person) {
 						changes.push(
 							...(await changeContentPerson(
@@ -330,7 +334,13 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 								changes.push(
 									...(await applyOrganization(mutation, owner.vaultId, item, seq, now, true))
 								);
-							} else changes.push(await applyBookmark(mutation, owner.vaultId, item, seq, now));
+							} else {
+								changes.push(await applyBookmark(mutation, owner.vaultId, item, seq, now));
+								if (item.type === 'bookmark.create')
+									changes.push(
+										...(await tagTweet(mutation, owner.vaultId, item.id, item.url, seq, now))
+									);
+							}
 						} catch (error) {
 							if (error instanceof AlreadyExists && command.type === 'bookmark.bulk')
 								reject(

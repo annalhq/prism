@@ -7,7 +7,7 @@
     },
     "extension": {
       "name": "prism-extension",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "devDependencies": {
         "typescript": "6.0.3",
         "wxt": "^0.21.4",
@@ -30,6 +30,7 @@
         "mdast-util-from-markdown": "2.1.0",
         "mdast-util-to-hast": "13.2.1",
         "pg": "8.23.1",
+        "sveltweet": "^0.5.1",
         "unicode-case-folding": "1.1.2",
       },
       "devDependencies": {
@@ -1191,6 +1192,8 @@
     "svelte-eslint-parser": ["svelte-eslint-parser@1.9.0", "", { "dependencies": { "eslint-scope": "^8.2.0", "eslint-visitor-keys": "^4.0.0", "espree": "^10.0.0", "postcss": "^8.4.49", "postcss-scss": "^4.0.9", "postcss-selector-parser": "^7.0.0", "semver": "^7.7.2" }, "peerDependencies": { "svelte": "^3.37.0 || ^4.0.0 || ^5.0.0" }, "optionalPeers": ["svelte"] }, "sha512-aKdKQAZP7MobfVcQNyy5Yk0QjlC9m5T1lTS0qA7+0EIsFzFX3WgbGHfb8267QK+4hI8Az9+2f+hk5sp39op8sg=="],
 
     "svelte-toolbelt": ["svelte-toolbelt@0.10.6", "", { "dependencies": { "clsx": "^2.1.1", "runed": "^0.35.1", "style-to-object": "^1.0.8" }, "peerDependencies": { "svelte": "^5.30.2" } }, "sha512-YWuX+RE+CnWYx09yseAe4ZVMM7e7GRFZM6OYWpBKOb++s+SQ8RBIMMe+Bs/CznBMc0QPLjr+vDBxTAkozXsFXQ=="],
+
+    "sveltweet": ["sveltweet@0.5.1", "", { "peerDependencies": { "@sveltejs/kit": "^2.31.1", "svelte": "^5.38.1" } }, "sha512-AjFJEaS62Xt5XsQD0B9nsPByUicQiIo7nR+uhKqR2/6EF+mYkLP/urtUsxXsxRi+QeEZNSZfdTeGlqFVN1ZOxw=="],
 
     "tabbable": ["tabbable@6.5.0", "", {}, "sha512-wieBHXygIm7OyQOu5hQlkk62/WyCFYGlWg7L6/ZCUZwx0o398Zkn4pVmMyfYhfMG8kGrj/Krt8eIk6UKC6VzwA=="],
 

@@ -11,6 +11,8 @@
 	/* eslint-disable svelte/no-navigation-without-resolve -- Posts open validated external HTTP source URLs. */
 	import { DropdownMenu } from 'bits-ui';
 	import PersonAvatar from './ui/PersonAvatar.svelte';
+	import TweetCard from './TweetCard.svelte';
+	import { tweetStatusId } from '#lib/domain/tweets.js';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { isReadLater, type Row } from '#lib/client/workflows.js';
 	export type PostPerson = { id: string; name: string; handle: string | null };
@@ -48,6 +50,9 @@
 			return null;
 		}
 	});
+	// Posts from X render as the post itself. The public page can't reach the owner-only
+	// tweet API, so it keeps the plain link card.
+	const tweetId = $derived(readonly ? null : tweetStatusId(source));
 	const domain = $derived(
 		String(item.domain ?? (source ? new URL(source).hostname : '')).replace(/^www\./, '')
 	);
@@ -118,21 +123,28 @@
 		</header>{/if}
 	{#if note}<p class="post-text">{note}</p>{/if}
 	<!-- The link itself, nested like a quoted card: just what it is and where it lives. -->
-	<a
-		class="post-link bookmark-title"
-		href={source ?? undefined}
-		target="_blank"
-		rel="noopener noreferrer"
-		onclick={(event) => {
-			if (!source) {
-				event.preventDefault();
-				onEdit();
-			} else onOpen();
-		}}
-		><span class="post-link-title">{item.title}</span>{#if domain}<span class="post-link-site"
-				>{domain}</span
-			>{/if}</a
-	>
+	{#snippet linkCard()}
+		<a
+			class="post-link bookmark-title"
+			href={source ?? undefined}
+			target="_blank"
+			rel="noopener noreferrer"
+			onclick={(event) => {
+				if (!source) {
+					event.preventDefault();
+					onEdit();
+				} else onOpen();
+			}}
+			><span class="post-link-title">{item.title}</span>{#if domain}<span class="post-link-site"
+					>{domain}</span
+				>{/if}</a
+		>
+	{/snippet}
+	{#if tweetId}<TweetCard
+			id={tweetId}
+			{onOpen}
+			fallback={linkCard}
+		/>{:else}{@render linkCard()}{/if}
 	<button
 		hidden
 		class="bookmark-open"

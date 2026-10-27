@@ -47,6 +47,7 @@
 		"mdast-util-from-markdown": "2.1.0",
 		"mdast-util-to-hast": "13.2.1",
 		"pg": "8.23.1",
+		"sveltweet": "^0.5.1",
 		"unicode-case-folding": "1.1.2"
 	},
 	"devDependencies": {
