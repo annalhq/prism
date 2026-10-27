@@ -922,23 +922,60 @@ kbd {
 	overflow-y: auto;
 	overscroll-behavior: contain;
 }
-.action-toast {
+/* Toasts rise from the bottom edge and leave on their own; one at a time, newest wins. */
+.toast-region {
 	position: fixed;
 	z-index: 45;
 	bottom: 24px;
 	left: 50%;
-	transform: translateX(-50%);
+	display: grid;
+	translate: -50% 0;
+	pointer-events: none;
+}
+.toast-hidden {
+	visibility: hidden;
+}
+.action-toast {
+	grid-area: 1 / 1;
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	max-width: min(480px, calc(100vw - 32px));
-	padding: 6px 6px 6px 16px;
-	border: 1px solid var(--line);
-	border-radius: var(--radius-control);
-	background: var(--elevated);
-	box-shadow: 0 8px 30px var(--shadow-strong);
+	gap: 8px;
+	justify-self: center;
+	max-width: min(440px, calc(100vw - 32px));
+	padding: 6px 6px 6px 14px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-pill);
+	background: color-mix(in srgb, var(--elevated) 88%, transparent);
+	-webkit-backdrop-filter: blur(16px) saturate(150%);
+	backdrop-filter: blur(16px) saturate(150%);
+	box-shadow:
+		0 1px 0 var(--highlight) inset,
+		0 10px 30px var(--shadow-strong);
 	font-size: var(--text-md);
 	overflow-wrap: anywhere;
+	pointer-events: auto;
+	will-change: transform, opacity;
+}
+.toast-dismiss {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	color: var(--tertiary);
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
+}
+.toast-dismiss svg {
+	width: 13px;
+	height: 13px;
+}
+.toast-dismiss:hover,
+.toast-dismiss:focus-visible {
+	background: var(--hover);
+	color: var(--ink);
 }
 
 /* 5. Omnibar & capture --------------------------------------------------- */
@@ -1049,7 +1086,22 @@ kbd {
 	color: var(--secondary);
 }
 
-/* Capture: a stepped popover that overlays the list instead of pushing it. */
+/* The trailing slot holds one control at a time: clear, close, the shortcut, or continue. */
+.omnibar-trailing {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+}
+.omnibar-trailing:empty {
+	display: none;
+}
+.omnibar-clear svg,
+.omnibar-continue svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* Capture: one quiet card under the bar. Link, title and tags in a single step. */
 .capture-picker {
 	position: absolute;
 	z-index: 30;
@@ -1057,154 +1109,275 @@ kbd {
 	left: 0;
 	right: 0;
 	max-height: min(70dvh, 560px);
-	overflow-y: auto;
-	padding: 16px;
+	overflow: visible;
+	padding: 6px;
 	border: 1px solid var(--line);
 	border-radius: var(--radius-card);
 	background: var(--elevated);
 	box-shadow: 0 16px 40px var(--shadow-soft);
-	animation: panel-in 150ms ease-out;
+	transform-origin: top center;
+	animation: capture-in 220ms var(--ease-out);
 }
 .capture-picker fieldset {
+	display: flex;
+	flex-direction: column;
 	min-width: 0;
-	margin: 12px 0 0;
+	margin: 0;
 	padding: 0;
 	border: 0;
 }
-.capture-header {
+.capture-source {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-}
-.capture-steps {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	margin: 0;
-	padding: 0;
-	list-style: none;
-	color: var(--secondary);
-	font-size: var(--text-md);
-}
-.capture-steps li + li::before {
-	content: '›';
-	margin-right: 6px;
-	color: var(--tertiary);
-}
-.capture-steps li.current {
-	color: var(--ink);
-	font-weight: 600;
-}
-.capture-url {
-	margin-top: 4px;
-	overflow: hidden;
+	gap: 8px;
+	min-width: 0;
+	padding: 6px 10px;
+	border-radius: var(--radius-sm);
 	color: var(--secondary);
 	font-size: var(--text-sm);
+	text-align: left;
+	transition:
+		background-color 150ms ease,
+		color 150ms ease;
+}
+.capture-source > span {
+	min-width: 0;
+	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.capture-step {
-	display: grid;
-	gap: 8px;
-	animation: panel-in 160ms ease-out;
+.capture-source small {
+	margin-left: auto;
+	color: var(--tertiary);
+	font-size: var(--text-xs);
+	opacity: 0;
+	transition: opacity 150ms ease;
+}
+.capture-source:hover:not(:disabled),
+.capture-source:focus-visible {
+	background: var(--hover);
+	color: var(--ink);
+}
+.capture-source:hover small,
+.capture-source:focus-visible small {
+	opacity: 1;
+}
+.capture-source :is(img, svg) {
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
 }
 .capture-title-field {
 	position: relative;
 }
-.capture-title-field input {
+.capture-picker .capture-title-field input:not([type='checkbox']) {
 	position: relative;
 	z-index: 1;
+	min-height: 40px;
+	padding: 4px 10px;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	font-size: var(--text-lg);
+	font-weight: 500;
+	letter-spacing: -0.01em;
+}
+.capture-picker input:focus-visible {
+	outline: none;
 }
 .title-shimmer {
 	position: absolute;
 	z-index: 2;
 	top: 50%;
-	left: 13px;
-	right: 13px;
+	left: 10px;
+	right: 10px;
 	transform: translateY(-50%);
 	overflow: hidden;
 	background: linear-gradient(
 		90deg,
-		var(--secondary) 0%,
-		var(--secondary) 35%,
+		var(--tertiary) 0%,
+		var(--tertiary) 35%,
 		var(--ink) 50%,
-		var(--secondary) 65%,
-		var(--secondary) 100%
+		var(--tertiary) 65%,
+		var(--tertiary) 100%
 	);
 	background-size: 200% 100%;
 	background-clip: text;
 	-webkit-background-clip: text;
 	color: transparent;
 	-webkit-text-fill-color: transparent;
+	font-size: var(--text-lg);
+	font-weight: 500;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	pointer-events: none;
 	animation: title-shimmer 1.4s linear infinite;
 }
-.capture-chips {
+.capture-organizer {
+	position: relative;
+	margin-top: 2px;
+	padding-top: 6px;
+	border-top: 1px solid var(--hairline);
+}
+.capture-tokens {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 6px;
+	align-items: center;
+	gap: 4px;
+	min-height: 40px;
+	padding: 4px 6px;
+	cursor: text;
 }
-.capture-chips:empty {
-	display: none;
+.capture-token {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	height: 26px;
+	padding: 0 2px 0 8px;
+	border-radius: var(--radius-pill);
+	background: var(--selection);
+	color: var(--ink);
+	font-size: var(--text-sm);
+	font-weight: 500;
+	white-space: nowrap;
+	cursor: default;
 }
-.capture-choices {
+.capture-token > svg {
+	flex-shrink: 0;
+	width: 12px;
+	height: 12px;
+	color: var(--secondary);
+}
+.capture-token button {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 2px;
-	max-height: 190px;
-	overflow-y: auto;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	color: var(--tertiary);
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
 }
-.capture-choices button {
+.capture-token button svg {
+	width: 12px;
+	height: 12px;
+}
+.capture-token button:hover:not(:disabled) {
+	background: var(--pressed);
+	color: var(--ink);
+}
+.capture-token.done button {
+	visibility: hidden;
+}
+.capture-picker .capture-tokens input:not([type='checkbox']) {
+	flex: 1 1 120px;
+	width: auto;
+	min-width: 120px;
+	min-height: 26px;
+	padding: 0 4px;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	font-size: var(--text-md);
+}
+.capture-options {
+	position: absolute;
+	z-index: 1;
+	top: calc(100% + 4px);
+	left: -7px;
+	right: -7px;
+	margin: 0;
+	padding: 4px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--elevated);
+	box-shadow: 0 12px 32px var(--shadow-soft);
+	list-style: none;
+	transform-origin: top center;
+}
+.capture-options li {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	min-width: 0;
-	min-height: 36px;
+	min-height: 34px;
 	padding: 0 10px;
 	border-radius: var(--radius-sm);
+	color: var(--muted-ink);
 	font-size: var(--text-md);
-	text-align: left;
+	cursor: pointer;
+	transition:
+		background-color 100ms ease,
+		color 100ms ease;
 }
-.capture-choices button:hover,
-.capture-choices button:focus-visible {
-	background: var(--hover);
+.capture-options li.active {
+	background: var(--selection);
+	color: var(--ink);
 }
-.capture-choices button[aria-pressed='true'] {
-	background: var(--pressed);
-}
-.capture-choices button > span {
+.capture-options li > span {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.capture-choices small {
-	margin-left: auto;
+.capture-options li b {
+	font-weight: 500;
+}
+.capture-options svg {
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
 	color: var(--secondary);
-	font-size: var(--text-xs);
+}
+.capture-options .capture-option-enter {
+	margin-left: auto;
+	color: var(--tertiary);
+	animation: fade-in 120ms ease both;
 }
 .capture-footer {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 10px;
-	margin-top: 12px;
+	margin-top: 6px;
+	padding: 6px 4px 0 10px;
+	border-top: 1px solid var(--hairline);
 }
-.capture-footer > .muted {
+.capture-footer .text-button {
+	color: var(--tertiary);
 	font-size: var(--text-sm);
 }
-.capture-link-actions {
-	display: flex;
-	gap: 12px;
+.capture-footer .text-button:hover:not(:disabled) {
+	color: var(--ink);
+	text-decoration: none;
+}
+.capture-hint {
+	color: var(--secondary);
+	font-size: var(--text-sm);
 }
 .capture-submit {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 10px;
 	margin-left: auto;
+}
+.capture-kbd {
+	border: 0;
+	color: var(--tertiary);
+}
+.capture-submit .primary-button {
+	min-height: 32px;
+	padding-inline: 14px;
+	transition:
+		scale 120ms var(--ease-out),
+		opacity 150ms ease;
+}
+.capture-submit .primary-button:active:not(:disabled) {
+	scale: 0.97;
+}
+.capture-submit .primary-button.busy {
+	opacity: 0.7;
 }
 
 /* 6. List & cards -------------------------------------------------------- */
@@ -2678,24 +2851,17 @@ svg.setting-trailing {
 	height: 14px;
 }
 
-/* 11. Auth: an ASCII ocean of sharks behind a frosted card that holds each step. */
-.auth-page {
-	/* The sharks' accent: orange at night, blue on paper. */
-	--ocean-accent: #f57028;
+/* 11. Landing & auth ------------------------------------------------------ */
+/* Landing: the ASCII ocean full-bleed, with one frosted card of copy floating over it. */
+.landing {
 	position: relative;
 	isolation: isolate;
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(380px, 440px);
-	grid-template-rows: auto minmax(0, 1fr) auto;
-	column-gap: clamp(24px, 6vw, 96px);
+	display: flex;
+	flex-direction: column;
 	min-height: 100dvh;
-	padding: 24px clamp(20px, 4vw, 56px) 32px;
-	background: var(--canvas);
+	overflow: hidden;
 }
-:root[data-theme='light'] .auth-page {
-	--ocean-accent: #2563eb;
-}
-.auth-ocean {
+.landing-ocean {
 	position: fixed;
 	inset: 0;
 	z-index: -1;
@@ -2703,93 +2869,235 @@ svg.setting-trailing {
 	width: 100%;
 	height: 100%;
 	font-family: var(--font-mono);
+	animation: fade-in 900ms ease both;
 }
-/* Shared frosted glass for everything floating over the ocean. */
-.auth-theme,
-.auth-tagline,
-.auth-sheet {
+/* Shared frosted glass for everything floating over the water. */
+.landing-glass {
 	border: 1px solid var(--hairline);
 	background: color-mix(in srgb, var(--canvas) 58%, transparent);
 	-webkit-backdrop-filter: blur(24px) saturate(150%);
 	backdrop-filter: blur(24px) saturate(150%);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-	.auth-theme,
-	.auth-tagline,
-	.auth-sheet {
+	.landing-glass {
 		background: var(--elevated);
 	}
 }
+.landing-chrome,
 .auth-chrome {
-	grid-column: 1 / -1;
-	grid-row: 1;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	padding: max(20px, env(safe-area-inset-top)) clamp(20px, 4vw, 40px) 0;
+	animation: fade-in 600ms 200ms both;
 }
-.auth-chrome .brand {
+.landing-brand {
+	display: inline-flex;
 	padding: 6px 14px 6px 8px;
-	border: 1px solid var(--hairline);
 	border-radius: var(--radius-pill);
-	background: color-mix(in srgb, var(--canvas) 58%, transparent);
-	-webkit-backdrop-filter: blur(24px) saturate(150%);
-	backdrop-filter: blur(24px) saturate(150%);
 }
+.landing-theme,
 .auth-theme {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	transition:
+		background-color 150ms ease,
+		color 150ms ease,
+		rotate 300ms var(--ease-out);
+}
+.landing-theme {
 	width: 40px;
 	height: 40px;
-	border-radius: 50%;
 	color: var(--ink);
 }
+.landing-theme:hover,
 .auth-theme:hover {
-	background: color-mix(in srgb, var(--canvas) 40%, transparent);
+	background: var(--hover);
 	color: var(--ink);
 }
-.auth-tagline {
-	grid-column: 1;
-	grid-row: 3;
-	align-self: end;
-	justify-self: start;
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-	max-width: 440px;
-	padding: 18px 22px 20px;
-	border-radius: var(--radius-panel);
+.landing-theme:active,
+.auth-theme:active {
+	rotate: -20deg;
 }
-.auth-tagline p {
-	font-size: var(--text-2xl);
-	font-weight: 600;
-	letter-spacing: var(--tracking-tight);
-	line-height: var(--leading-tight);
-	text-wrap: balance;
-}
-.auth-sheet {
-	grid-column: 2;
-	grid-row: 2 / 4;
-	align-self: center;
+/* The card sits low and to the left so the sharks keep the middle of the page. */
+.landing-hero {
 	display: flex;
-	flex-direction: column;
-	margin-block: 24px;
-	padding: 36px 32px 28px;
-	border-radius: 24px;
-	box-shadow: 0 24px 64px var(--shadow-strong);
+	flex: 1;
+	align-items: flex-end;
+	padding: 24px clamp(20px, 4vw, 40px) clamp(28px, 6vh, 56px);
+	pointer-events: none;
 	outline: none;
 }
-.auth-sheet-handle {
-	display: none;
+.landing-card {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	max-width: 420px;
+	padding: 24px 24px 22px;
+	border-radius: 22px;
+	box-shadow: 0 24px 64px var(--shadow-strong);
+	pointer-events: auto;
+	animation: rise-in 800ms 250ms var(--ease-out) both;
+}
+.landing-card > * {
+	animation: rise-in 700ms var(--ease-out) both;
+}
+.landing-card > :nth-child(1) {
+	animation-delay: 380ms;
+}
+.landing-card > :nth-child(2) {
+	animation-delay: 450ms;
+}
+.landing-card > :nth-child(3) {
+	animation-delay: 520ms;
+}
+.landing-card h1 {
+	font-size: clamp(24px, 3.2vw, 30px);
+	font-weight: 600;
+	letter-spacing: -0.03em;
+	line-height: 1.15;
+	text-wrap: balance;
+}
+.landing-card p {
+	margin-top: 10px;
+	color: var(--secondary);
+	font-size: var(--text-md);
+	text-wrap: balance;
+}
+.landing-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 14px;
+	margin-top: 22px;
+}
+.landing-cta {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 40px;
+	padding: 0 16px 0 20px;
+	border-radius: var(--radius-pill);
+	font-size: var(--text-md);
+	font-weight: 500;
+	transition:
+		background-color 150ms ease,
+		scale 120ms var(--ease-out);
+}
+.landing-cta svg {
+	width: 15px;
+	height: 15px;
+	transition: translate 200ms var(--ease-out);
+}
+.landing-cta:hover {
+	background: var(--accent-hover);
+}
+.landing-cta:hover svg {
+	translate: 3px 0;
+}
+.landing-cta:active {
+	scale: 0.97;
+}
+.landing-offline {
+	color: var(--secondary);
+	font-size: var(--text-sm);
+}
+.landing-hint {
+	position: fixed;
+	right: clamp(20px, 4vw, 40px);
+	bottom: clamp(28px, 6vh, 56px);
+	color: var(--tertiary);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	letter-spacing: var(--tracking-caps);
+	text-transform: lowercase;
+	pointer-events: none;
+	animation: fade-in 1200ms 2400ms both;
+}
+@media (hover: none), (max-width: 767px) {
+	.landing-hint {
+		display: none;
+	}
+}
+
+/* Auth: a centred column with nothing behind it. */
+.auth-page {
+	--auth-accent: #f57028;
+	display: flex;
+	flex-direction: column;
+	min-height: 100dvh;
+	background: var(--canvas);
+}
+:root[data-theme='light'] .auth-page {
+	--auth-accent: #2563eb;
+}
+.auth-back {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--tertiary);
+	font-size: var(--text-md);
+	transition: color 150ms ease;
+}
+.auth-back svg {
+	transition: translate 200ms var(--ease-out);
+}
+.auth-back:hover {
+	color: var(--ink);
+	text-decoration: none !important;
+}
+.auth-back:hover svg {
+	translate: -3px 0;
+}
+.auth-sheet {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	justify-content: center;
+	width: 100%;
+	max-width: 360px;
+	margin: 0 auto;
+	padding: 32px 24px 12vh;
+	outline: none;
+}
+.auth-brand-mark {
+	margin-bottom: 28px;
+	animation: rise-in 600ms var(--ease-out) both;
+}
+.auth-brand-mark .brand img {
+	width: 28px;
+	height: 28px;
 }
 .auth-step {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	width: 100%;
-	animation: panel-in 200ms ease-out;
 }
-/* Minimal type: one quiet heading, one muted line, plain labels. */
+/* Each step's parts arrive in a short cascade; switching steps replays it. */
+.auth-step > *,
+.auth-form > * {
+	animation: rise-in 480ms var(--ease-out) both;
+}
+.auth-step > :nth-child(2) {
+	animation-delay: 50ms;
+}
+.auth-step > :nth-child(n + 3) {
+	animation-delay: 100ms;
+}
+.auth-form > :nth-child(1) {
+	animation-delay: 120ms;
+}
+.auth-form > :nth-child(2) {
+	animation-delay: 170ms;
+}
+.auth-form > :nth-child(n + 3) {
+	animation-delay: 220ms;
+}
 .auth-step h1 {
 	font-size: var(--text-xl);
-	font-weight: 500;
+	font-weight: 600;
 	letter-spacing: var(--tracking-tight);
 }
 .auth-intro {
@@ -2806,7 +3114,7 @@ svg.setting-trailing {
 .auth-form {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 14px;
 	width: 100%;
 	margin-top: 28px;
 	text-align: left;
@@ -2816,9 +3124,16 @@ svg.setting-trailing {
 	font-size: var(--text-sm);
 	font-weight: 400;
 }
+.auth-form input:not([type='checkbox']) {
+	min-height: 42px;
+	transition:
+		border-color 150ms ease,
+		box-shadow 200ms ease,
+		background-color 150ms ease;
+}
 .auth-form input:not([type='checkbox']):focus {
-	border-color: var(--ocean-accent);
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--ocean-accent) 20%, transparent);
+	border-color: var(--auth-accent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--auth-accent) 18%, transparent);
 }
 .password-input {
 	position: relative;
@@ -2826,23 +3141,23 @@ svg.setting-trailing {
 .password-input input:not([type='checkbox']) {
 	padding-right: 44px;
 }
-.auth-form input:not([type='checkbox']) {
-	min-height: 44px;
-	background: color-mix(in srgb, var(--field) 70%, transparent);
-}
 .password-input .icon-button {
 	position: absolute;
 	top: 50%;
-	right: 4px;
+	right: 5px;
 	transform: translateY(-50%);
+	transition: color 150ms ease;
+}
+.password-input .icon-button:hover {
+	color: var(--ink);
 }
 .auth-actions {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 	width: 100%;
-	margin-top: 10px;
+	margin-top: 8px;
 }
 .auth-step > .auth-actions {
 	margin-top: 28px;
@@ -2851,16 +3166,42 @@ svg.setting-trailing {
 	display: contents;
 }
 .auth-submit {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
 	width: 100%;
-	min-height: 44px;
-	border-radius: var(--radius-pill);
+	min-height: 42px;
+	border-radius: var(--radius-control);
 	font-size: var(--text-md);
 	font-weight: 500;
+	transition:
+		background-color 150ms ease,
+		scale 120ms var(--ease-out),
+		opacity 150ms ease;
+}
+.auth-submit:hover:not(:disabled) {
+	background: var(--accent-hover);
+}
+.auth-submit:active:not(:disabled) {
+	scale: 0.98;
+}
+.auth-submit.pending {
+	opacity: 0.75;
+}
+.auth-spinner {
+	width: 14px;
+	height: 14px;
+	border: 1.5px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: rotate 700ms linear infinite;
 }
 .auth-link {
 	color: var(--tertiary);
 	font-size: var(--text-md);
 	font-weight: 400;
+	transition: color 150ms ease;
 }
 .auth-link:hover {
 	color: var(--ink);
@@ -2872,9 +3213,14 @@ svg.setting-trailing {
 	width: 100%;
 	text-align: left;
 }
+.auth-step > .auth-error {
+	animation:
+		rise-in 300ms var(--ease-out) both,
+		nudge 360ms 80ms var(--ease-out);
+}
 .offline-access {
-	width: 100%;
-	margin-top: 12px;
+	margin-top: 16px;
+	font-size: var(--text-sm);
 }
 
 /* 12. Mobile navbar: a frosted pill of destinations, and a search circle that becomes the field. */
@@ -2976,30 +3322,6 @@ svg.setting-trailing {
 	z-index: 1;
 	border-radius: inherit;
 }
-.mobile-search-close {
-	position: absolute;
-	z-index: 1;
-	top: 50%;
-	right: 6px;
-	display: grid;
-	place-items: center;
-	width: 40px;
-	height: 40px;
-	transform: translateY(-50%);
-	border-radius: 50%;
-	color: var(--secondary);
-	animation: fade-in 160ms 140ms both;
-}
-@media (hover: hover) {
-	.mobile-search-close:hover {
-		background: var(--hover);
-		color: var(--ink);
-	}
-}
-.mobile-search-close:focus-visible {
-	background: var(--hover);
-	color: var(--ink);
-}
 /* The omnibar sits flush inside the circle: its leading icon is the circle's icon. */
 .mobile-search .omnibar-section {
 	position: static;
@@ -3008,7 +3330,7 @@ svg.setting-trailing {
 .mobile-search .omnibar {
 	height: 100%;
 	min-height: 0;
-	padding: 0 50px 0 10px;
+	padding: 0 8px 0 10px;
 	border: 0;
 	border-radius: inherit;
 	background: transparent;
@@ -3062,6 +3384,22 @@ svg.setting-trailing {
 	border: 1px solid var(--line);
 	background: var(--elevated);
 }
+.mobile-search .capture-picker {
+	overflow-y: auto;
+	transform-origin: bottom center;
+}
+/* In the sheet, suggestions open inline so they never spill past the screen edge. */
+.mobile-search .capture-options {
+	position: static;
+	padding: 0;
+	border: 0;
+	box-shadow: none;
+}
+.mobile-search .omnibar-clear {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+}
 .mobile-search .capture-picker ~ .form-error {
 	display: none;
 }
@@ -3101,12 +3439,6 @@ svg.setting-trailing {
 	.bookmark-list {
 		--row-columns: 16px minmax(0, 1fr) minmax(0, 140px) 52px;
 	}
-	.auth-page {
-		grid-template-columns: minmax(0, 1fr) minmax(360px, 400px);
-	}
-	.auth-tagline p {
-		font-size: var(--text-xl);
-	}
 }
 @media (max-width: 767px) {
 	/* Inputs stay at 16px so iOS never zooms on focus. */
@@ -3142,10 +3474,10 @@ svg.setting-trailing {
 	.library-content {
 		padding-bottom: calc(88px + env(safe-area-inset-bottom));
 	}
-	.action-toast {
+	.toast-region {
 		bottom: 14px;
 	}
-	.mobile-layout .action-toast {
+	.mobile-layout .toast-region {
 		bottom: calc(80px + env(safe-area-inset-bottom));
 	}
 
@@ -3192,11 +3524,8 @@ svg.setting-trailing {
 		display: none;
 	}
 
-	.capture-choices {
-		grid-template-columns: 1fr;
-	}
-	.capture-footer {
-		flex-wrap: wrap;
+	.capture-kbd {
+		display: none;
 	}
 
 	.dialog-content {
@@ -3318,76 +3647,21 @@ svg.setting-trailing {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
-	/* Auth: the ocean fills the screen and the form rises from the bottom as a frosted sheet. */
-	.auth-page {
-		display: flex;
-		flex-direction: column;
-		padding: 0;
-		background: transparent;
+	/* Landing on phones: the card spans the width and rests above the home indicator. */
+	.landing-hero {
+		padding: 16px 12px max(12px, env(safe-area-inset-bottom));
 	}
-	.auth-chrome {
-		padding: max(16px, env(safe-area-inset-top)) 16px 0;
+	.landing-card {
+		max-width: none;
+		width: 100%;
+		padding: 20px 20px 18px;
 	}
-	.auth-tagline {
-		display: none;
-	}
-	.auth-sheet {
-		align-self: stretch;
-		margin: auto 0 0;
-		padding: 10px 24px max(24px, env(safe-area-inset-bottom));
-		border-width: 1px 0 0;
-		border-radius: 28px 28px 0 0;
-		box-shadow: 0 -12px 40px var(--shadow-soft);
-	}
-	.auth-sheet-handle {
-		display: block;
-		width: 36px;
-		height: 4px;
-		margin: 0 auto 18px;
-		border-radius: var(--radius-pill);
-		background: var(--line);
-	}
-	.auth-form {
-		margin-top: 20px;
+	.landing-cta {
+		flex: 1;
+		justify-content: center;
 	}
 }
 @media (max-width: 420px) {
-	/* Small phones: a compact sheet that leaves the backdrop visible, with a little motion. */
-	.auth-sheet {
-		padding: 8px 20px max(20px, env(safe-area-inset-bottom));
-		border-radius: 24px 24px 0 0;
-		animation: sheet-rise 420ms var(--ease-out) both;
-	}
-	.auth-sheet-handle {
-		margin-bottom: 12px;
-	}
-	.auth-step {
-		animation: fade-in 260ms 120ms both;
-	}
-	.auth-step h1 {
-		font-size: var(--text-lg);
-	}
-	.auth-intro {
-		margin-top: 2px;
-		font-size: var(--text-sm);
-	}
-	.auth-form {
-		gap: 10px;
-		margin-top: 14px;
-	}
-	.auth-actions {
-		gap: 4px;
-		margin-top: 4px;
-	}
-	.auth-step > .auth-actions {
-		margin-top: 16px;
-	}
-	.auth-submit {
-		transition: scale 120ms var(--ease-out);
-	}
-	.auth-submit:active:not(:disabled) {
-		scale: 0.98;
-	}
 	.setting-row:has(.extension-pairing-controls) {
 		flex-wrap: wrap;
 	}
@@ -3408,14 +3682,26 @@ svg.setting-trailing {
 		translate: 0 0;
 	}
 }
-@keyframes sheet-rise {
+@keyframes rise-in {
 	from {
-		translate: 0 24px;
 		opacity: 0;
+		translate: 0 8px;
+		filter: blur(2px);
 	}
-	to {
-		translate: 0 0;
-		opacity: 1;
+}
+@keyframes nudge {
+	25% {
+		translate: -3px 0;
+	}
+	60% {
+		translate: 2px 0;
+	}
+}
+@keyframes capture-in {
+	from {
+		opacity: 0;
+		translate: 0 -4px;
+		scale: 0.985;
 	}
 }
 @keyframes fade-in {

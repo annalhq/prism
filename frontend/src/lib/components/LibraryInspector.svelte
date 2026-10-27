@@ -142,7 +142,6 @@
 			cue('error');
 			throw new Error(result.message ?? 'Could not save this change.');
 		}
-		feedback(result.status === 'queued' ? 'Saved on this device.' : 'Saved.');
 	}
 	async function details() {
 		if (!dirty || busy || !row || row.deletedAt) return;

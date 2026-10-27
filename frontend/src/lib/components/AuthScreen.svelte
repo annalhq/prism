@@ -161,8 +161,12 @@
 						</div>
 					{/if}
 					<div class="auth-actions">
-						<button class="primary-button auth-submit" disabled={!!pending}
-							>{#if mode === 'reset'}{pending === 'reset'
+						<button
+							class="primary-button auth-submit"
+							class:pending={!!pending}
+							disabled={!!pending}
+							>{#if pending}<span class="auth-spinner" aria-hidden="true"
+								></span>{/if}{#if mode === 'reset'}{pending === 'reset'
 									? 'Sending link…'
 									: 'Send link'}{:else}{pending === 'signin'
 									? 'Signing in…'
@@ -177,15 +181,16 @@
 					</div>
 				</form>
 			{/if}
-			{#if message}<p
-					role={result?.resetRequested ? 'status' : 'alert'}
-					class:auth-success={result?.resetRequested}
-					class:auth-error={!result?.resetRequested}
-				>
-					{message}
-				</p>{/if}
+			<!-- Keyed so a repeated failure nudges again instead of sitting there unchanged. -->
+			{#if message}{#key result}<p
+						role={result?.resetRequested ? 'status' : 'alert'}
+						class:auth-success={result?.resetRequested}
+						class:auth-error={!result?.resetRequested}
+					>
+						{message}
+					</p>{/key}{/if}
 			{#if offline && openOffline}<button
-					class="secondary-button offline-access"
+					class="text-button auth-link offline-access"
 					onclick={openOffline}>Open cached library on this trusted device</button
 				>{/if}
 		</div>{/key}

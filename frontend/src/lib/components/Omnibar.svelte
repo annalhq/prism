@@ -28,12 +28,16 @@
 </script>
 
 <script lang="ts">
-	import { Plus, Search, X, ArrowRight, ArrowLeft, Folder, UserRound, Check } from '@lucide/svelte';
+	import { Plus, Search, X, ArrowRight, Hash, UserRound, CornerDownLeft } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
 	import { ensureTag, inferBookmarkKind, type Row } from '#lib/client/workflows.js';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
+	import Favicon from './ui/Favicon.svelte';
 	type Choice = { kind: 'tag' | 'person' | 'new-tag'; id: string; name: string };
 	let {
 		library,
@@ -42,9 +46,9 @@
 		people,
 		query = $bindable(''),
 		personId = null,
-		feedback,
 		onNormal,
 		onDismiss,
+		dismissible = false,
 		readonly = false
 	}: {
 		library: LibraryClient | null;
@@ -53,14 +57,14 @@
 		people: Row[];
 		query?: string;
 		personId?: string | null;
-		feedback: (message: string) => void;
 		onNormal: () => void;
 		onDismiss?: () => void;
+		// The bar can be closed from its own trailing control (the mobile navbar search).
+		dismissible?: boolean;
 		// Search only: the leading icon stays a plain magnifier and nothing can be saved.
 		readonly?: boolean;
 	} = $props();
 	let mode = $state<'insert' | 'search'>('search');
-	let step = $state<'title' | 'organize'>('title');
 	let draft = $state(''),
 		title = $state(''),
 		url = $state(''),
@@ -74,12 +78,20 @@
 		titleLoading = $state(false),
 		titleEdited = $state(false),
 		autoTitle = $state('');
+	let organizing = $state(false),
+		active = $state(0);
 	let titleRequestedFor = '',
 		prefetchTimer: ReturnType<typeof setTimeout> | undefined;
 	let input = $state<HTMLInputElement>(),
 		titleInput = $state<HTMLInputElement>(),
 		organizerInput = $state<HTMLInputElement>();
 	let restoredScope = $state('');
+	const key = (choice: Choice) => `${choice.kind}:${choice.id || choice.name}`;
+	// "#" narrows to tags and "@" to people, the same syntax search uses.
+	const scope = $derived(
+		organizer.startsWith('#') ? 'tag' : organizer.startsWith('@') ? 'person' : ''
+	);
+	const needle = $derived(organizer.trim().replace(/^[#@]/, '').toLocaleLowerCase());
 	const choices = $derived(
 		[
 			...tags.map((t) => ({ kind: 'tag' as const, id: String(t.id), name: String(t.name) })),
@@ -89,18 +101,36 @@
 				name: String(p.displayName)
 			}))
 		]
-			.filter((c) =>
-				c.name.toLocaleLowerCase().includes(organizer.replace(/^[#@]/, '').toLocaleLowerCase())
+			.filter(
+				(c) =>
+					(!scope || c.kind === scope) &&
+					!selected.some((s) => key(s) === key(c)) &&
+					c.name.toLocaleLowerCase().includes(needle)
 			)
-			.slice(0, 12)
+			// Names that start with the query rank above names that merely contain it.
+			.sort(
+				(a, b) =>
+					Number(!a.name.toLocaleLowerCase().startsWith(needle)) -
+					Number(!b.name.toLocaleLowerCase().startsWith(needle))
+			)
+			.slice(0, 6)
 	);
 	const tagName = $derived(organizer.trim().replace(/^#/, ''));
 	const canCreate = $derived(
 		!!tagName &&
 			!organizer.startsWith('@') &&
-			!tags.some((t) => String(t.name).toLocaleLowerCase() === tagName.toLocaleLowerCase())
+			!tags.some((t) => String(t.name).toLocaleLowerCase() === tagName.toLocaleLowerCase()) &&
+			!selected.some((c) => c.name.toLocaleLowerCase() === tagName.toLocaleLowerCase())
 	);
-	const key = (choice: Choice) => `${choice.kind}:${choice.id || choice.name}`;
+	const options = $derived<Choice[]>(
+		canCreate ? [...choices, { kind: 'new-tag', id: '', name: tagName }] : choices
+	);
+	const suggesting = $derived(organizing && options.length > 0);
+	$effect(() => {
+		void organizer;
+		active = 0;
+	});
+	const host = $derived(url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''));
 	function discardDraft() {
 		if (busy || created) return;
 		cancelTitleFetch();
@@ -114,7 +144,7 @@
 		completed = [];
 		captureId = '';
 		error = '';
-		step = 'title';
+		void tick().then(() => input?.focus());
 	}
 	function cancelTitleFetch() {
 		titleRequestedFor = '';
@@ -125,7 +155,7 @@
 		return normalizeUrl(/^[a-z][a-z\d+.-]*:/i.test(text) ? text : `https://${text}`).url;
 	}
 	// Start the title lookup while the link is still in the field, so it is usually done
-	// before the title step opens.
+	// before the capture card opens.
 	function prefetchTitle(value: string, delay = 300) {
 		clearTimeout(prefetchTimer);
 		prefetchTimer = setTimeout(() => {
@@ -155,7 +185,8 @@
 			if (titleRequestedFor === target || !titleRequestedFor) titleLoading = false;
 		}
 	}
-	function editLink() {
+	async function editLink() {
+		if (busy || created) return;
 		cancelTitleFetch();
 		if (title.trim() && title === autoTitle) {
 			title = '';
@@ -163,27 +194,52 @@
 			titleEdited = false;
 		}
 		url = '';
-		step = 'title';
+		await tick();
+		input?.focus();
+		input?.select();
+	}
+	function add(choice: Choice) {
+		if (!selected.some((c) => key(c) === key(choice))) selected = [...selected, choice];
+		organizer = '';
+		organizerInput?.focus();
+	}
+	function remove(choice: Choice) {
+		if (completed.includes(key(choice))) return;
+		selected = selected.filter((c) => key(c) !== key(choice));
+		organizerInput?.focus();
 	}
 	// Text still in the organizer is a tag or person the user meant to add, e.g. typing
 	// "cyber" and pressing Ctrl+Enter. Prefer an exact match; otherwise create the tag.
-	function commitOrganizer(fallback = false) {
-		const name = organizer.trim().replace(/^[#@]/, '');
-		if (!name) return;
-		const lower = name.toLocaleLowerCase();
+	function commitOrganizer() {
+		if (!needle) return;
 		const choice =
-			choices.find((c) => c.name.toLocaleLowerCase() === lower) ??
-			(fallback ? choices[0] : undefined) ??
-			(canCreate ? { kind: 'new-tag' as const, id: '', name: tagName } : undefined);
-		if (!choice) return;
-		if (!selected.some((c) => key(c) === key(choice))) selected = [...selected, choice];
-		organizer = '';
+			choices.find((c) => c.name.toLocaleLowerCase() === needle) ??
+			(canCreate ? { kind: 'new-tag' as const, id: '', name: tagName } : choices[0]);
+		if (choice) add(choice);
 	}
-	function toggle(choice: Choice) {
-		const id = key(choice);
-		selected = selected.some((c) => key(c) === id)
-			? selected.filter((c) => key(c) !== id)
-			: [...selected, choice];
+	function organizerKey(e: KeyboardEvent) {
+		if (e.isComposing) return;
+		if (e.key === 'ArrowDown' && suggesting) {
+			e.preventDefault();
+			active = (active + 1) % options.length;
+		} else if (e.key === 'ArrowUp' && suggesting) {
+			e.preventDefault();
+			active = (active - 1 + options.length) % options.length;
+		} else if ((e.key === 'Enter' || e.key === 'Tab' || e.key === ',') && organizer.trim()) {
+			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) return;
+			e.preventDefault();
+			if (options[active]) add(options[active]);
+		} else if (e.key === 'Backspace' && !organizer) {
+			const last = selected.findLast((c) => !completed.includes(key(c)));
+			if (last) {
+				e.preventDefault();
+				remove(last);
+			}
+		} else if (e.key === 'Escape' && organizer) {
+			// The first Escape clears the field; the next one closes the card.
+			e.preventDefault();
+			organizer = '';
+		}
 	}
 	// A tab-local draft is scoped to the authenticated vault, including partial-save progress.
 	$effect(() => {
@@ -212,7 +268,6 @@
 					: [];
 				captureId = typeof value.captureId === 'string' ? value.captureId : '';
 				created = value.created === true;
-				step = created ? 'organize' : 'title';
 				titleEdited = title.trim().length > 0;
 				autoTitle = '';
 			}
@@ -249,7 +304,7 @@
 				event.defaultPrevented ||
 				event.isComposing ||
 				document.querySelector(
-					'[role="dialog"][aria-modal="true"],[role="alertdialog"],[role="menu"],[role="listbox"]'
+					'[role="dialog"][aria-modal="true"],[role="alertdialog"],[role="menu"],[role="listbox"]:not(.capture-options)'
 				)
 			)
 				return;
@@ -293,9 +348,9 @@
 				const link = text.trim();
 				if (draft || url || mode !== 'insert' || link.length > 2048) return;
 				if (!/^https?:\/\/[^\s/]+\.[^\s]+$/i.test(link)) return;
+				// The link appearing in the field is its own confirmation.
 				draft = link;
 				prefetchTitle(link, 0);
-				feedback('Pasted the copied link.');
 			})
 			.catch(() => {
 				/* Permission denied or nothing to read: the user can still paste by hand. */
@@ -308,17 +363,27 @@
 		await tick();
 		if (next === 'insert' && url) {
 			void loadTitle(url);
-			await focusStep();
+			await focusCard();
 		} else input?.focus();
 	}
-	async function goTo(next: 'title' | 'organize') {
-		step = created ? 'organize' : next;
-		await focusStep();
-	}
-	async function focusStep() {
+	async function focusCard() {
 		await tick();
-		if (step === 'title') titleInput?.focus();
-		else organizerInput?.focus();
+		if (created) organizerInput?.focus();
+		else titleInput?.focus();
+	}
+	// One trailing control, whose job follows the bar's state: clear what was typed,
+	// otherwise close the bar where it can be closed.
+	function clearOrClose() {
+		if (mode === 'search' && query) {
+			query = '';
+			input?.focus();
+		} else if (mode === 'insert' && draft) {
+			draft = '';
+			input?.focus();
+		} else {
+			mode = 'search';
+			onDismiss?.();
+		}
 	}
 	function prepare(event: SubmitEvent) {
 		event.preventDefault();
@@ -329,7 +394,6 @@
 			captureId = crypto.randomUUID();
 			created = false;
 			completed = [];
-			step = 'title';
 			const previousAutoTitle = title.trim().length > 0 && title === autoTitle;
 			if (previousAutoTitle) {
 				title = '';
@@ -350,7 +414,7 @@
 						name: String(people.find((p) => p.id === personId)?.displayName ?? 'This person')
 					}
 				];
-			void focusStep();
+			void focusCard();
 		} catch {
 			error = 'Enter a valid website link, such as example.com/article.';
 			cue('error');
@@ -358,7 +422,7 @@
 	}
 	async function save() {
 		if (!library || busy || !ready || !url) return;
-		if (step === 'organize') commitOrganizer();
+		commitOrganizer();
 		busy = true;
 		error = '';
 		const stopLoading = foregroundSound();
@@ -403,7 +467,7 @@
 				completed = [...completed, key(choice)];
 			}
 
-			feedback('Saved on this device.');
+			// The new row appearing in the list is the confirmation; only the sound marks it.
 			cue('success');
 			cancelTitleFetch();
 			draft = '';
@@ -416,7 +480,6 @@
 			completed = [];
 			created = false;
 			captureId = '';
-			step = 'title';
 		} catch (e) {
 			error = (e as Error).message;
 			cue('error');
@@ -425,6 +488,23 @@
 			busy = false;
 		}
 	}
+	const trailing = $derived(
+		mode === 'search'
+			? query
+				? 'clear'
+				: dismissible
+					? 'close'
+					: 'shortcut'
+			: url
+				? 'none'
+				: draft.trim()
+					? 'continue'
+					: dismissible
+						? 'close'
+						: 'none'
+	);
+	const apple = typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
+	const pop = { duration: 160, start: 0.6, easing: cubicOut };
 </script>
 
 <section
@@ -464,133 +544,160 @@
 					);
 				}
 			}}
+			onkeydown={(e) => {
+				// The first Escape clears what was typed; the next one leaves the bar.
+				if (e.key !== 'Escape' || e.isComposing) return;
+				if (mode === 'search' && query) {
+					e.preventDefault();
+					query = '';
+				} else if (mode === 'insert' && draft && !url) {
+					e.preventDefault();
+					draft = '';
+				}
+			}}
 			disabled={!ready || (mode === 'insert' && (busy || !!url))}
 			autocomplete="off"
 			spellcheck="false"
 		/>
-		{#if mode === 'search' && query}<button
-				type="button"
-				class="omnibar-clear"
-				aria-label="Clear search"
-				onclick={() => (query = '')}><X /></button
-			>{:else if mode === 'search'}<kbd class="omnibar-shortcut" aria-hidden="true">/</kbd>{/if}
-		{#if mode === 'insert' && !url}<button
-				type="submit"
-				class="omnibar-continue"
-				aria-label="Continue adding bookmark"
-				disabled={!ready || !draft.trim() || busy}><ArrowRight /></button
-			>{/if}
+		<span class="omnibar-trailing">
+			{#key trailing}
+				{#if trailing === 'clear' || trailing === 'close'}<button
+						type="button"
+						class="omnibar-clear"
+						aria-label={trailing === 'close'
+							? 'Close search'
+							: mode === 'search'
+								? 'Clear search'
+								: 'Clear link'}
+						title={trailing === 'close' ? 'Close · Esc' : 'Clear · Esc'}
+						onclick={clearOrClose}
+						in:scale={pop}><X /></button
+					>{:else if trailing === 'shortcut'}<kbd
+						class="omnibar-shortcut"
+						aria-hidden="true"
+						in:scale={pop}>/</kbd
+					>{:else if trailing === 'continue'}<button
+						type="submit"
+						class="omnibar-continue"
+						aria-label="Continue adding bookmark"
+						disabled={!ready || busy}
+						in:scale={pop}><ArrowRight /></button
+					>{/if}
+			{/key}
+		</span>
 	</form>
 	{#if mode === 'insert' && url}
 		<form
 			class="capture-picker"
+			aria-label="Save bookmark"
 			onsubmit={(e) => {
 				e.preventDefault();
-				if (step === 'title') void goTo('organize');
-				else void save();
+				void save();
 			}}
 		>
-			<div class="capture-header">
-				<ol class="capture-steps" aria-label="Capture steps">
-					<li class="done">Link</li>
-					<li class:current={step === 'title'} class:done={step === 'organize'}>Title</li>
-					<li class:current={step === 'organize'}>Organize</li>
-				</ol>
-				<button type="button" class="text-button" onclick={() => switchMode('search')}
-					>{created ? 'Close' : 'Keep draft'}</button
+			<fieldset disabled={busy}>
+				<button
+					type="button"
+					class="capture-source"
+					title={created ? url : `${url} · Edit link`}
+					disabled={created}
+					onclick={editLink}
+					><Favicon {url} /><span>{host}</span>{#if !created}<small>Edit</small>{/if}</button
 				>
-			</div>
-			<p class="capture-url" title={url}>{url.replace(/^https?:\/\/(www\.)?/, '')}</p>
-			<fieldset disabled={busy} class="stack">
-				{#key step}<div class="capture-step">
-						{#if step === 'title'}
-							<label for="bookmark-capture-title">Title <span class="muted">optional</span></label>
-							<div class="capture-title-field">
-								<input
-									id="bookmark-capture-title"
-									bind:this={titleInput}
-									bind:value={title}
-									oninput={() => (titleEdited = true)}
-									disabled={created}
-									maxlength="500"
-									placeholder={titleLoading ? '' : 'Give this link a memorable name'}
-									aria-busy={titleLoading}
-								/>
-								{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
-										>Fetching title…</span
-									>{/if}
-							</div>
-						{:else}
-							<label for="capture-organizer">Tags & people</label>
-							<div class="capture-chips">
-								{#each selected as choice (key(choice))}<button
-										type="button"
-										class="chip"
-										disabled={completed.includes(key(choice))}
-										onclick={() => toggle(choice)}
-										aria-label={`Remove ${choice.name}`}
-										>{#if choice.kind === 'person'}<UserRound />{:else}<Folder
-											/>{/if}{choice.name}<X /></button
-									>{/each}
-							</div>
-							<input
-								id="capture-organizer"
-								bind:this={organizerInput}
-								bind:value={organizer}
-								placeholder="Find tags or people…"
-								autocomplete="off"
-								onkeydown={(e) => {
-									if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+				<div class="capture-title-field">
+					<input
+						id="bookmark-capture-title"
+						bind:this={titleInput}
+						bind:value={title}
+						aria-label="Title"
+						oninput={() => (titleEdited = true)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
+								e.preventDefault();
+								organizerInput?.focus();
+							}
+						}}
+						disabled={created}
+						maxlength="500"
+						placeholder={titleLoading ? '' : 'Untitled'}
+						aria-busy={titleLoading}
+					/>
+					{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
+							>Fetching title…</span
+						>{/if}
+				</div>
+				<div class="capture-organizer">
+					<!-- The whole token row is the field's hit area. -->
+					<label class="capture-tokens">
+						{#each selected as choice (key(choice))}<span
+								class="capture-token"
+								class:person={choice.kind === 'person'}
+								class:done={completed.includes(key(choice))}
+								animate:flip={{ duration: 180, easing: cubicOut }}
+								transition:scale={{ duration: 150, start: 0.8, easing: cubicOut }}
+								>{#if choice.kind === 'person'}<UserRound />{:else}<Hash />{/if}{choice.name}<button
+									type="button"
+									aria-label={`Remove ${choice.name}`}
+									disabled={completed.includes(key(choice))}
+									onclick={() => remove(choice)}><X /></button
+								></span
+							>{/each}
+						<input
+							id="capture-organizer"
+							bind:this={organizerInput}
+							bind:value={organizer}
+							role="combobox"
+							aria-label="Tags and people"
+							aria-expanded={suggesting}
+							aria-controls="capture-options"
+							aria-autocomplete="list"
+							aria-activedescendant={suggesting ? `capture-option-${active}` : undefined}
+							placeholder={selected.length ? '' : 'Add tags or people…'}
+							autocomplete="off"
+							spellcheck="false"
+							onfocus={() => (organizing = true)}
+							onblur={() => (organizing = false)}
+							onkeydown={organizerKey}
+						/>
+					</label>
+					{#if suggesting}<ul
+							id="capture-options"
+							class="capture-options"
+							role="listbox"
+							aria-label="Suggestions"
+							transition:scale={{ duration: 140, start: 0.97, easing: cubicOut }}
+						>
+							{#each options as choice, index (key(choice))}<li
+									id={`capture-option-${index}`}
+									role="option"
+									aria-selected={index === active}
+									class:active={index === active}
+									onpointerenter={() => (active = index)}
+									onpointerdown={(e) => {
+										// Keep focus in the field so the list stays open for the next pick.
 										e.preventDefault();
-										if (organizer.trim()) commitOrganizer(true);
-										else if (choices[0]) toggle(choices[0]);
-									}
-								}}
-							/>
-							<div class="capture-choices">
-								{#each choices as choice (key(choice))}<button
-										type="button"
-										aria-pressed={selected.some((c) => key(c) === key(choice))}
-										disabled={completed.includes(key(choice))}
-										onclick={() => toggle(choice)}
-										>{#if choice.kind === 'person'}<UserRound />{:else}<Folder />{/if}<span
+										add(choice);
+									}}
+								>
+									{#if choice.kind === 'new-tag'}<Plus /><span>Create <b>#{choice.name}</b></span
+										>{:else}{#if choice.kind === 'person'}<UserRound />{:else}<Hash />{/if}<span
 											>{choice.name}</span
-										>{#if selected.some((c) => key(c) === key(choice))}<Check />{:else}<small
-												>{choice.kind}</small
-											>{/if}</button
-									>{/each}
-								{#if canCreate}<button
-										type="button"
-										onclick={() => {
-											toggle({ kind: 'new-tag', id: '', name: tagName });
-											organizer = '';
-										}}><Plus /><span>Create tag “{tagName}”</span></button
-									>{/if}
-							</div>
-						{/if}
-					</div>{/key}
-
+										>{/if}
+									{#if index === active}<CornerDownLeft class="capture-option-enter" />{/if}
+								</li>{/each}
+						</ul>{/if}
+				</div>
 				<div class="capture-footer">
-					{#if step === 'organize' && !created}<button
+					{#if created}<span class="capture-hint">Saved. Finish organizing.</span>{:else}<button
 							type="button"
 							class="text-button"
-							onclick={() => goTo('title')}><ArrowLeft /> Back</button
-						>{:else if !created}<span class="capture-link-actions"
-							><button type="button" class="text-button" onclick={editLink}>Edit link</button
-							><button type="button" class="text-button" onclick={discardDraft}>Discard</button
-							></span
-						>{:else}<span class="muted">Saved. Finish organizing.</span>{/if}
+							onclick={discardDraft}>Discard</button
+						>{/if}
 					<span class="capture-submit">
-						{#if step === 'title'}<button
-								type="button"
-								class="text-button"
-								title="Save now · Ctrl+Enter"
-								onclick={() => void save()}>Save now</button
-							><button type="submit" class="primary-button">Next<ArrowRight /></button
-							>{:else}<button type="submit" class="primary-button"
-								>{busy ? 'Saving…' : created ? 'Finish saving' : 'Save bookmark'}<ArrowRight
-								/></button
-							>{/if}
+						<kbd class="capture-kbd" aria-hidden="true">{apple ? '⌘' : 'Ctrl'} ↵</kbd>
+						<button type="submit" class="primary-button" class:busy
+							>{busy ? 'Saving…' : created ? 'Finish' : 'Save'}</button
+						>
 					</span>
 				</div>
 			</fieldset>

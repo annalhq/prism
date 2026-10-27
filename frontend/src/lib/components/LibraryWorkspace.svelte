@@ -24,6 +24,7 @@
 	import { createPeopleFeedIndex } from '#lib/client/people-feed.js';
 	import { cue } from '#lib/client/sounds.svelte.js';
 	import TokenInput from './ui/TokenInput.svelte';
+	import Toast, { type Notice } from './ui/Toast.svelte';
 	import BookmarkCard from './BookmarkCard.svelte';
 	import PostCard, { type PostAuthor } from './PostCard.svelte';
 	import { formatPersonLinks, linkLabel, parsePersonLinks } from '#lib/domain/person-links.js';
@@ -65,7 +66,7 @@
 	let library = $state.raw<LibraryClient | null>(null),
 		version = $state(0),
 		sort = $state('newest'),
-		toast = $state(''),
+		notice = $state<Notice | null>(null),
 		creating = $state(false),
 		formBusy = $state(false),
 		importBusy = $state(false),
@@ -100,7 +101,8 @@
 	let tagsExplorer: TagsExplorer | undefined = $state();
 	let helpOpen = $state(false);
 	let lastRow: HTMLElement | null = null;
-	let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
+	let noticeId = 0;
+	const toast = $derived(notice?.message ?? '');
 	let pendingResults: Promise<void> | undefined;
 	async function focusLibrary() {
 		const initial = lastRow?.isConnected
@@ -308,7 +310,7 @@
 						: value;
 			})
 			.catch((e) => {
-				if (n === generation) toast = (e as Error).message;
+				if (n === generation) feedback((e as Error).message);
 			});
 	});
 	onMount(() => {
@@ -345,7 +347,6 @@
 			narrow.removeEventListener('change', layout);
 			window.removeEventListener('keydown', key);
 			window.removeEventListener('focusin', remember);
-			clearTimeout(feedbackTimer);
 			client.stop();
 			searcher?.stop();
 		};
@@ -364,10 +365,10 @@
 		await tick();
 		tagsExplorer?.focusSearch();
 	}
+	// Toasts are for what the screen can't show by itself: errors, destructive actions and
+	// background work. Routine saves confirm themselves in the list.
 	function feedback(message: string) {
-		toast = message;
-		clearTimeout(feedbackTimer);
-		feedbackTimer = setTimeout(() => (toast = ''), 6500);
+		notice = { id: ++noticeId, message };
 	}
 	async function navigate(target: EntityRef | null, nextView?: string) {
 		if (target?.kind === 'person') {
@@ -500,7 +501,6 @@
 				}
 			creating = false;
 			cue('success');
-			feedback(status?.online ? 'Saved.' : 'Saved on this device.');
 			if (newType === 'person') await navigate({ kind: 'person', id });
 			else await navigate(null, `tag:${id}`);
 		} catch (e) {
@@ -535,7 +535,8 @@
 		try {
 			const result = await library.save(command);
 			cue(result.status === 'rejected' ? 'error' : action === 'trash' ? 'warning' : 'success');
-			feedback(result.message ?? 'Saved on this device.');
+			if (result.status === 'rejected') feedback(result.message ?? 'Could not save this change.');
+			else if (action === 'trash') feedback('Moved to trash.');
 		} catch (error) {
 			cue('error');
 			feedback((error as Error).message);
@@ -728,11 +729,12 @@
 						name: rename
 					};
 			const outcome = await library.save(command);
-			feedback(outcome.message ?? (remove ? 'Tag deleted.' : 'Saved.'));
 			if (outcome.status === 'rejected') {
+				feedback(outcome.message ?? 'Could not save this tag.');
 				cue('error');
 				return;
 			}
+			if (remove) feedback('Tag deleted.');
 			cue(remove ? 'warning' : 'success');
 			manage = null;
 			if (remove && view === `tag:${id}`) await navigate(null, 'tags');
@@ -751,9 +753,9 @@
 		{people}
 		bind:query
 		{personId}
-		{feedback}
 		onNormal={focusLibrary}
 		onDismiss={() => (navSearching = false)}
+		dismissible={mobile}
 	/>{/snippet}
 <svelte:head
 	>{#if profileSlug}<title>{person?.displayName ?? 'Person'} · Prism</title>{/if}</svelte:head
@@ -1065,13 +1067,7 @@
 			onSearch={() => void openOmnibar('search')}
 			omnibar={omnibarSlot}
 		/>{/if}
-	{#if toast && !settings}<div class="action-toast" role="status">
-			<span>{toast}</span><button
-				class="icon-button"
-				aria-label="Dismiss message"
-				onclick={() => (toast = '')}><XIcon /></button
-			>
-		</div>{/if}
+	<Toast {notice} hidden={settings} onDismiss={() => (notice = null)} />
 </div>
 
 <Dialog.Root

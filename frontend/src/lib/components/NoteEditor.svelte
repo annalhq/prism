@@ -177,7 +177,6 @@
 				dirty = true;
 				await library.setDraft(entity.id, body, base);
 			}
-			feedback(result.message ?? (queued ? 'Saved on this device.' : 'Note saved.'));
 		} catch (e) {
 			error = (e as Error).message;
 		} finally {

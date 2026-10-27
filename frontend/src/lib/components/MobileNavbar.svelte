@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Bookmark, Folder, Cog, X } from '@lucide/svelte';
+	import { Bookmark, Folder, Cog } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	let {
 		view,
@@ -53,11 +53,11 @@
 	</div>
 	<div class="mobile-search">
 		<div class="mobile-search-field" inert={!searching}>{@render omnibar()}</div>
-		{#if searching}<button
-				class="mobile-search-close"
-				aria-label="Close search"
-				onclick={() => (searching = false)}><X /></button
-			>{:else}<button class="mobile-search-trigger" aria-label={searchLabel} onclick={onSearch}
+		<!-- Closing lives inside the omnibar's own trailing control, so there is only one ×. -->
+		{#if !searching}<button
+				class="mobile-search-trigger"
+				aria-label={searchLabel}
+				onclick={onSearch}
 			></button>{/if}
 	</div>
 </nav>

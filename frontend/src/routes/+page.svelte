@@ -1,6 +1,6 @@
 <script lang="ts">
 	import LibraryWorkspace from '#lib/components/LibraryWorkspace.svelte';
-	import AuthScreen from '#lib/components/AuthScreen.svelte';
+	import Landing from '#lib/components/Landing.svelte';
 	let { data } = $props();
 	let offline = $state(false);
 </script>
@@ -13,4 +13,4 @@
 {#if data.signedIn || offline}<LibraryWorkspace
 		openOffline={offline}
 		identity={data.identity}
-	/>{:else}<AuthScreen {data} openOffline={() => (offline = true)} />{/if}
+	/>{:else}<Landing openOffline={() => (offline = true)} />{/if}

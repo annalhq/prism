@@ -1,10 +1,12 @@
 /**
  * Draws the World as a grid of ASCII cells:
  *   1. a flat cell grid in the palette's background
- *   2. a wake field that diffuses where things swim, lighting the dots in the accent
+ *   2. a wake field that diffuses where things swim, lighting the dots in the wake colour
  *   3. fish as minimal ASCII dashes, one per cell, glinting on hard turns
  *   4. sharks rasterised cell-by-cell with supersampled edges: two-tone blocks,
- *      one flank neutral and the other in the accent, with dense glyphs on top
+ *      one flank in the species tint and the other in the accent, dense glyphs on
+ *      top, and upstream's shimmering multicolour sparkle across the hide
+ *   5. kills bloom orange and fade to red, as in upstream
  *
  * Adapted from ascii-sharks (MIT, see ./LICENSE) with a themeable palette.
  */
@@ -20,6 +22,8 @@ export interface OceanPalette {
 	background: Rgb;
 	ink: Rgb;
 	accent: Rgb;
+	/** Wake colour; upstream's cyan reads best at night. Defaults to the accent. */
+	wake?: Rgb;
 }
 export const DEFAULT_PALETTE: OceanPalette = {
 	background: [0, 0, 0],
@@ -35,6 +39,8 @@ const DOT_RGB: Rgb[] = [
 	[190, 212, 255]
 ];
 const WAKE = DOT_RGB.length;
+// Upstream's sparkle set: a rare cell on the hide flashes one of these, so the skin shimmers.
+const ACCENTS = ['#e0892c', '#e03a32', '#b44ae0', '#33c8cc', '#3cb54a', '#3150e8', '#d9c14a'];
 
 /** `k` of the way from `from` to `to`, scaled per channel by `tint`. */
 function mix(from: Rgb, to: Rgb, k: number, tint?: Rgb) {
@@ -371,7 +377,7 @@ export class AsciiRenderer {
 		const [r, g, b] = palette.background;
 		this.lightBackground = 0.2126 * r + 0.7152 * g + 0.0722 * b > 128;
 		this.dotStyles = [];
-		for (const rgb of [...DOT_RGB, palette.accent]) {
+		for (const rgb of [...DOT_RGB, palette.wake ?? palette.accent]) {
 			for (let l = 0; l < ALPHA_LEVELS; l++) {
 				this.dotStyles.push(rgba(rgb, (l + 1) / ALPHA_LEVELS));
 			}
@@ -843,7 +849,7 @@ export class AsciiRenderer {
 			const tone = accented ? accent : ink;
 			const tint = accented ? undefined : SHAPES[KINDS[sharkKind[i]]].tint;
 			const boost = accented ? 1.25 : 1;
-			const sparkle = accented ? ink : accent;
+			const sparkle = ACCENTS[key % ACCENTS.length];
 
 			// Colours re-roll on a staggered clock so the hide shimmers.
 			const tick = Math.floor(t * 2.4 + (key % 997) / 97);
@@ -853,7 +859,7 @@ export class AsciiRenderer {
 				// Soft, anti-aliased silhouette: no block, just a light glyph.
 				const set = shade >= 0.5 ? EDGE_HEAVY : EDGE_LIGHT;
 				const g = (70 + shade * 80) * dim;
-				ctx.fillStyle = roll < 0.07 ? mix(bg, sparkle, 1) : mix(bg, tone, (g / 255) * boost, tint);
+				ctx.fillStyle = roll < 0.07 ? sparkle : mix(bg, tone, (g / 255) * boost, tint);
 				ctx.fillText(set[(key >>> 8) % set.length], x + cw / 2, y + ch / 2 + 1);
 				continue;
 			}
@@ -888,7 +894,7 @@ export class AsciiRenderer {
 			let color: string;
 			if (flag === FLAG_EYE) color = mix(bg, ink, 0.62);
 			else if (flag === FLAG_MARK) color = mix(bg, ink, 0.27);
-			else if (roll < 0.09) color = mix(bg, sparkle, 1);
+			else if (roll < 0.09) color = sparkle;
 			else if (roll < 0.13) color = mix(bg, ink, 1);
 			// On paper the shading inverts: pale blocks need dark glyphs to stay legible.
 			else if (this.lightBackground && level < 120) color = mix(bg, ink, 0.78);
@@ -941,7 +947,8 @@ export class AsciiRenderer {
 			if (h < 0.08) continue;
 			const col = i % cols;
 			const row = (i / cols) | 0;
-			ctx.fillStyle = rgba(this.palette.accent, Math.min(1, h > 0.5 ? h : h * 1.6));
+			// Fresh kills bloom orange, then cool to red as they fade.
+			ctx.fillStyle = h > 0.5 ? rgba([255, 120, 60], h) : rgba([220, 40, 40], Math.min(1, h * 1.6));
 			ctx.fillText(h > 0.6 ? '*' : '·', col * cw + cw / 2, row * ch + ch / 2 + 1);
 		}
 	}

@@ -179,9 +179,9 @@
 		{tags}
 		{people}
 		bind:query
-		feedback={noop}
 		onNormal={focusList}
 		onDismiss={() => (navSearching = false)}
+		dismissible={mobile}
 	/>{/snippet}
 <svelte:head>
 	<title>{title} · Prism</title>
