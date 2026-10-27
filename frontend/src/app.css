@@ -67,9 +67,6 @@
 	--avatar-bg: #dedbd3;
 	--cover-glow: #52514b66;
 	--cover-base: #282827;
-	/* Text and controls laid over the photographic auth backdrop, in both themes. */
-	--on-image: #ffffff;
-	--on-image-soft: rgb(255 255 255 / 16%);
 
 	--text-xs: 11px;
 	--text-sm: 12px;
@@ -2681,68 +2678,102 @@ svg.setting-trailing {
 	height: 14px;
 }
 
-/* 11. Auth: a photographic backdrop with a sheet that holds each step. -- */
+/* 11. Auth: an ASCII ocean of sharks behind a frosted card that holds each step. */
 .auth-page {
+	/* The sharks' accent: orange at night, blue on paper. */
+	--ocean-accent: #f57028;
 	position: relative;
+	isolation: isolate;
 	display: grid;
-	grid-template-columns: minmax(0, 1.15fr) minmax(420px, 1fr);
-	grid-template-rows: minmax(100dvh, auto);
+	grid-template-columns: minmax(0, 1fr) minmax(380px, 440px);
+	grid-template-rows: auto minmax(0, 1fr) auto;
+	column-gap: clamp(24px, 6vw, 96px);
+	min-height: 100dvh;
+	padding: 24px clamp(20px, 4vw, 56px) 32px;
 	background: var(--canvas);
 }
-.auth-visual {
-	grid-area: 1 / 1;
-	margin: 12px;
-	border-radius: var(--radius-panel);
-	background: var(--auth-dark) center / cover no-repeat;
+:root[data-theme='light'] .auth-page {
+	--ocean-accent: #2563eb;
 }
-:root[data-theme='light'] .auth-visual {
-	background-image: var(--auth-light);
+.auth-ocean {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	display: block;
+	width: 100%;
+	height: 100%;
+	font-family: var(--font-mono);
+}
+/* Shared frosted glass for everything floating over the ocean. */
+.auth-theme,
+.auth-tagline,
+.auth-sheet {
+	border: 1px solid var(--hairline);
+	background: color-mix(in srgb, var(--canvas) 58%, transparent);
+	-webkit-backdrop-filter: blur(24px) saturate(150%);
+	backdrop-filter: blur(24px) saturate(150%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.auth-theme,
+	.auth-tagline,
+	.auth-sheet {
+		background: var(--elevated);
+	}
 }
 .auth-chrome {
-	z-index: 1;
-	grid-area: 1 / 1;
-	align-self: start;
+	grid-column: 1 / -1;
+	grid-row: 1;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 36px 36px 0;
-	color: var(--on-image);
 }
-:root .auth-chrome .brand-symbol img {
-	filter: none;
+.auth-chrome .brand {
+	padding: 6px 14px 6px 8px;
+	border: 1px solid var(--hairline);
+	border-radius: var(--radius-pill);
+	background: color-mix(in srgb, var(--canvas) 58%, transparent);
+	-webkit-backdrop-filter: blur(24px) saturate(150%);
+	backdrop-filter: blur(24px) saturate(150%);
 }
 .auth-theme {
-	background: var(--on-image-soft);
-	color: var(--on-image);
-	backdrop-filter: blur(12px);
-}
-.auth-theme:hover {
-	background: var(--on-image-soft);
-	color: var(--on-image);
-}
-.auth-tagline {
-	z-index: 1;
-	grid-area: 1 / 1;
-	align-self: end;
-	max-width: 16ch;
-	padding: 0 36px 40px;
-	color: var(--on-image);
-	font-size: var(--text-2xl);
-	font-weight: 500;
-	letter-spacing: var(--tracking-tight);
-	line-height: var(--leading-tight);
-}
-/* The light backdrop fades to near-white at the bottom, so the tagline turns dark there. */
-:root[data-theme='light'] .auth-tagline {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
 	color: var(--ink);
 }
-.auth-sheet {
-	grid-area: 1 / 2;
+.auth-theme:hover {
+	background: color-mix(in srgb, var(--canvas) 40%, transparent);
+	color: var(--ink);
+}
+.auth-tagline {
+	grid-column: 1;
+	grid-row: 3;
+	align-self: end;
+	justify-self: start;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	padding: 48px 40px;
+	gap: 10px;
+	max-width: 440px;
+	padding: 18px 22px 20px;
+	border-radius: var(--radius-panel);
+}
+.auth-tagline p {
+	font-size: var(--text-2xl);
+	font-weight: 600;
+	letter-spacing: var(--tracking-tight);
+	line-height: var(--leading-tight);
+	text-wrap: balance;
+}
+.auth-sheet {
+	grid-column: 2;
+	grid-row: 2 / 4;
+	align-self: center;
+	display: flex;
+	flex-direction: column;
+	margin-block: 24px;
+	padding: 36px 32px 28px;
+	border-radius: 24px;
+	box-shadow: 0 24px 64px var(--shadow-strong);
 	outline: none;
 }
 .auth-sheet-handle {
@@ -2751,32 +2782,19 @@ svg.setting-trailing {
 .auth-step {
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	width: min(100%, 360px);
-	text-align: center;
+	align-items: flex-start;
+	width: 100%;
 	animation: panel-in 200ms ease-out;
 }
-.auth-icon {
-	display: grid;
-	place-items: center;
-	width: 44px;
-	height: 44px;
-	margin-bottom: 16px;
-	border: 1px solid var(--line);
-	border-radius: var(--radius-control);
-	background: var(--elevated);
-	box-shadow: 0 1px 2px var(--shadow-soft);
-}
-.auth-icon svg {
-	width: 20px;
-	height: 20px;
-}
+/* Minimal type: one quiet heading, one muted line, plain labels. */
 .auth-step h1 {
-	font-size: var(--text-2xl);
+	font-size: var(--text-xl);
+	font-weight: 500;
+	letter-spacing: var(--tracking-tight);
 }
 .auth-intro {
-	margin-top: 8px;
-	color: var(--secondary);
+	margin-top: 4px;
+	color: var(--tertiary);
 	font-size: var(--text-md);
 	line-height: var(--leading);
 	overflow-wrap: anywhere;
@@ -2788,12 +2806,19 @@ svg.setting-trailing {
 .auth-form {
 	display: flex;
 	flex-direction: column;
-	gap: 14px;
+	gap: 16px;
 	width: 100%;
-	margin-top: 24px;
-	padding-top: 24px;
-	border-top: 1px solid var(--line);
+	margin-top: 28px;
 	text-align: left;
+}
+.auth-form .field label {
+	color: var(--secondary);
+	font-size: var(--text-sm);
+	font-weight: 400;
+}
+.auth-form input:not([type='checkbox']):focus {
+	border-color: var(--ocean-accent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--ocean-accent) 20%, transparent);
 }
 .password-input {
 	position: relative;
@@ -2803,6 +2828,7 @@ svg.setting-trailing {
 }
 .auth-form input:not([type='checkbox']) {
 	min-height: 44px;
+	background: color-mix(in srgb, var(--field) 70%, transparent);
 }
 .password-input .icon-button {
 	position: absolute;
@@ -2826,12 +2852,18 @@ svg.setting-trailing {
 }
 .auth-submit {
 	width: 100%;
-	min-height: 48px;
+	min-height: 44px;
 	border-radius: var(--radius-pill);
-	font-size: var(--text-base);
+	font-size: var(--text-md);
+	font-weight: 500;
 }
 .auth-link {
-	font-weight: 500;
+	color: var(--tertiary);
+	font-size: var(--text-md);
+	font-weight: 400;
+}
+.auth-link:hover {
+	color: var(--ink);
 }
 .auth-step > .notice,
 .auth-step > .auth-success,
@@ -2845,7 +2877,7 @@ svg.setting-trailing {
 	margin-top: 12px;
 }
 
-/* 12. Mobile navbar: a solid pill of destinations, and a search circle that becomes the field. */
+/* 12. Mobile navbar: a frosted pill of destinations, and a search circle that becomes the field. */
 .mobile-navbar {
 	position: fixed;
 	z-index: 40;
@@ -2859,10 +2891,19 @@ svg.setting-trailing {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	border: 1px solid var(--line);
+	border: 1px solid var(--hairline);
 	border-radius: var(--radius-pill);
-	background: var(--elevated);
-	box-shadow: 0 12px 32px var(--shadow-strong);
+	background: color-mix(in srgb, var(--ink) 6%, transparent);
+	-webkit-backdrop-filter: blur(24px) saturate(160%);
+	backdrop-filter: blur(24px) saturate(160%);
+	box-shadow: 0 12px 32px var(--shadow-soft);
+}
+/* Without backdrop blur a see-through pill would let the list bleed through; stay solid. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.mobile-nav-pill,
+	.mobile-search {
+		background: var(--elevated);
+	}
 }
 .mobile-nav-pill {
 	--tab-count: 3;
@@ -3061,9 +3102,9 @@ svg.setting-trailing {
 		--row-columns: 16px minmax(0, 1fr) minmax(0, 140px) 52px;
 	}
 	.auth-page {
-		grid-template-columns: minmax(0, 1fr) minmax(380px, 1fr);
+		grid-template-columns: minmax(0, 1fr) minmax(360px, 400px);
 	}
-	.auth-tagline {
+	.auth-tagline p {
 		font-size: var(--text-xl);
 	}
 }
@@ -3277,33 +3318,26 @@ svg.setting-trailing {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
-	/* Auth: full-bleed backdrop, the form rises from the bottom as a sheet. */
+	/* Auth: the ocean fills the screen and the form rises from the bottom as a frosted sheet. */
 	.auth-page {
 		display: flex;
 		flex-direction: column;
-		min-height: 100dvh;
+		padding: 0;
 		background: transparent;
 	}
-	.auth-visual {
-		position: fixed;
-		inset: 0;
-		z-index: -1;
-		margin: 0;
-		border-radius: 0;
-	}
 	.auth-chrome {
-		align-self: stretch;
-		padding: max(18px, env(safe-area-inset-top)) 16px 0 20px;
+		padding: max(16px, env(safe-area-inset-top)) 16px 0;
 	}
 	.auth-tagline {
 		display: none;
 	}
 	.auth-sheet {
-		margin-top: auto;
+		align-self: stretch;
+		margin: auto 0 0;
 		padding: 10px 24px max(24px, env(safe-area-inset-bottom));
+		border-width: 1px 0 0;
 		border-radius: 28px 28px 0 0;
-		background: var(--elevated);
-		box-shadow: 0 -12px 40px var(--shadow-strong);
+		box-shadow: 0 -12px 40px var(--shadow-soft);
 	}
 	.auth-sheet-handle {
 		display: block;
@@ -3313,19 +3347,8 @@ svg.setting-trailing {
 		border-radius: var(--radius-pill);
 		background: var(--line);
 	}
-	.auth-step {
-		width: 100%;
-	}
-	.auth-step h1 {
-		font-size: var(--text-xl);
-	}
-	.auth-icon {
-		background: var(--canvas);
-	}
 	.auth-form {
-		width: calc(100% + 48px);
-		margin-inline: -24px;
-		padding-inline: 24px;
+		margin-top: 20px;
 	}
 }
 @media (max-width: 420px) {
@@ -3337,9 +3360,6 @@ svg.setting-trailing {
 	}
 	.auth-sheet-handle {
 		margin-bottom: 12px;
-	}
-	.auth-icon {
-		display: none;
 	}
 	.auth-step {
 		animation: fade-in 260ms 120ms both;
@@ -3354,11 +3374,6 @@ svg.setting-trailing {
 	.auth-form {
 		gap: 10px;
 		margin-top: 14px;
-		padding-top: 0;
-		border-top: 0;
-	}
-	.auth-form .field label {
-		font-size: var(--text-sm);
 	}
 	.auth-actions {
 		gap: 4px;
@@ -3368,7 +3383,6 @@ svg.setting-trailing {
 		margin-top: 16px;
 	}
 	.auth-submit {
-		min-height: 44px;
 		transition: scale 120ms var(--ease-out);
 	}
 	.auth-submit:active:not(:disabled) {

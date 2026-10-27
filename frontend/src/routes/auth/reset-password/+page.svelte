@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { KeyRound as KeyRoundIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import AuthLayout from '#lib/components/AuthLayout.svelte';
@@ -13,7 +12,6 @@
 
 <AuthLayout>
 	<div class="auth-step">
-		<span class="auth-icon" aria-hidden="true"><KeyRoundIcon /></span>
 		<h1 id="password-heading">Set a new password</h1>
 		<p class="auth-intro">Choose a new password for your library.</p>
 		{#if !data.configured}<p class="notice">Password setup is not configured on this deployment.</p>

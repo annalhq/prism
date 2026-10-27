@@ -2,10 +2,7 @@
 	import {
 		ArrowRight as ArrowRightIcon,
 		Eye as EyeIcon,
-		EyeOff as EyeOffIcon,
-		KeyRound as KeyRoundIcon,
-		LockKeyhole as LockKeyholeIcon,
-		MailOpen as MailOpenIcon
+		EyeOff as EyeOffIcon
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
@@ -76,10 +73,6 @@
 
 <AuthLayout>
 	{#key mode}<div class="auth-step">
-			<span class="auth-icon" aria-hidden="true"
-				>{#if mode === 'sent'}<MailOpenIcon />{:else if mode === 'reset'}<KeyRoundIcon
-					/>{:else}<LockKeyholeIcon />{/if}</span
-			>
 			<h1 id="auth-heading">
 				{data.signedIn
 					? 'Your account'
