@@ -32,6 +32,12 @@
 		"db:migrate": "bun run --cwd frontend db:migrate",
 		"db:inventory": "bun run --cwd frontend db:inventory",
 		"db:init-owner": "bun run --cwd frontend db:init-owner",
-		"maintenance": "bun run --cwd frontend maintenance"
+		"maintenance": "bun run --cwd frontend maintenance",
+		"release": "commit-and-tag-version",
+		"release:first": "commit-and-tag-version --first-release",
+		"release:dry": "commit-and-tag-version --dry-run"
+	},
+	"devDependencies": {
+		"commit-and-tag-version": "^13.3.0"
 	}
 }

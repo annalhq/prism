@@ -1,0 +1,21 @@
+{
+	"tagPrefix": "v",
+	"bumpFiles": [
+		{ "filename": "package.json", "type": "json" },
+		{ "filename": "frontend/package.json", "type": "json" },
+		{ "filename": "extension/package.json", "type": "json" }
+	],
+	"types": [
+		{ "type": "feat", "section": "Features" },
+		{ "type": "fix", "section": "Bug Fixes" },
+		{ "type": "perf", "section": "Performance" },
+		{ "type": "refactor", "section": "Refactoring" },
+		{ "type": "style", "section": "Styling" },
+		{ "type": "docs", "hidden": true },
+		{ "type": "chore", "hidden": true },
+		{ "type": "test", "hidden": true },
+		{ "type": "ci", "hidden": true },
+		{ "type": "build", "hidden": true }
+	],
+	"releaseCommitMessageFormat": "chore(release): {{currentTag}}"
+}
