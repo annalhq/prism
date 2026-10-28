@@ -38,6 +38,13 @@
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
 	import Favicon from './ui/Favicon.svelte';
+	import {
+		describeToken,
+		isFilterToken,
+		parseToken,
+		tokenizeQuery,
+		type ParsedToken
+	} from '#lib/client/search-query.js';
 	type Choice = { kind: 'tag' | 'person' | 'new-tag'; id: string; name: string };
 	let {
 		library,
@@ -78,8 +85,7 @@
 		titleLoading = $state(false),
 		titleEdited = $state(false),
 		autoTitle = $state('');
-	let organizing = $state(false),
-		active = $state(0);
+	let organizing = $state(false);
 	let titleRequestedFor = '',
 		prefetchTimer: ReturnType<typeof setTimeout> | undefined;
 	let input = $state<HTMLInputElement>(),
@@ -126,9 +132,10 @@
 		canCreate ? [...choices, { kind: 'new-tag', id: '', name: tagName }] : choices
 	);
 	const suggesting = $derived(organizing && options.length > 0);
-	$effect(() => {
+	// The highlighted suggestion: back to the first whenever the organizer text changes.
+	let active = $derived.by(() => {
 		void organizer;
-		active = 0;
+		return 0;
 	});
 	const host = $derived(url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''));
 	function discardDraft() {
@@ -503,6 +510,32 @@
 						? 'close'
 						: 'none'
 	);
+	// Finished filters in the query (`#tag `, `!tweets `, `site:x.com `) show as chips; the
+	// field keeps only what is still being typed and plain words. `query` stays the one source
+	// of truth, so the URL and the search worker never see the split.
+	const search = $derived.by(() => {
+		const { tokens } = tokenizeQuery(query);
+		const chips: ParsedToken[] = [];
+		const words: string[] = [];
+		for (const token of tokens) {
+			const parsed = parseToken(token.raw);
+			if (token.complete && isFilterToken(parsed)) chips.push(parsed);
+			else words.push(token.raw);
+		}
+		const trailing = /\s$/.test(query) && words.length ? ' ' : '';
+		return { chips, rest: words.join(' ') + trailing };
+	});
+	function compose(chips: ParsedToken[], rest: string) {
+		const head = chips.map((chip) => chip.raw).join(' ');
+		return head ? `${head} ${rest}` : rest;
+	}
+	function removeChip(index: number) {
+		query = compose(
+			search.chips.filter((_, i) => i !== index),
+			search.rest
+		);
+		input?.focus();
+	}
 	const apple = typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
 	const pop = { duration: 160, start: 0.6, easing: cubicOut };
 </script>
@@ -529,13 +562,34 @@
 				></button
 			>
 		{/if}
+		{#if mode === 'search' && search.chips.length}<span
+				class="omnibar-chips"
+				role="list"
+				aria-label="Search filters"
+			>
+				{#each search.chips as chip, index (`${index}:${chip.raw}`)}<span
+						role="listitem"
+						class={['omnibar-chip', `is-${chip.kind}`, chip.negate && 'negate']}
+						title={chip.raw}
+						in:scale={pop}
+						>{describeToken(chip)}<button
+							type="button"
+							aria-label={`Remove filter ${describeToken(chip)}`}
+							onclick={() => removeChip(index)}><X /></button
+						></span
+					>{/each}
+			</span>{/if}
 		<input
 			bind:this={input}
 			aria-label={mode === 'search' ? 'Search library' : 'Bookmark URL'}
-			placeholder={mode === 'search' ? 'Search, #tag or @person…' : 'Paste a link to save…'}
-			value={mode === 'search' ? query : draft}
+			placeholder={mode === 'search'
+				? search.chips.length
+					? 'Refine…'
+					: 'Search, #tag, @person or !tag…'
+				: 'Paste a link to save…'}
+			value={mode === 'search' ? search.rest : draft}
 			oninput={(e) => {
-				if (mode === 'search') query = e.currentTarget.value;
+				if (mode === 'search') query = compose(search.chips, e.currentTarget.value);
 				else {
 					draft = e.currentTarget.value;
 					prefetchTitle(
@@ -545,6 +599,18 @@
 				}
 			}}
 			onkeydown={(e) => {
+				// Backspace at the start of an empty field takes the last chip back to edit it.
+				if (
+					e.key === 'Backspace' &&
+					mode === 'search' &&
+					!e.currentTarget.value &&
+					search.chips.length
+				) {
+					e.preventDefault();
+					const last = search.chips.at(-1)!;
+					query = compose(search.chips.slice(0, -1), last.raw);
+					return;
+				}
 				// The first Escape clears what was typed; the next one leaves the bar.
 				if (e.key !== 'Escape' || e.isComposing) return;
 				if (mode === 'search' && query) {

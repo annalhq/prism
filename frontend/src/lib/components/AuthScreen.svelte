@@ -4,9 +4,9 @@
 		Eye as EyeIcon,
 		EyeOff as EyeOffIcon
 	} from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { online } from 'svelte/reactivity/window';
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
-	import { enhance, applyAction } from '$app/forms';
+	import { enhance, applyAction, type SubmitFunction } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import AuthLayout from './AuthLayout.svelte';
 	type Response = { message?: string; resetRequested?: boolean } | null;
@@ -27,8 +27,7 @@
 	let showPassword = $state(false),
 		pending = $state(''),
 		mode = $state<'signin' | 'reset' | 'sent'>('signin'),
-		email = $state(''),
-		offline = $state(false);
+		email = $state('');
 	let response = $state<Response>(null);
 	function switchMode(next: 'signin' | 'reset') {
 		mode = next;
@@ -39,22 +38,8 @@
 	const message = $derived(
 		mode === 'sent' && result?.resetRequested ? '' : (result?.message ?? data.message)
 	);
-	$effect(() => {
-		if (response?.resetRequested) mode = 'sent';
-	});
-	onMount(() => {
-		const update = () => {
-			offline = !navigator.onLine;
-		};
-		update();
-		window.addEventListener('online', update);
-		window.addEventListener('offline', update);
-		return () => {
-			window.removeEventListener('online', update);
-			window.removeEventListener('offline', update);
-		};
-	});
-	const submit: import('$app/forms').SubmitFunction = ({ action }) => {
+	const offline = $derived(online.current === false);
+	const submit: SubmitFunction = ({ action }) => {
 		const stopLoading = foregroundSound();
 		pending = action.searchParams.has('/requestReset') ? 'reset' : 'signin';
 		response = null;
@@ -62,9 +47,10 @@
 			pending = '';
 			stopLoading();
 			cue(result.type === 'failure' || result.type === 'error' ? 'error' : 'success');
-			if (result.type === 'failure' || result.type === 'success')
+			if (result.type === 'failure' || result.type === 'success') {
 				response = result.data as typeof response;
-			else if (result.type === 'redirect') await applyAction(result);
+				if (response?.resetRequested) mode = 'sent';
+			} else if (result.type === 'redirect') await applyAction(result);
 			else response = { message: 'Unable to connect. Please try again.' };
 		};
 	};

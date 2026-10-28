@@ -16,9 +16,15 @@
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
 	import { Collapsible, ContextMenu } from 'bits-ui';
+	import type { Attachment } from 'svelte/attachments';
 	import Favicon from './ui/Favicon.svelte';
-	import { normalizeUrl } from '#lib/domain/urls.js';
-	import { isReadLater, type Row } from '#lib/client/workflows.js';
+	import {
+		bookmarkDomain,
+		bookmarkSource,
+		copyLink,
+		isReadLater,
+		type Row
+	} from '#lib/client/workflows.js';
 	let {
 		item,
 		note = '',
@@ -42,9 +48,13 @@
 		feedback?: (message: string) => void;
 	} = $props();
 	let offset = $state(0),
-		menuOpen = $state(false),
-		expanded = $state(false);
+		menuOpen = $state(false);
 	const hasNote = $derived(note.trim().length > 0);
+	// Collapses whenever the note comes or goes; toggled by the row in between.
+	let expanded = $derived.by(() => {
+		void hasNote;
+		return false;
+	});
 	$effect(() => {
 		if (!menuOpen) return;
 		const close = () => (menuOpen = false);
@@ -62,16 +72,7 @@
 			if (closeOpenMenu === close) closeOpenMenu = null;
 		};
 	});
-	$effect(() => {
-		if (!hasNote) expanded = false;
-	});
-	const source = $derived.by(() => {
-		try {
-			return normalizeUrl(String(item.url)).url;
-		} catch {
-			return null;
-		}
-	});
+	const source = $derived(bookmarkSource(item));
 	function openSource() {
 		if (!source) {
 			onEdit();
@@ -80,16 +81,10 @@
 		onOpen();
 		window.open(source, '_blank', 'noopener,noreferrer');
 	}
-	async function copy() {
-		if (!source) return;
-		try {
-			await navigator.clipboard.writeText(source);
-			feedback('Link copied.');
-		} catch {
-			feedback('Could not copy. Open the bookmark and copy its address.');
-		}
+	function copy() {
+		if (source) void copyLink(source, feedback);
 	}
-	function swipe(node: HTMLElement) {
+	const swipe: Attachment<HTMLElement> = (node) => {
 		let start: { x: number; y: number } | null = null,
 			tracking = false,
 			suppress = 0;
@@ -140,16 +135,14 @@
 		node.addEventListener('pointerup', up);
 		node.addEventListener('pointercancel', cancel);
 		node.addEventListener('click', click, true);
-		return {
-			destroy() {
-				node.removeEventListener('pointerdown', down);
-				node.removeEventListener('pointermove', move);
-				node.removeEventListener('pointerup', up);
-				node.removeEventListener('pointercancel', cancel);
-				node.removeEventListener('click', click, true);
-			}
+		return () => {
+			node.removeEventListener('pointerdown', down);
+			node.removeEventListener('pointermove', move);
+			node.removeEventListener('pointerup', up);
+			node.removeEventListener('pointercancel', cancel);
+			node.removeEventListener('click', click, true);
 		};
-	}
+	};
 	function toggleFromRow(event: MouseEvent) {
 		if (!hasNote || (event.target as HTMLElement).closest('a, button')) return;
 		expanded = !expanded;
@@ -196,9 +189,7 @@
 				><Clock3Icon /><span class="sr-only">Read later</span></span
 			>{/if}
 	</div>
-	<span class="bookmark-domain"
-		>{String(item.domain ?? (source ? new URL(source).hostname : '')).replace(/^www\./, '')}</span
-	>
+	<span class="bookmark-domain">{bookmarkDomain(item, source)}</span>
 	<time class="bookmark-date" datetime={String(item.createdAt)}
 		>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
 			month: 'short',
@@ -228,7 +219,7 @@
 		></button>{/if}
 {/snippet}
 
-<div class="bookmark-gesture" data-bookmark-id={String(item.id)} use:swipe>
+<div class="bookmark-gesture" data-bookmark-id={String(item.id)} {@attach swipe}>
 	{#if offset}<span class="swipe-hint" class:to-later={offset < 0}
 			>{offset < 0 ? 'Read later' : 'Edit'}</span
 		>{/if}
@@ -239,7 +230,7 @@
 		{#if readonly}
 			<!-- The title link and keyboard shortcuts carry the same actions as this row click. -->
 			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<div class={`library-row ${selected ? 'selected' : ''}`} onclick={toggleFromRow}>
+			<div class={['library-row', selected && 'selected']} onclick={toggleFromRow}>
 				{@render row()}
 			</div>
 		{:else}<ContextMenu.Root bind:open={menuOpen}

@@ -1338,6 +1338,61 @@ kbd {
 	rotate: 0deg;
 	scale: 1;
 }
+/* Search filters as chips, inline before the text still being typed. */
+.omnibar-chips {
+	display: flex;
+	flex-shrink: 1;
+	gap: 4px;
+	min-width: 0;
+	max-width: 70%;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.omnibar-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+	height: 26px;
+	padding: 0 2px 0 10px;
+	border-radius: var(--radius-pill);
+	background: var(--selection);
+	color: var(--ink);
+	font-size: var(--text-sm);
+	font-weight: 500;
+	white-space: nowrap;
+}
+.omnibar-chip.is-operator {
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+}
+.omnibar-chip.negate {
+	background: color-mix(in srgb, var(--danger) 12%, transparent);
+	color: var(--danger);
+}
+.omnibar-chip button {
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	color: inherit;
+	opacity: 0.6;
+	transition:
+		opacity 120ms ease,
+		background-color 120ms ease;
+}
+.omnibar-chip button svg {
+	width: 12px;
+	height: 12px;
+}
+.omnibar-chip button:hover {
+	background: var(--pressed);
+	opacity: 1;
+}
+.omnibar-chip.negate button:hover {
+	background: color-mix(in srgb, var(--danger) 18%, transparent);
+}
 .omnibar input:not([type='checkbox']) {
 	min-height: 34px;
 	padding: 4px 0;

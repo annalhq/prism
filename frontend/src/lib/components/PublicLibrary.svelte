@@ -3,7 +3,7 @@
 	import { Check, ChevronDown as ChevronDownIcon } from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
-	import { SvelteURL } from 'svelte/reactivity';
+	import { MediaQuery, SvelteURL } from 'svelte/reactivity';
 	import { DropdownMenu } from 'bits-ui';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -33,8 +33,9 @@
 	let sort = $state('newest'),
 		limit = $state(100),
 		sidebarCollapsed = $state(false),
-		mobile = $state(false),
 		navSearching = $state(false);
+	const narrow = new MediaQuery('max-width: 767px');
+	const mobile = $derived(narrow.current);
 	let results = $state<ReturnType<typeof searchLibrary>>({ items: [], filter: emptySearch() });
 	let omnibar: Omnibar | undefined = $state();
 	let sidebar: LibrarySidebar | undefined = $state();
@@ -146,10 +147,6 @@
 			?.focus({ preventScroll: true });
 	}
 	onMount(() => {
-		const narrow = window.matchMedia('(max-width: 767px)');
-		const layout = () => (mobile = narrow.matches);
-		layout();
-		narrow.addEventListener('change', layout);
 		searcher = createSearchClient();
 		const key = libraryKeyboard({
 			insert: () => void openSearch(),
@@ -159,7 +156,6 @@
 		});
 		window.addEventListener('keydown', key);
 		return () => {
-			narrow.removeEventListener('change', layout);
 			window.removeEventListener('keydown', key);
 			searcher?.stop();
 		};

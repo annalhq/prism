@@ -1,23 +1,14 @@
 <script lang="ts">
-	import { ArrowRight, Moon, Sun } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { ArrowRight } from '@lucide/svelte';
+	import { online } from 'svelte/reactivity/window';
 	import { resolve } from '$app/paths';
-	import { setTheme, themePreference } from '#lib/client/theme.svelte.js';
 	import type { SharkSpec } from '#lib/ocean/world.js';
 	import AsciiOcean from './AsciiOcean.svelte';
 	import Brand from './ui/Brand.svelte';
+	import ThemeToggle from './ui/ThemeToggle.svelte';
 	let { openOffline }: { openOffline?: () => void } = $props();
-	let offline = $state(false);
-	onMount(() => {
-		const update = () => (offline = !navigator.onLine);
-		update();
-		window.addEventListener('online', update);
-		window.addEventListener('offline', update);
-		return () => {
-			window.removeEventListener('online', update);
-			window.removeEventListener('offline', update);
-		};
-	});
+	// Undefined during server rendering, so the offline button only appears once the browser says so.
+	const offline = $derived(online.current === false);
 	const sharks: SharkSpec[] = [
 		{ kind: 'hammerhead', size: 1 },
 		{ kind: 'mako', size: 0.84 },
@@ -32,14 +23,7 @@
 	<AsciiOcean class="landing-ocean" {sharks} />
 	<header class="landing-chrome">
 		<span class="landing-glass landing-brand"><Brand /></span>
-		<button
-			class="icon-button landing-glass landing-theme"
-			aria-label={themePreference.value === 'light'
-				? 'Use dark appearance'
-				: 'Use light appearance'}
-			onclick={() => setTheme(themePreference.value === 'light' ? 'dark' : 'light')}
-			>{#if themePreference.value === 'light'}<Moon />{:else}<Sun />{/if}</button
-		>
+		<ThemeToggle class="landing-glass landing-theme" />
 	</header>
 
 	<main id="landing-main" class="landing-hero" tabindex="-1">

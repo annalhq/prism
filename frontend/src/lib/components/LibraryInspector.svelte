@@ -14,7 +14,6 @@
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links are validated external HTTP URLs. */
 	import { onMount, onDestroy } from 'svelte';
 	import { cue } from '#lib/client/sounds.svelte.js';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { AlertDialog, DropdownMenu } from 'bits-ui';
 	import { autosize } from '#lib/client/attachments.js';
 	import Favicon from './ui/Favicon.svelte';
@@ -110,7 +109,8 @@
 	const linkedPeople = $derived([...new Set(relationships.map((r) => String(r.personId)))]);
 	const incoming = $derived.by(() => {
 		void version;
-		const ids = new SvelteSet(
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Rebuilt whole on every derivation.
+		const ids = new Set(
 			library
 				.list<Row>('notes')
 				.filter(
@@ -358,7 +358,7 @@
 						</TokenInput>
 					</div>
 				</div>
-				<NoteEditor {library} {entity} {version} {feedback} {navigate} />
+				<NoteEditor {library} {entity} {version} {feedback} />
 				{#if incoming.length}<section class="editor-backlinks" aria-label="Linked here">
 						<h3>Linked here</h3>
 						{#each incoming as item (item.id)}<button

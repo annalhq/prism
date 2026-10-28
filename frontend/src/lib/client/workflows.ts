@@ -13,6 +13,25 @@ export function inferBookmarkKind(url: string): 'page' | 'social' {
 	return /(^|\.)(x\.com|twitter\.com)$/i.test(host) ? 'social' : 'page';
 }
 export const isReadLater = (row: Row) => row.readingStatus === 'reading';
+// A bookmark's validated source address, or null when it has none it is safe to open.
+export function bookmarkSource(row: Row): string | null {
+	try {
+		return normalizeUrl(String(row.url)).url;
+	} catch {
+		return null;
+	}
+}
+export function bookmarkDomain(row: Row, source: string | null): string {
+	return String(row.domain ?? (source ? new URL(source).hostname : '')).replace(/^www\./, '');
+}
+export async function copyLink(source: string, feedback: (message: string) => void) {
+	try {
+		await navigator.clipboard.writeText(source);
+		feedback('Link copied.');
+	} catch {
+		feedback('Could not copy. Open the bookmark and copy its address.');
+	}
+}
 export function personSlug(person: Row): string {
 	const name =
 		String(person.displayName ?? 'person')

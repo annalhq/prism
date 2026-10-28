@@ -18,7 +18,8 @@
 	let filter = $state(''),
 		order = $state<'used' | 'name' | 'custom'>('used');
 	let searchInput = $state<HTMLInputElement>();
-	const needle = $derived(filter.trim().replace(/^#/, '').toLocaleLowerCase());
+	const name = $derived(filter.trim().replace(/^#/, ''));
+	const needle = $derived(name.toLocaleLowerCase());
 	const visible = $derived(
 		tags
 			.filter((t) => String(t.name).toLocaleLowerCase().includes(needle))
@@ -108,10 +109,8 @@
 					>
 				</li>{/each}
 			{#if onCreate && needle && !exact}<li>
-					<button
-						class="tag-row tag-row-new"
-						onclick={() => onCreate(filter.trim().replace(/^#/, ''))}
-						><Plus /><span>Create #{filter.trim().replace(/^#/, '')}</span></button
+					<button class="tag-row tag-row-new" onclick={() => onCreate(name)}
+						><Plus /><span>Create #{name}</span></button
 					>
 				</li>{/if}
 		</ul>{:else}<p class="tags-empty">

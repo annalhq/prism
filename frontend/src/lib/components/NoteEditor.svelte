@@ -2,6 +2,7 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { Link2 as LinkIcon } from '@lucide/svelte';
 	import { autosize } from '#lib/client/attachments.js';
+	import { downloadFile } from '#lib/client/download.js';
 	import TokenInput from './ui/TokenInput.svelte';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { NoteProjection, Revision } from '#lib/domain/contracts.js';
@@ -24,7 +25,6 @@
 		entity: EntityRef;
 		version: number;
 		feedback: (message: string) => void;
-		navigate: (target: EntityRef) => void;
 	} = $props();
 	let body = $state(''),
 		base = $state<Revision>('0'),
@@ -35,7 +35,6 @@
 	let queuedBody = $state<string | null>(null);
 	let error = $state('');
 	let autoSave: ReturnType<typeof setTimeout> | undefined;
-	let editor = $state<HTMLTextAreaElement>();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let destroyed = false;
 	const current = $derived.by(() => {
@@ -223,12 +222,7 @@
 	}
 
 	function downloadDraft() {
-		const url = URL.createObjectURL(new Blob([body], { type: 'text/markdown' }));
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = 'prism-note-draft.md';
-		a.click();
-		URL.revokeObjectURL(url);
+		downloadFile(body, 'prism-note-draft.md', 'text/markdown');
 	}
 </script>
 
@@ -246,7 +240,6 @@
 	<label class="sr-only" for="note-body">Note</label><textarea
 		id="note-body"
 		class="editor-note-body"
-		bind:this={editor}
 		value={noteText}
 		oninput={(event) => {
 			body = joinLinkedNote(event.currentTarget.value, splitLinkedNote(body).links);

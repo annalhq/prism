@@ -2,6 +2,7 @@
 	import { Collapsible, Dialog, Select } from 'bits-ui';
 	import { soundPreference, setSounds, cue } from '#lib/client/sounds.svelte.js';
 	import { themePreference, setTheme } from '#lib/client/theme.svelte.js';
+	import { resolve } from '$app/paths';
 	import {
 		Volume2,
 		VolumeX,
@@ -9,10 +10,7 @@
 		Moon,
 		ChevronLeft,
 		SlidersHorizontal,
-		Library
-	} from '@lucide/svelte';
-	import { resolve } from '$app/paths';
-	import {
+		Library,
 		RefreshCw,
 		Cloud,
 		CloudOff,
@@ -192,8 +190,6 @@
 		onCreate(type);
 	}
 	const sync = $derived(syncSummary(status));
-	const syncTitle = $derived(sync.title);
-	const syncTone = $derived(sync.tone);
 	const sections = $derived([
 		{ id: 'general', label: 'General', icon: SlidersHorizontal, hint: '' },
 		{
@@ -247,8 +243,8 @@
 							aria-label="Close settings"><X /></Dialog.Close
 						>
 					</header>
-					<p class="settings-sync-pill" data-tone={syncTone}>
-						<span class="settings-dot" aria-hidden="true"></span>{syncTitle}
+					<p class="settings-sync-pill" data-tone={sync.tone}>
+						<span class="settings-dot" aria-hidden="true"></span>{sync.title}
 					</p>
 					<ul class="settings-nav-list">
 						{#each sections as entry (entry.id)}<li>
@@ -316,10 +312,10 @@
 									<h3>Sync</h3>
 									<div class="settings-card">
 										<div class="settings-row">
-											<span class="settings-status" data-tone={syncTone} aria-hidden="true"
+											<span class="settings-status" data-tone={sync.tone} aria-hidden="true"
 												>{#if status?.online}<Cloud />{:else}<CloudOff />{/if}</span
 											><span class="settings-text"
-												><strong>{syncTitle}</strong><small
+												><strong>{sync.title}</strong><small
 													>{status?.pending
 														? `${status.pending} ${status.pending === 1 ? 'change' : 'changes'} saved on this device`
 														: status?.online

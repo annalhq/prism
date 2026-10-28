@@ -2,16 +2,20 @@
 	import {
 		Bookmark as BookmarkIcon,
 		ChevronDown as ChevronDownIcon,
-		X as XIcon
+		X as XIcon,
+		Check,
+		Keyboard,
+		Trash2,
+		UserPlus
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links use validated external HTTP URLs. App navigation uses resolve. */
 	import { onMount, tick } from 'svelte';
-	import { Check, Keyboard, Trash2, UserPlus } from '@lucide/svelte';
 	import { autosize } from '#lib/client/attachments.js';
+	import { downloadFile } from '#lib/client/download.js';
 	import AccountPanel from './AccountPanel.svelte';
 	import KeyboardHelp from './KeyboardHelp.svelte';
 	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
-	import { SvelteURL } from 'svelte/reactivity';
+	import { MediaQuery, SvelteURL } from 'svelte/reactivity';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -79,9 +83,11 @@
 		editingPerson = $state<Row | null>(null);
 	let captureId = $state('');
 	let sidebarCollapsed = $state(false),
-		mobile = $state(false),
-		navSearching = $state(false),
-		wideEditor = $state(false);
+		navSearching = $state(false);
+	const narrow = new MediaQuery('max-width: 767px'),
+		wide = new MediaQuery('min-width: 1200px');
+	const mobile = $derived(narrow.current),
+		wideEditor = $derived(wide.current);
 	let results = $state<ReturnType<typeof searchLibrary>>({ items: [], filter: emptySearch() }),
 		limit = $state(100);
 	let importData = $state<unknown>(null),
@@ -309,14 +315,6 @@
 			});
 	});
 	onMount(() => {
-		const media = window.matchMedia('(min-width: 1200px)');
-		const resize = () => (wideEditor = media.matches);
-		resize();
-		media.addEventListener('change', resize);
-		const narrow = window.matchMedia('(max-width: 767px)');
-		const layout = () => (mobile = narrow.matches);
-		layout();
-		narrow.addEventListener('change', layout);
 		searcher = createSearchClient();
 		const client = createLibraryClient(() => {
 			version++;
@@ -338,8 +336,6 @@
 		window.addEventListener('keydown', key);
 		window.addEventListener('focusin', remember);
 		return () => {
-			media.removeEventListener('change', resize);
-			narrow.removeEventListener('change', layout);
 			window.removeEventListener('keydown', key);
 			window.removeEventListener('focusin', remember);
 			client.stop();
@@ -622,16 +618,11 @@
 	});
 
 	function download(value: unknown, name: string) {
-		const url = URL.createObjectURL(
-			new Blob([typeof value === 'string' ? value : JSON.stringify(value, null, 2)], {
-				type: 'application/json'
-			})
+		downloadFile(
+			typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+			name,
+			'application/json'
 		);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = name;
-		a.click();
-		URL.revokeObjectURL(url);
 	}
 	async function exportData() {
 		if (!library) return;
@@ -1276,7 +1267,6 @@
 <AlertDialog.Root
 	bind:open={purgeOpen}
 	onOpenChange={(open) => {
-		purgeOpen = open;
 		if (!open) purgeTarget = null;
 	}}
 >

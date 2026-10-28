@@ -13,8 +13,13 @@
 	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import TweetCard from './TweetCard.svelte';
 	import { tweetStatusId } from '#lib/domain/tweets.js';
-	import { normalizeUrl } from '#lib/domain/urls.js';
-	import { isReadLater, type Row } from '#lib/client/workflows.js';
+	import {
+		bookmarkDomain,
+		bookmarkSource,
+		copyLink,
+		isReadLater,
+		type Row
+	} from '#lib/client/workflows.js';
 	export type PostPerson = { id: string; name: string; handle: string | null };
 	let {
 		item,
@@ -43,32 +48,18 @@
 		feedback?: (message: string) => void;
 	} = $props();
 	const lead = $derived(people[0]);
-	const source = $derived.by(() => {
-		try {
-			return normalizeUrl(String(item.url)).url;
-		} catch {
-			return null;
-		}
-	});
+	const source = $derived(bookmarkSource(item));
 	// Posts from X render as the post itself. The public page can't reach the owner-only
 	// tweet API, so it keeps the plain link card.
 	const tweetId = $derived(readonly ? null : tweetStatusId(source));
-	const domain = $derived(
-		String(item.domain ?? (source ? new URL(source).hostname : '')).replace(/^www\./, '')
-	);
+	const domain = $derived(bookmarkDomain(item, source));
 	function openSource() {
 		if (!source) return onEdit();
 		onOpen();
 		window.open(source, '_blank', 'noopener,noreferrer');
 	}
-	async function copy() {
-		if (!source) return;
-		try {
-			await navigator.clipboard.writeText(source);
-			feedback('Link copied.');
-		} catch {
-			feedback('Could not copy. Open the bookmark and copy its address.');
-		}
+	function copy() {
+		if (source) void copyLink(source, feedback);
 	}
 </script>
 

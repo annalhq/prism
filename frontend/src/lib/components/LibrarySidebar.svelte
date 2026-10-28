@@ -14,6 +14,7 @@
 	import type { Attachment } from 'svelte/attachments';
 	import { onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import Brand from './ui/Brand.svelte';
 	type Row = Record<string, unknown>;
 	let {
@@ -47,8 +48,7 @@
 	// it so the other folders slide aside under the pointer instead of jumping on drop.
 	let dragId = $state(''),
 		preview = $state<string[] | null>(null),
-		committing = false,
-		reduceMotion = $state(false);
+		committing = false;
 	const shown = $derived.by(() => {
 		if (!preview) return tags;
 		const byId = new Map(tags.map((t) => [String(t.id), t]));
@@ -114,8 +114,6 @@
 		].filter((item) => onCreate || item.id !== 'trash')
 	);
 	onMount(() => {
-		const motion = matchMedia('(prefers-reduced-motion: reduce)');
-		reduceMotion = motion.matches;
 		try {
 			const preference = localStorage.getItem('prism:sidebar');
 			collapsed = preference ? preference === 'collapsed' : innerWidth < 1100;
@@ -235,7 +233,7 @@
 					>{/if}
 			</div>
 			{#each shown as row (String(row.id))}<button
-					animate:flip={{ duration: reduceMotion ? 0 : 180 }}
+					animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
 					class={[
 						'sidebar-link',
 						view === `tag:${row.id}` && 'active',

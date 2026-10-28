@@ -53,12 +53,12 @@
 			)
 			.slice(0, 8)
 	);
+	// The name a new tag would get from what is typed.
+	const draftName = $derived(query.trim().replace(/^#/, ''));
 	const canCreate = $derived(
 		allowCreate &&
-			!!query.trim().replace(/^#/, '') &&
-			!items.some(
-				(i) => i.label.toLocaleLowerCase() === query.trim().replace(/^#/, '').toLocaleLowerCase()
-			)
+			!!draftName &&
+			!items.some((i) => i.label.toLocaleLowerCase() === draftName.toLocaleLowerCase())
 	);
 	function enqueue(value: string, create = false) {
 		error = '';
@@ -164,10 +164,9 @@
 								></Combobox.Item
 							>{/each}
 						{#if canCreate}<Combobox.Item
-								value={`new:${query.trim().replace(/^#/, '')}`}
+								value={`new:${draftName}`}
 								label={query.trim()}
-								class="select-item"
-								><span>Create #{query.trim().replace(/^#/, '')}</span></Combobox.Item
+								class="select-item"><span>Create #{draftName}</span></Combobox.Item
 							>{:else if !matches.length}<p class="picker-empty">
 								No matches. Try another title or name.
 							</p>{/if}
