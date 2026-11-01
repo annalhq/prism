@@ -26,12 +26,16 @@
 	let {
 		id,
 		onOpen,
-		fallback
+		fallback,
+		shown = []
 	}: {
 		id: string;
 		onOpen: () => void;
 		// What to show when the post can't be loaded: deleted, private, offline or signed out.
 		fallback: Snippet;
+		// People already drawn above the card. When the post's author is one of them, the card
+		// leaves out its own avatar and name so the person isn't shown twice.
+		shown?: { name: string; handle: string | null }[];
 	} = $props();
 	let element = $state<HTMLElement>();
 	let phase = $state<'idle' | 'loading' | 'ready' | 'missing'>('idle');
@@ -57,6 +61,15 @@
 		observer.observe(element);
 		return () => observer.disconnect();
 	});
+	const plain = (value: string) => value.trim().replace(/^@/, '').toLocaleLowerCase();
+	const sameAuthor = $derived(
+		!!tweet &&
+			shown.some(
+				(person) =>
+					(person.handle && plain(person.handle) === plain(tweet!.author.handle)) ||
+					plain(person.name) === plain(tweet!.author.name)
+			)
+	);
 	const ratio = (item: TweetMediaItem) =>
 		item.width && item.height ? `${item.width} / ${item.height}` : '16 / 9';
 </script>
@@ -100,38 +113,52 @@
 {/snippet}
 
 <div class="tweet-slot" bind:this={element}>
-	{#if phase === 'ready' && tweet}<article class="tweet-card">
+	{#if phase === 'ready' && tweet}<article class="tweet-card" class:same-author={sameAuthor}>
 			<!-- The head is the post's link, and the row the list keyboard moves to. -->
-			<a
-				class="tweet-head bookmark-title"
-				href={tweet.url}
-				target="_blank"
-				rel="noopener noreferrer"
-				onclick={onOpen}
-			>
-				<img
-					class="tweet-avatar"
-					src={tweet.author.avatar}
-					alt=""
-					width="28"
-					height="28"
-					loading="lazy"
-					referrerpolicy="no-referrer"
-				/>
-				<span class="tweet-who"
-					><strong
-						>{tweet.author.name}{#if tweet.author.verified}<BadgeCheck
-								class="tweet-verified"
-								aria-label="Verified"
-							/>{/if}</strong
-					><span>@{tweet.author.handle}</span></span
+			{#if sameAuthor}<a
+					class="tweet-head tweet-head-compact bookmark-title"
+					href={tweet.url}
+					target="_blank"
+					rel="noopener noreferrer"
+					aria-label={`Open ${tweet.author.name}’s post on X`}
+					title="Open on X"
+					onclick={onOpen}
 				>
-				<svg class="tweet-x" viewBox="0 0 24 24" aria-hidden="true"
-					><path
-						d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-					/></svg
+					<svg class="tweet-x" viewBox="0 0 24 24" aria-hidden="true"
+						><path
+							d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+						/></svg
+					>
+				</a>{:else}<a
+					class="tweet-head bookmark-title"
+					href={tweet.url}
+					target="_blank"
+					rel="noopener noreferrer"
+					onclick={onOpen}
 				>
-			</a>
+					<img
+						class="tweet-avatar"
+						src={tweet.author.avatar}
+						alt=""
+						width="28"
+						height="28"
+						loading="lazy"
+						referrerpolicy="no-referrer"
+					/>
+					<span class="tweet-who"
+						><strong
+							>{tweet.author.name}{#if tweet.author.verified}<BadgeCheck
+									class="tweet-verified"
+									aria-label="Verified"
+								/>{/if}</strong
+						><span>@{tweet.author.handle}</span></span
+					>
+					<svg class="tweet-x" viewBox="0 0 24 24" aria-hidden="true"
+						><path
+							d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+						/></svg
+					>
+				</a>{/if}
 			{#if tweet.replyTo}<p class="tweet-reply">Replying to @{tweet.replyTo}</p>{/if}
 			{#if tweet.segments.length}<p class="tweet-text">{@render text(tweet.segments)}</p>{/if}
 			{@render media(tweet.media, true)}

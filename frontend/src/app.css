@@ -2949,11 +2949,13 @@ kbd {
 /* Feed posts: one calm timeline. No boxes, just a hairline between entries: who saved it,
    their note, then the post or link itself. */
 .post {
+	--post-pad-y: 20px;
+	--post-pad-x: 16px;
 	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-	padding: 20px 16px;
+	padding: var(--post-pad-y) var(--post-pad-x);
 	border-radius: var(--radius-card);
 	transition: background-color 200ms var(--ease-out);
 }
@@ -3016,34 +3018,6 @@ kbd {
 .post-header .later-badge svg {
 	width: 12px;
 	height: 12px;
-}
-.post-menu {
-	width: 28px;
-	height: 28px;
-	margin: -2px -4px -2px auto;
-	opacity: 0;
-	transition:
-		opacity 120ms ease,
-		background-color 120ms ease;
-}
-.post-menu svg {
-	width: 15px;
-	height: 15px;
-}
-.post:hover .post-menu,
-.post:focus-within .post-menu,
-.post-menu[data-state='open'] {
-	opacity: 1;
-}
-@media (hover: none) {
-	.post-menu {
-		opacity: 1;
-	}
-}
-.post-menu:hover,
-.post-menu[data-state='open'] {
-	background: var(--hover);
-	color: var(--ink);
 }
 .post-text {
 	display: -webkit-box;
@@ -3118,6 +3092,38 @@ kbd {
 .tweet-card > :not(.tweet-head) {
 	margin-left: var(--tweet-indent);
 }
+/* The author is already the person above the card: the card shows no second avatar, name or
+   handle. Only the X mark stays, as the post's link, at the right end of the header row. */
+.tweet-card.same-author {
+	--tweet-indent: 0px;
+	/* Opacity only: a moving card would carry the pinned mark with it while it settles. */
+	animation: fade-in 300ms ease both;
+}
+.tweet-head-compact {
+	position: absolute;
+	top: calc(var(--post-pad-y) + 1px);
+	right: calc(var(--post-pad-x) - 2px);
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	margin: 0;
+	padding: 0;
+	border-radius: 50%;
+	transition: background-color 150ms ease;
+}
+.tweet-head-compact:hover {
+	background: var(--highlight);
+}
+.tweet-head-compact .tweet-x {
+	align-self: center;
+	margin: 0;
+}
+/* Names in the header never run under the pinned mark. */
+.post:has(.tweet-head-compact) .post-header {
+	padding-right: 30px;
+}
+
 .tweet-head {
 	display: flex;
 	align-items: center;
@@ -6065,7 +6071,8 @@ a.editor-source:hover > svg {
 
 	/* The feed on phones: full width, the post under its author rather than indented. */
 	.post {
-		padding: 18px 8px;
+		--post-pad-y: 18px;
+		--post-pad-x: 8px;
 	}
 	.post + .post::before {
 		right: 8px;
