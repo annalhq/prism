@@ -1269,41 +1269,43 @@
 						if (renamed) void manageSave();
 					}}
 				>
-					<label class="name-sheet-name">
-						<span class="sr-only">Name</span>
-						<span class="name-sheet-glyph" aria-hidden="true">#</span>
-						<input
-							id="manage-name"
-							bind:value={rename}
-							maxlength="64"
-							autocomplete="off"
-							spellcheck="false"
-						/>
-					</label>
-					<p class="name-sheet-hint">
-						{count === 0
-							? 'Not on any bookmarks yet.'
-							: `On ${count} ${count === 1 ? 'bookmark' : 'bookmarks'}.`} Renaming keeps every connection.
-					</p>
-					<footer class="name-sheet-actions">
-						{#if deleteArmed}<span class="name-sheet-confirm"
-								><span>Delete #{manage.row.name}?{count ? ' Bookmarks stay.' : ''}</span><button
+					<fieldset>
+						<label class="name-sheet-name">
+							<span class="sr-only">Name</span>
+							<span class="name-sheet-glyph" aria-hidden="true">#</span>
+							<input
+								id="manage-name"
+								bind:value={rename}
+								maxlength="64"
+								autocomplete="off"
+								spellcheck="false"
+							/>
+						</label>
+						<p class="name-sheet-hint">
+							{count === 0
+								? 'Not on any bookmarks yet.'
+								: `On ${count} ${count === 1 ? 'bookmark' : 'bookmarks'}.`} Renaming keeps every connection.
+						</p>
+						<footer class="name-sheet-actions">
+							{#if deleteArmed}<span class="name-sheet-confirm"
+									><span>Delete #{manage.row.name}?{count ? ' Bookmarks stay.' : ''}</span><button
+										type="button"
+										class="name-sheet-cancel"
+										onclick={() => (deleteArmed = false)}>Keep</button
+									><button
+										type="button"
+										class="name-sheet-danger"
+										data-cuelume-warning
+										onclick={() => manageSave(true)}>Delete</button
+									></span
+								>{:else}<button
 									type="button"
-									class="name-sheet-cancel"
-									onclick={() => (deleteArmed = false)}>Keep</button
-								><button
-									type="button"
-									class="name-sheet-danger"
-									data-cuelume-warning
-									onclick={() => manageSave(true)}>Delete</button
-								></span
-							>{:else}<button
-								type="button"
-								class="name-sheet-delete"
-								onclick={() => (deleteArmed = true)}><Trash2 />Delete</button
-							><button type="submit" class="name-sheet-submit" disabled={!renamed}>Rename</button
-							>{/if}
-					</footer>
+									class="name-sheet-delete"
+									onclick={() => (deleteArmed = true)}><Trash2 />Delete</button
+								><button type="submit" class="name-sheet-submit" disabled={!renamed}>Rename</button
+								>{/if}
+						</footer>
+					</fieldset>
 				</form>
 			{/if}</Dialog.Content
 		></Dialog.Portal
