@@ -103,6 +103,9 @@
 	/* The floating editor card: its width and its distance from the window edge. */
 	--editor-width: 420px;
 	--editor-gap: 16px;
+	/* The shell's distance from the window and its curve; phones tighten both. */
+	--shell-margin: 10px;
+	--shell-radius: var(--radius-panel);
 	--ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 	--ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 	/* Where row titles start: row padding + icon + gap. Toolbars and notes align to it. */
@@ -4576,94 +4579,133 @@ a.editor-source:hover > svg {
 	font-size: var(--text-sm);
 }
 
-/* 12. Mobile navbar: a frosted pill of destinations, and a search circle that becomes the field. */
+/* 12. Mobile navbar: a frosted bar of destinations, and a search key that becomes the field.
+ *
+ * Nested radii: each curve is its parent's radius minus the gap between them, so the bar's
+ * corners run parallel to the shell's and the lit tab's run parallel to the bar's.
+ *   shell 28 − gap 8 → bar 20 − inset 6 → tab 14
+ */
 .mobile-navbar {
+	--nav-gap: 8px;
+	--nav-inset: 6px;
+	--nav-radius: calc(var(--shell-radius) - var(--nav-gap));
+	--nav-tab-radius: calc(var(--nav-radius) - var(--nav-inset));
 	position: fixed;
 	z-index: 40;
-	left: 12px;
-	right: 12px;
-	bottom: max(12px, env(safe-area-inset-bottom));
+	left: calc(var(--shell-margin) + var(--nav-gap));
+	right: calc(var(--shell-margin) + var(--nav-gap));
+	bottom: max(calc(var(--shell-margin) + var(--nav-gap)), env(safe-area-inset-bottom));
 	height: 56px;
 }
+/* Frozen glass: mostly opaque so the list never muddies the icons, blurred and saturated so it
+   still takes the colour of what slides under it, with a fine frost grain and a lit top edge. */
 .mobile-nav-pill,
 .mobile-search {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	border: 1px solid var(--hairline);
-	border-radius: var(--radius-pill);
-	background: color-mix(in srgb, var(--ink) 6%, transparent);
-	-webkit-backdrop-filter: blur(24px) saturate(160%);
-	backdrop-filter: blur(24px) saturate(160%);
-	box-shadow: 0 12px 32px var(--shadow-soft);
+	border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+	border-radius: var(--nav-radius);
+	background: color-mix(in srgb, var(--elevated) 80%, transparent);
+	-webkit-backdrop-filter: blur(32px) saturate(180%);
+	backdrop-filter: blur(32px) saturate(180%);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, white 9%, transparent),
+		0 1px 2px var(--shadow-soft),
+		0 14px 40px var(--shadow-strong);
 }
-/* Without backdrop blur a see-through pill would let the list bleed through; stay solid. */
+:root[data-theme='light'] .mobile-nav-pill,
+:root[data-theme='light'] .mobile-search {
+	background: color-mix(in srgb, var(--elevated) 84%, transparent);
+	box-shadow:
+		inset 0 1px 0 rgb(255 255 255 / 80%),
+		0 1px 2px var(--shadow-soft),
+		0 14px 40px var(--shadow-strong);
+}
+.mobile-nav-pill::before,
+.mobile-search::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+	opacity: 0.05;
+	mix-blend-mode: overlay;
+	pointer-events: none;
+}
+/* Without backdrop blur a see-through bar would let the list bleed through; stay solid. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
 	.mobile-nav-pill,
-	.mobile-search {
+	.mobile-search,
+	:root[data-theme='light'] .mobile-nav-pill,
+	:root[data-theme='light'] .mobile-search {
 		background: var(--elevated);
 	}
 }
 .mobile-nav-pill {
 	--tab-count: 3;
 	left: 0;
-	right: 66px;
+	right: calc(56px + 10px);
 	display: grid;
 	grid-template-columns: repeat(var(--tab-count), minmax(0, 1fr));
-	place-items: center;
-	padding: 0 6px;
+	gap: 4px;
+	padding: var(--nav-inset);
 	transform-origin: left center;
 	transition:
-		opacity 220ms var(--ease-out),
-		scale 320ms var(--ease-out),
-		translate 320ms var(--ease-out);
-}
-.mobile-nav-item {
-	display: grid;
-	place-items: center;
-	width: 44px;
-	height: 44px;
-	border-radius: 50%;
-	color: var(--secondary);
-}
-.mobile-nav-item svg {
-	width: 20px;
-	height: 20px;
+		opacity 240ms var(--ease-out),
+		scale 420ms var(--ease-spring),
+		translate 420ms var(--ease-spring);
 }
 .mobile-nav-item {
 	position: relative;
 	z-index: 1;
-	transition: color 200ms ease;
+	display: grid;
+	place-items: center;
+	width: 100%;
+	height: 100%;
+	border-radius: var(--nav-tab-radius);
+	color: var(--tertiary);
+	transition: color 280ms var(--ease-out);
+}
+.mobile-nav-item svg {
+	width: 20px;
+	height: 20px;
+	transition:
+		scale 420ms var(--ease-spring),
+		stroke-width 280ms var(--ease-out);
+}
+.mobile-nav-item:active svg {
+	scale: 0.88;
+	transition-duration: 120ms;
 }
 .mobile-nav-item.active {
 	color: var(--ink);
 }
-/* One lit disc glides between tabs rather than each tab switching its own background. */
+.mobile-nav-item.active svg {
+	stroke-width: 2;
+}
+/* One lit tab glides between destinations on a long, soft ease with no overshoot, instead of
+   each tab switching its own background. */
 .mobile-nav-indicator {
 	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: 6px;
-	width: calc((100% - 12px) / var(--tab-count));
-	translate: calc(100% * var(--tab-index, 0)) 0;
-	transition: translate 360ms cubic-bezier(0.34, 1.3, 0.5, 1);
+	top: var(--nav-inset);
+	bottom: var(--nav-inset);
+	left: var(--nav-inset);
+	width: calc((100% - var(--nav-inset) * 2 - 4px * (var(--tab-count) - 1)) / var(--tab-count));
+	border-radius: var(--nav-tab-radius);
+	background: color-mix(in srgb, var(--ink) 9%, transparent);
+	box-shadow:
+		inset 0 0 0 1px var(--hairline),
+		inset 0 1px 0 var(--highlight);
+	translate: calc((100% + 4px) * var(--tab-index, 0)) 0;
+	transition: translate 480ms var(--ease-spring);
 	pointer-events: none;
-}
-.mobile-nav-indicator::before {
-	content: '';
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	width: 44px;
-	height: 44px;
-	border-radius: 50%;
-	background: color-mix(in srgb, var(--ink) 10%, transparent);
-	translate: -50% -50%;
+	will-change: translate;
 }
 .mobile-search {
 	right: 0;
 	width: 56px;
-	transition: width 320ms var(--ease-out);
+	transition: width 420ms var(--ease-spring);
 }
 .mobile-search-field {
 	position: absolute;
@@ -4728,7 +4770,8 @@ a.editor-source:hover > svg {
 	left: 0;
 	right: 0;
 	max-height: 65dvh;
-	border-radius: var(--radius-panel);
+	/* Same inset from the shell as the bar, so the same curve. */
+	border-radius: var(--nav-radius);
 	box-shadow: 0 -8px 36px var(--shadow-strong);
 }
 .mobile-search .omnibar-section > .form-error {
@@ -4751,7 +4794,7 @@ a.editor-source:hover > svg {
 .mobile-search .omnibar-clear {
 	width: 40px;
 	height: 40px;
-	border-radius: 50%;
+	border-radius: var(--nav-tab-radius);
 }
 .mobile-search .capture-picker ~ .form-error {
 	display: none;
@@ -4803,13 +4846,18 @@ a.editor-source:hover > svg {
 	.workspace-search {
 		display: none;
 	}
+	:root {
+		/* The phone shell, and the curve every floating piece inside it is derived from. */
+		--shell-margin: 6px;
+		--shell-radius: 28px;
+	}
 	.library-shell,
 	.library-shell.sidebar-collapsed {
-		top: 6px;
-		height: calc(100dvh - 12px);
-		margin: 6px;
+		top: var(--shell-margin);
+		height: calc(100dvh - var(--shell-margin) * 2);
+		margin: var(--shell-margin);
 		padding: 0 12px;
-		border-radius: var(--radius-card);
+		border-radius: var(--shell-radius);
 	}
 	.library-main {
 		padding-top: 12px;
