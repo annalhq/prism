@@ -354,7 +354,7 @@
 								})}
 							onRemove={removePerson}
 						>
-							{#snippet glyph(item)}<PersonAvatar name={item.label} size={16} />{/snippet}
+							{#snippet glyph(item)}<PersonAvatar name={item.label} size={20} />{/snippet}
 						</TokenInput>
 					</div>
 				</div>

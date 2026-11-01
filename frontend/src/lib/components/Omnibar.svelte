@@ -28,7 +28,7 @@
 </script>
 
 <script lang="ts">
-	import { Plus, Search, X, ArrowRight, Hash, UserRound, CornerDownLeft } from '@lucide/svelte';
+	import { Plus, Search, X, ArrowRight, Hash, CornerDownLeft } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { scale } from 'svelte/transition';
@@ -38,6 +38,7 @@
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
 	import Favicon from './ui/Favicon.svelte';
+	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import {
 		describeToken,
 		isFilterToken,
@@ -713,7 +714,10 @@
 								class:done={completed.includes(key(choice))}
 								animate:flip={{ duration: 180, easing: cubicOut }}
 								transition:scale={{ duration: 150, start: 0.8, easing: cubicOut }}
-								>{#if choice.kind === 'person'}<UserRound />{:else}<Hash />{/if}{choice.name}<button
+								>{#if choice.kind === 'person'}<PersonAvatar
+										name={choice.name}
+										size={18}
+									/>{:else}<Hash />{/if}{choice.name}<button
 									type="button"
 									aria-label={`Remove ${choice.name}`}
 									disabled={completed.includes(key(choice))}
@@ -758,9 +762,10 @@
 									}}
 								>
 									{#if choice.kind === 'new-tag'}<Plus /><span>Create <b>#{choice.name}</b></span
-										>{:else}{#if choice.kind === 'person'}<UserRound />{:else}<Hash />{/if}<span
-											>{choice.name}</span
-										>{/if}
+										>{:else}{#if choice.kind === 'person'}<PersonAvatar
+												name={choice.name}
+												size={20}
+											/>{:else}<Hash />{/if}<span>{choice.name}</span>{/if}
 									{#if index === active}<CornerDownLeft class="capture-option-enter" />{/if}
 								</li>{/each}
 						</ul>{/if}

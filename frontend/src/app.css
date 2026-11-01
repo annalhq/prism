@@ -1921,7 +1921,7 @@ kbd {
 .capture-options li.active svg {
 	color: var(--ink);
 }
-.capture-options li > span {
+.capture-options li > span:not(.person-avatar) {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -3521,8 +3521,20 @@ a.editor-source:hover > svg {
 	font-weight: 500;
 	animation: pop-in 160ms var(--ease-out);
 }
-.token-chip:has(> .person-avatar) {
-	padding-left: 4px;
+.token-chip:has(> .person-avatar),
+.capture-token:has(> .person-avatar) {
+	padding-left: 3px;
+}
+/* Avatars in fields and their dropdowns keep a fixed circle: never stretched by the row,
+   never squeezed by a long name, and centred on the text beside them. */
+:is(.select-item, .token-chip, .capture-token, .capture-options li) > .person-avatar {
+	flex: none;
+	box-shadow: 0 0 0 1px var(--hairline);
+	font-size: calc(var(--avatar-size) * 0.4);
+	letter-spacing: 0;
+}
+.capture-token:has(> .person-avatar) {
+	gap: 6px;
 }
 .token-chip > span:not(.person-avatar) {
 	min-width: 0;
@@ -3566,7 +3578,7 @@ a.editor-source:hover > svg {
 	width: var(--bits-combobox-anchor-width, 300px);
 	min-width: min(260px, calc(100vw - 32px));
 }
-.token-suggestions .select-item > span {
+.token-suggestions .select-item > span:not(.person-avatar) {
 	flex: 1;
 	min-width: 0;
 }
@@ -4329,7 +4341,7 @@ a.editor-source:hover > svg {
 	width: 14px;
 	height: 14px;
 }
-.select-item > span {
+.select-item > span:not(.person-avatar) {
 	flex: 1;
 }
 
