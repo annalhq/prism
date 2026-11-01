@@ -257,7 +257,15 @@
 						e.currentTarget.blur();
 					}
 				}}
-				{@attach (node) => node.focus()}
+				{@attach (node) => {
+					// Focus once the menu that opened it has finished closing; select the URL so it
+					// can be replaced or edited straight away.
+					const frame = requestAnimationFrame(() => {
+						node.focus();
+						node.select();
+					});
+					return () => cancelAnimationFrame(frame);
+				}}
 			/>{:else if safeSource}<a
 				class="editor-source"
 				href={safeSource}
@@ -279,7 +287,15 @@
 					><DropdownMenu.Trigger class="icon-button" aria-label="More actions"
 						><EllipsisIcon /></DropdownMenu.Trigger
 					><DropdownMenu.Portal
-						><DropdownMenu.Content class="menu-content" align="end" sideOffset={6}
+						><DropdownMenu.Content
+							class="menu-content"
+							align="end"
+							sideOffset={6}
+							onCloseAutoFocus={(event) => {
+								// Closing would hand focus back to the trigger, blurring the link field that
+								// "Edit link" just opened, and blurring it ends editing.
+								if (editingSource) event.preventDefault();
+							}}
 							><DropdownMenu.Item class="menu-item" onSelect={() => (editingSource = true)}
 								><PencilIcon /><span>Edit link</span></DropdownMenu.Item
 							><DropdownMenu.Separator class="menu-separator" /><DropdownMenu.Item
