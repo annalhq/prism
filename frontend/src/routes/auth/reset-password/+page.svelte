@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
+	import { LockKeyhole as LockIcon } from '@lucide/svelte';
 	import AuthLayout from '#lib/components/AuthLayout.svelte';
 	let { data, form } = $props();
 	let pending = $state(false);
@@ -36,28 +37,34 @@
 			>
 				<input type="hidden" name="token" value={data.token} />
 				<div class="field">
-					<label for="password">New password</label><input
-						id="password"
-						name="password"
-						type="password"
-						autocomplete="new-password"
-						required
-						minlength="8"
-						maxlength="128"
-						placeholder="At least 8 characters"
-					/>
+					<label for="password">New password</label>
+					<div class="auth-input">
+						<LockIcon aria-hidden="true" /><input
+							id="password"
+							name="password"
+							type="password"
+							autocomplete="new-password"
+							required
+							minlength="8"
+							maxlength="128"
+							placeholder="At least 8 characters"
+						/>
+					</div>
 				</div>
 				<div class="field">
-					<label for="confirm">Confirm password</label><input
-						id="confirm"
-						name="confirm"
-						type="password"
-						autocomplete="new-password"
-						required
-						minlength="8"
-						maxlength="128"
-						placeholder="Enter it again"
-					/>
+					<label for="confirm">Confirm password</label>
+					<div class="auth-input">
+						<LockIcon aria-hidden="true" /><input
+							id="confirm"
+							name="confirm"
+							type="password"
+							autocomplete="new-password"
+							required
+							minlength="8"
+							maxlength="128"
+							placeholder="Enter it again"
+						/>
+					</div>
 				</div>
 				<div class="auth-actions">
 					<button class="primary-button auth-submit" disabled={pending}

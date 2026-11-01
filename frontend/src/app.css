@@ -4619,8 +4619,7 @@ a.editor-source:hover > svg {
 	padding: 6px 14px 6px 8px;
 	border-radius: var(--radius-pill);
 }
-.landing-theme,
-.auth-theme {
+.landing-theme {
 	width: 36px;
 	height: 36px;
 	border-radius: 50%;
@@ -4634,13 +4633,11 @@ a.editor-source:hover > svg {
 	height: 40px;
 	color: var(--ink);
 }
-.landing-theme:hover,
-.auth-theme:hover {
+.landing-theme:hover {
 	background: var(--hover);
 	color: var(--ink);
 }
-.landing-theme:active,
-.auth-theme:active {
+.landing-theme:active {
 	rotate: -20deg;
 }
 /* A soft fall of canvas colour from the bottom edge, so the copy reads without a box around
@@ -4812,53 +4809,152 @@ a.editor-source:hover > svg {
 	}
 }
 
-/* Auth: a centred column with nothing behind it. */
+/*
+ * Auth: the landing's ocean carries on, and the form is the app's own shell floating over it.
+ * Wide screens: a full-height panel inset at the right, a serif line resting bottom-left.
+ * Phones: a sheet at the foot, its corners on the phone shell's curve.
+ * Fields behave like the omnibar: a faint well at rest that lifts into the raised tab when
+ * focused, its icon brightening. Radii nest: field 14 − inset 5 → reveal key 9.
+ */
 .auth-page {
 	--auth-accent: #f57028;
-	display: flex;
-	flex-direction: column;
+	--auth-panel: min(480px, calc(100vw - var(--shell-margin) * 2));
+	position: relative;
+	isolation: isolate;
 	min-height: 100dvh;
-	background: var(--canvas);
+	overflow: hidden;
 }
 :root[data-theme='light'] .auth-page {
 	--auth-accent: #2563eb;
+}
+.auth-ocean {
+	position: fixed;
+	inset: 0;
+	z-index: -2;
+	display: block;
+	width: 100%;
+	height: 100%;
+	font-family: var(--font-mono);
+	animation: fade-in 900ms ease both;
+}
+/* Darkens toward the panel and the bottom edge, so the copy and the sheet read cleanly. */
+.auth-vignette {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	background:
+		linear-gradient(
+			to top,
+			var(--canvas) 0%,
+			color-mix(in srgb, var(--canvas) 70%, transparent) 26%,
+			transparent 55%
+		),
+		linear-gradient(to left, color-mix(in srgb, var(--canvas) 85%, transparent) 0%, transparent 55%);
+	pointer-events: none;
+	animation: fade-in 1200ms 200ms ease both;
+}
+.auth-chrome {
+	position: relative;
+	z-index: 2;
+	width: calc(100% - var(--auth-panel) - var(--shell-margin));
 }
 .auth-back {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	color: var(--tertiary);
+	padding: 8px 14px 8px 10px;
+	border-radius: var(--radius-pill);
+	color: var(--secondary);
 	font-size: var(--text-md);
-	transition: color 150ms ease;
+	transition:
+		color 150ms ease,
+		background-color 150ms ease;
 }
 .auth-back svg {
-	transition: translate 200ms var(--ease-out);
+	width: 15px;
+	height: 15px;
+	transition: translate 280ms var(--ease-spring);
 }
 .auth-back:hover {
 	color: var(--ink);
-	text-decoration: none !important;
 }
 .auth-back:hover svg {
 	translate: -3px 0;
 }
+.auth-aside {
+	position: fixed;
+	bottom: clamp(32px, 8vh, 72px);
+	left: clamp(20px, 5vw, 64px);
+	max-width: calc(100vw - var(--auth-panel) - clamp(20px, 5vw, 64px) - 48px);
+	pointer-events: none;
+}
+.auth-aside {
+	animation: fade-in 600ms 200ms ease both;
+}
+.auth-aside-title {
+	margin-top: 20px;
+	font-family: var(--font-display);
+	font-size: clamp(32px, 4.4vw, 56px);
+	letter-spacing: -0.025em;
+	line-height: 1.04;
+	text-wrap: balance;
+}
+/* The panel: the app shell's surface and curve, inset from the window like the shell. */
 .auth-sheet {
+	position: fixed;
+	z-index: 3;
+	top: var(--shell-margin);
+	right: var(--shell-margin);
+	bottom: var(--shell-margin);
+	display: flex;
+	flex-direction: column;
+	width: var(--auth-panel);
+	padding: 18px 18px 28px 28px;
+	overflow-y: auto;
+	border-radius: var(--shell-radius);
+	background: var(--surface);
+	box-shadow:
+		var(--edge),
+		0 30px 90px var(--shadow-strong);
+	outline: none;
+	animation: auth-panel-in 360ms var(--ease-out) both;
+}
+.auth-sheet-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.auth-sheet-head .brand img {
+	width: 26px;
+	height: 26px;
+}
+.auth-theme {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	transition:
+		background-color 150ms ease,
+		color 150ms ease,
+		box-shadow 150ms ease,
+		rotate 420ms var(--ease-spring);
+}
+.auth-theme:hover {
+	background: var(--lift);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.auth-theme:active {
+	rotate: -20deg;
+}
+.auth-sheet-body {
 	display: flex;
 	flex: 1;
 	flex-direction: column;
 	justify-content: center;
 	width: 100%;
-	max-width: 360px;
+	max-width: 340px;
 	margin: 0 auto;
-	padding: 32px 24px 12vh;
-	outline: none;
-}
-.auth-brand-mark {
-	margin-bottom: 28px;
-	animation: rise-in 600ms var(--ease-out) both;
-}
-.auth-brand-mark .brand img {
-	width: 28px;
-	height: 28px;
+	padding: 32px 10px 0 0;
 }
 .auth-step {
 	display: flex;
@@ -4866,35 +4962,21 @@ a.editor-source:hover > svg {
 	align-items: flex-start;
 	width: 100%;
 }
-/* Each step's parts arrive in a short cascade; switching steps replays it. */
-.auth-step > *,
-.auth-form > * {
-	animation: rise-in 480ms var(--ease-out) both;
-}
-.auth-step > :nth-child(2) {
-	animation-delay: 50ms;
-}
-.auth-step > :nth-child(n + 3) {
-	animation-delay: 100ms;
-}
-.auth-form > :nth-child(1) {
-	animation-delay: 120ms;
-}
-.auth-form > :nth-child(2) {
-	animation-delay: 170ms;
-}
-.auth-form > :nth-child(n + 3) {
-	animation-delay: 220ms;
+/* A step arrives as one piece with a quick, small fade; switching steps replays just that. */
+.auth-step {
+	animation: auth-step-in 240ms var(--ease-out) both;
 }
 .auth-step h1 {
-	font-size: var(--text-xl);
-	font-weight: 600;
-	letter-spacing: var(--tracking-tight);
+	font-family: var(--font-display);
+	font-size: 34px;
+	font-weight: 400;
+	letter-spacing: -0.02em;
+	line-height: 1.1;
 }
 .auth-intro {
-	margin-top: 4px;
+	margin-top: 8px;
 	color: var(--tertiary);
-	font-size: var(--text-md);
+	font-size: var(--text-base);
 	line-height: var(--leading);
 	overflow-wrap: anywhere;
 }
@@ -4905,53 +4987,111 @@ a.editor-source:hover > svg {
 .auth-form {
 	display: flex;
 	flex-direction: column;
-	gap: 14px;
 	width: 100%;
-	margin-top: 28px;
+	margin-top: 30px;
 	text-align: left;
 }
+/* Spacing lives on the fields, not a gap, so a field folding away takes its space with it. */
+.auth-form > * + * {
+	margin-top: 16px;
+}
+.auth-form > .auth-actions {
+	margin-top: 26px;
+}
+.auth-form .field {
+	gap: 8px;
+}
 .auth-form .field label {
+	padding-left: 4px;
 	color: var(--secondary);
 	font-size: var(--text-sm);
-	font-weight: 400;
+	font-weight: 450;
 }
-.auth-form input:not([type='checkbox']) {
-	min-height: 42px;
+.auth-input {
+	--auth-input-inset: 5px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 50px;
+	padding: 0 var(--auth-input-inset) 0 15px;
+	border-radius: var(--radius-card);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	cursor: text;
 	transition:
-		border-color 150ms ease,
-		box-shadow 200ms ease,
-		background-color 150ms ease;
+		background-color 280ms var(--ease-out),
+		box-shadow 420ms var(--ease-spring);
 }
-.auth-form input:not([type='checkbox']):focus {
-	border-color: var(--auth-accent);
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--auth-accent) 18%, transparent);
+@media (hover: hover) {
+	.auth-input:hover:not(:focus-within) {
+		box-shadow: inset 0 0 0 1px var(--line);
+	}
 }
-.password-input {
-	position: relative;
+.auth-input:focus-within {
+	background: var(--elevated);
+	box-shadow:
+		var(--raised),
+		0 0 0 4px color-mix(in srgb, var(--auth-accent) 14%, transparent),
+		0 10px 28px var(--shadow-soft);
 }
-.password-input input:not([type='checkbox']) {
-	padding-right: 44px;
+.auth-input > svg:first-child {
+	width: 16px;
+	height: 16px;
+	color: var(--tertiary);
+	transition: color 200ms ease;
 }
-.password-input .icon-button {
-	position: absolute;
-	top: 50%;
-	right: 5px;
-	transform: translateY(-50%);
-	transition: color 150ms ease;
-}
-.password-input .icon-button:hover {
+.auth-input:focus-within > svg:first-child {
 	color: var(--ink);
+}
+.auth-form .auth-input input:not([type='checkbox']),
+.auth-form .auth-input input:not([type='checkbox']):focus {
+	flex: 1;
+	min-height: 48px;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+	font-size: var(--text-base);
+}
+.auth-input input:focus-visible {
+	outline: none;
+}
+/* Browser autofill paints its own fill; keep it the field's colour. */
+.auth-input input:-webkit-autofill {
+	-webkit-box-shadow: 0 0 0 100px var(--elevated) inset;
+	-webkit-text-fill-color: var(--ink);
+	caret-color: var(--ink);
+}
+.auth-reveal {
+	width: 38px;
+	height: 38px;
+	border-radius: calc(var(--radius-card) - var(--auth-input-inset));
+	color: var(--tertiary);
+	transition:
+		color 150ms ease,
+		background-color 150ms ease,
+		box-shadow 150ms ease;
+}
+.auth-reveal:hover {
+	background: var(--lift);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.auth-reveal svg {
+	width: 16px;
+	height: 16px;
 }
 .auth-actions {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 8px;
+	gap: 10px;
 	width: 100%;
-	margin-top: 8px;
+	margin-top: 10px;
 }
 .auth-step > .auth-actions {
-	margin-top: 28px;
+	margin-top: 30px;
 }
 .auth-actions > form {
 	display: contents;
@@ -4962,20 +5102,36 @@ a.editor-source:hover > svg {
 	justify-content: center;
 	gap: 8px;
 	width: 100%;
-	min-height: 42px;
-	border-radius: var(--radius-control);
-	font-size: var(--text-md);
+	min-height: 50px;
+	border-radius: var(--radius-card);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+		0 10px 28px var(--shadow-soft);
+	font-size: var(--text-base);
 	font-weight: 500;
 	transition:
 		background-color 150ms ease,
-		scale 120ms var(--ease-out),
+		box-shadow 200ms ease,
+		scale 260ms var(--ease-spring),
 		opacity 150ms ease;
+}
+.auth-submit svg {
+	width: 16px;
+	height: 16px;
+	transition: translate 320ms var(--ease-spring);
 }
 .auth-submit:hover:not(:disabled) {
 	background: var(--accent-hover);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+		0 14px 36px var(--shadow-strong);
+}
+.auth-submit:hover:not(:disabled) svg {
+	translate: 3px 0;
 }
 .auth-submit:active:not(:disabled) {
 	scale: 0.98;
+	transition-duration: 100ms;
 }
 .auth-submit.pending {
 	opacity: 0.75;
@@ -4989,13 +5145,19 @@ a.editor-source:hover > svg {
 	animation: rotate 700ms linear infinite;
 }
 .auth-link {
+	padding: 6px 12px;
+	border-radius: var(--radius-pill);
 	color: var(--tertiary);
 	font-size: var(--text-md);
 	font-weight: 400;
-	transition: color 150ms ease;
+	transition:
+		color 150ms ease,
+		background-color 150ms ease;
 }
 .auth-link:hover {
+	background: var(--highlight);
 	color: var(--ink);
+	text-decoration: none;
 }
 .auth-step > .notice,
 .auth-step > .auth-success,
@@ -5004,14 +5166,61 @@ a.editor-source:hover > svg {
 	width: 100%;
 	text-align: left;
 }
+.auth-step > .notice,
+.auth-step > .auth-success {
+	border: 0;
+	border-radius: var(--radius-card);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
 .auth-step > .auth-error {
+	padding-left: 4px;
 	animation:
-		rise-in 300ms var(--ease-out) both,
-		nudge 360ms 80ms var(--ease-out);
+		fade-in 200ms ease both,
+		nudge 360ms 60ms var(--ease-out);
 }
 .offline-access {
+	align-self: center;
 	margin-top: 16px;
 	font-size: var(--text-sm);
+}
+/* Between phone and wide: the panel alone, no line of copy squeezed beside it. */
+@media (max-width: 1023px) {
+	.auth-aside {
+		display: none;
+	}
+}
+@media (max-width: 767px) {
+	.auth-page {
+		--auth-panel: auto;
+	}
+	.auth-chrome {
+		width: 100%;
+	}
+	.auth-vignette {
+		background: linear-gradient(
+			to top,
+			var(--canvas) 0%,
+			color-mix(in srgb, var(--canvas) 60%, transparent) 50%,
+			transparent 80%
+		);
+	}
+	.auth-sheet {
+		top: auto;
+		left: var(--shell-margin);
+		bottom: max(var(--shell-margin), env(safe-area-inset-bottom));
+		max-height: calc(100dvh - 84px);
+		padding: 16px 16px 24px 22px;
+		animation: auth-panel-in 360ms var(--ease-out) both;
+	}
+	.auth-sheet-body {
+		flex: none;
+		max-width: none;
+		padding: 20px 6px 0 0;
+	}
+	.auth-step h1 {
+		font-size: 30px;
+	}
 }
 
 /* 12. Mobile navbar: a frosted bar of destinations, and a search key that becomes the field.
@@ -5770,6 +5979,18 @@ a.editor-source:hover > svg {
 @keyframes fade-in {
 	from {
 		opacity: 0;
+	}
+}
+@keyframes auth-step-in {
+	from {
+		opacity: 0;
+		translate: 0 3px;
+	}
+}
+@keyframes auth-panel-in {
+	from {
+		opacity: 0;
+		scale: 0.99;
 	}
 }
 @keyframes collapsible-down {

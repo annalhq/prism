@@ -2,9 +2,13 @@
 	import {
 		ArrowRight as ArrowRightIcon,
 		Eye as EyeIcon,
-		EyeOff as EyeOffIcon
+		EyeOff as EyeOffIcon,
+		Mail as MailIcon,
+		LockKeyhole as LockIcon
 	} from '@lucide/svelte';
 	import { online } from 'svelte/reactivity/window';
+	import { fade, slide, type TransitionConfig } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
 	import { enhance, applyAction, type SubmitFunction } from '$app/forms';
 	import { resolve } from '$app/paths';
@@ -55,24 +59,32 @@
 		};
 	};
 	const resetAction = `${resolve('/auth/sign-in')}?/requestReset`;
+	// Sign-in and reset share one form: the password field folds away (height and opacity
+	// together) instead of the whole step being swapped, so the form never jumps.
+	function fold(node: Element): TransitionConfig {
+		const base = slide(node, { duration: 300, easing: cubicOut });
+		return { ...base, css: (t, u) => `${base.css?.(t, u) ?? ''};opacity:${t}` };
+	}
+	const textIn = { duration: 220, delay: 60 };
 </script>
 
 <AuthLayout>
-	{#key mode}<div class="auth-step">
-			<h1 id="auth-heading">
-				{data.signedIn
-					? 'Your account'
-					: mode === 'sent'
-						? 'Check your email'
-						: mode === 'reset'
-							? 'Reset your password'
-							: 'Welcome back'}
-			</h1>
-			<p class="auth-intro">
-				{#if data.signedIn}You’re signed in on this device.{:else if mode === 'sent'}We’ve sent a
-					link to your email:<br /><strong>{email}</strong>{:else if mode === 'reset'}We’ll email
-					you a link to set a new password.{:else}Sign in to your private library.{/if}
-			</p>
+	{#key mode === 'sent'}<div class="auth-step">
+			<!-- Only the words change between sign-in and reset; they fade in place. -->
+			{#key mode}<h1 id="auth-heading" in:fade={textIn}>
+					{data.signedIn
+						? 'Your account'
+						: mode === 'sent'
+							? 'Check your email'
+							: mode === 'reset'
+								? 'Reset your password'
+								: 'Welcome back'}
+				</h1>
+				<p class="auth-intro" in:fade={textIn}>
+					{#if data.signedIn}You’re signed in on this device.{:else if mode === 'sent'}We’ve sent a
+						link to your email:<br /><strong>{email}</strong>{:else if mode === 'reset'}We’ll email
+						you a link to set a new password.{:else}Sign in to your private library.{/if}
+				</p>{/key}
 
 			{#if !data.configured}<p class="notice">
 					Sign-in is not configured yet. Connect the owner account to open this library.
@@ -112,22 +124,25 @@
 					aria-busy={!!pending}
 				>
 					<div class="field">
-						<label for="email">Email</label><input
-							id="email"
-							name="email"
-							type="email"
-							bind:value={email}
-							autocomplete={mode === 'reset' ? 'email' : 'username'}
-							placeholder="you@example.com"
-							required
-							maxlength="320"
-						/>
+						<label for="email">Email</label>
+						<div class="auth-input">
+							<MailIcon aria-hidden="true" /><input
+								id="email"
+								name="email"
+								type="email"
+								bind:value={email}
+								autocomplete={mode === 'reset' ? 'email' : 'username'}
+								placeholder="you@example.com"
+								required
+								maxlength="320"
+							/>
+						</div>
 					</div>
 					{#if mode === 'signin'}
-						<div class="field">
+						<div class="field" transition:fold>
 							<label for="password">Password</label>
-							<div class="password-input">
-								<input
+							<div class="auth-input">
+								<LockIcon aria-hidden="true" /><input
 									id="password"
 									name="password"
 									type={showPassword ? 'text' : 'password'}
@@ -137,7 +152,7 @@
 									maxlength="128"
 								/><button
 									type="button"
-									class="icon-button"
+									class="icon-button auth-reveal"
 									aria-label={showPassword ? 'Hide password' : 'Show password'}
 									aria-pressed={showPassword}
 									onclick={() => (showPassword = !showPassword)}
@@ -156,7 +171,7 @@
 									? 'Sending link…'
 									: 'Send link'}{:else}{pending === 'signin'
 									? 'Signing in…'
-									: 'Sign in'}{/if}</button
+									: 'Sign in'}{/if}{#if !pending}<ArrowRightIcon />{/if}</button
 						>
 						<button
 							type="button"
