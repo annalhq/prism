@@ -5,6 +5,7 @@
 		X as XIcon,
 		Check,
 		Keyboard,
+		Link2,
 		Trash2,
 		UserPlus
 	} from '@lucide/svelte';
@@ -813,6 +814,7 @@
 					onEdit={editPerson}
 				/>
 				{#if status?.ready}<section class="person-connect">
+						<Link2 class="person-connect-icon" aria-hidden="true" />
 						<TokenInput
 							label="Connect saved links"
 							placeholder="Connect a saved link…"

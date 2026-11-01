@@ -1,3 +1,14 @@
+<script lang="ts" module>
+	// A stable hue from the name, so a person keeps the same colour everywhere with nothing
+	// stored. Shared so a profile can tint its cover to match the avatar.
+	export function avatarHue(name: string): number {
+		let hash = 0;
+		for (const char of name.trim().toLocaleLowerCase())
+			hash = (Math.imul(hash, 31) + char.codePointAt(0)!) | 0;
+		return Math.abs(hash) % 360;
+	}
+</script>
+
 <script lang="ts">
 	let { name, size = 32 }: { name: string; size?: number } = $props();
 	// Two letters at most: first and last word, so "Ada King Lovelace" reads "AL".
@@ -11,14 +22,8 @@
 				.toLocaleUpperCase() || '?'
 		);
 	});
-	// A stable hue from the name, so a person keeps the same colour everywhere with nothing
-	// stored. The theme turns it into a pastel: pale tint on paper, muted tint at night.
-	const hue = $derived.by(() => {
-		let hash = 0;
-		for (const char of name.trim().toLocaleLowerCase())
-			hash = (Math.imul(hash, 31) + char.codePointAt(0)!) | 0;
-		return Math.abs(hash) % 360;
-	});
+	// The theme turns the hue into a pastel: pale tint on paper, muted tint at night.
+	const hue = $derived(avatarHue(name));
 </script>
 
 <span

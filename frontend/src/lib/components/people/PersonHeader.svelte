@@ -3,7 +3,7 @@
 	/* eslint-disable svelte/no-navigation-without-resolve -- Profile links are validated external HTTP URLs. */
 	import { asset } from '$app/paths';
 	import { linkLabel } from '#lib/domain/person-links.js';
-	import PersonAvatar from '../ui/PersonAvatar.svelte';
+	import PersonAvatar, { avatarHue } from '../ui/PersonAvatar.svelte';
 	type Row = Record<string, unknown>;
 	let {
 		person,
@@ -24,43 +24,47 @@
 	const name = $derived(String(person.displayName));
 </script>
 
-<header class="person-head">
-	<button class="person-back" onclick={onBack}><ArrowLeft />People</button>
-	<div class="person-head-main">
-		<PersonAvatar {name} size={64} />
-		<div class="person-head-copy">
-			<h2>{name}</h2>
-			{#if website || links.length}<p class="person-links">
-					{#each links as link (String(link.id))}<a
-							href={String(link.profileUrl)}
-							target="_blank"
-							rel="noopener noreferrer"
-							>{#if link.platform === 'x'}<img
-									src={asset('site-icons/twitter.svg')}
-									alt=""
-									width="12"
-									height="12"
-								/>{:else}<Link2 />{/if}{linkLabel({
-								platform: String(link.platform),
-								profileUrl: String(link.profileUrl),
-								handle: link.handle ? String(link.handle) : null
-							})}</a
-						>{/each}{#if website}<a href={website} target="_blank" rel="noopener noreferrer"
-							><Globe />{linkLabel({ platform: 'web', profileUrl: website })}</a
-						>{/if}
-				</p>{/if}
-		</div>
+<!-- A cover tinted with the person's own colour, the avatar resting on its edge, then who they
+     are: the name, their count and links as pills, and the bio. -->
+<header class="person-head" style:--person-hue={avatarHue(name)}>
+	<div class="person-cover">
+		<button class="landing-glass person-back" onclick={onBack}><ArrowLeft />People</button>
 		{#if onEdit}<button
-				class="icon-button person-edit"
+				class="landing-glass person-edit"
 				aria-label="Edit profile"
 				title="Edit profile"
 				onclick={onEdit}
 				data-cuelume-open><Pencil /></button
 			>{/if}
 	</div>
-	{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}
-	<p class="person-stats">
-		<strong>{count}</strong>
-		{count === 1 ? 'link' : 'links'}
-	</p>
+	<div class="person-identity">
+		<PersonAvatar {name} size={76} />
+		<h2>{name}</h2>
+		<div class="person-meta">
+			<span class="person-stats"><strong>{count}</strong> {count === 1 ? 'link' : 'links'}</span
+			>{#each links as link (String(link.id))}<a
+					class="person-link"
+					href={String(link.profileUrl)}
+					target="_blank"
+					rel="noopener noreferrer"
+					>{#if link.platform === 'x'}<img
+							src={asset('site-icons/twitter.svg')}
+							alt=""
+							width="12"
+							height="12"
+						/>{:else}<Link2 />{/if}{linkLabel({
+						platform: String(link.platform),
+						profileUrl: String(link.profileUrl),
+						handle: link.handle ? String(link.handle) : null
+					})}</a
+				>{/each}{#if website}<a
+					class="person-link"
+					href={website}
+					target="_blank"
+					rel="noopener noreferrer"
+					><Globe />{linkLabel({ platform: 'web', profileUrl: website })}</a
+				>{/if}
+		</div>
+		{#if person.bio}<p class="person-bio">{person.bio}</p>{/if}
+	</div>
 </header>

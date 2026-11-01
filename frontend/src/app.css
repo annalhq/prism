@@ -2636,110 +2636,240 @@ kbd {
 	text-align: center;
 }
 
-/* Profile: who they are, compactly, then their links. */
+/*
+ * Profile: a cover tinted with the person's own avatar colour (a faint dot grid over it echoes
+ * the ASCII ocean), the avatar resting on its lower edge, then the name in the serif, their
+ * count and links as pills, and the bio. It shares the feed's centred column below.
+ */
 .person-head {
+	--person-hue: 220;
+	width: 100%;
+	max-width: 640px;
+	margin: 0 auto;
+	padding: 6px 16px 18px;
+	animation: fade-in 280ms ease both;
+}
+.person-cover {
+	position: relative;
 	display: flex;
-	flex-direction: column;
-	gap: 12px;
-	padding: 4px 12px 18px;
-	animation: panel-in 220ms var(--ease-out);
+	align-items: flex-start;
+	justify-content: space-between;
+	height: 132px;
+	padding: 12px;
+	overflow: hidden;
+	border-radius: var(--radius-panel);
+	background:
+		radial-gradient(120% 150% at 12% 0%, hsl(var(--person-hue) 42% 32% / 60%), transparent 62%),
+		radial-gradient(
+			90% 130% at 100% 100%,
+			hsl(calc(var(--person-hue) + 40) 38% 26% / 45%),
+			transparent 60%
+		),
+		var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+:root[data-theme='light'] .person-cover {
+	background:
+		radial-gradient(120% 150% at 12% 0%, hsl(var(--person-hue) 70% 82% / 80%), transparent 62%),
+		radial-gradient(
+			90% 130% at 100% 100%,
+			hsl(calc(var(--person-hue) + 40) 60% 85% / 70%),
+			transparent 60%
+		),
+		var(--highlight);
+}
+.person-cover::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background-image: radial-gradient(
+		color-mix(in srgb, var(--ink) 14%, transparent) 1px,
+		transparent 1.2px
+	);
+	background-size: 14px 14px;
+	-webkit-mask-image: linear-gradient(to bottom, black, transparent 85%);
+	mask-image: linear-gradient(to bottom, black, transparent 85%);
+	pointer-events: none;
+}
+.person-back,
+.person-edit {
+	position: relative;
+	z-index: 1;
+	transition:
+		color 150ms ease,
+		scale 260ms var(--ease-spring);
 }
 .person-back {
 	display: inline-flex;
 	align-items: center;
-	align-self: flex-start;
-	gap: 4px;
-	margin-left: -4px;
-	padding: 4px;
-	border-radius: var(--radius-sm);
-	color: var(--tertiary);
+	gap: 5px;
+	height: 32px;
+	padding: 0 12px 0 9px;
+	border-radius: var(--radius-pill);
+	color: var(--secondary);
 	font-size: var(--text-sm);
-	transition: color 150ms ease;
 }
 .person-back svg {
 	width: 14px;
 	height: 14px;
-	transition: translate 200ms var(--ease-out);
+	transition: translate 280ms var(--ease-spring);
 }
-.person-back:hover {
+.person-back:hover,
+.person-edit:hover {
 	color: var(--ink);
 }
 .person-back:hover svg {
 	translate: -2px 0;
 }
-.person-head-main {
-	display: flex;
-	align-items: center;
-	gap: 16px;
+.person-edit {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	color: var(--secondary);
 }
-.person-head-copy {
+.person-edit svg {
+	width: 14px;
+	height: 14px;
+}
+.person-back:active,
+.person-edit:active {
+	scale: 0.94;
+	transition-duration: 100ms;
+}
+.person-identity {
 	display: flex;
-	flex: 1;
 	flex-direction: column;
-	gap: 6px;
-	min-width: 0;
+	align-items: flex-start;
+	padding: 0 6px;
+}
+/* The avatar sits half over the cover, ringed in the shell's colour so it reads as cut out. */
+.person-identity > .person-avatar {
+	position: relative;
+	margin: -38px 0 0 14px;
+	box-shadow:
+		0 0 0 4px var(--surface),
+		0 6px 18px var(--shadow-soft);
+	font-size: 26px;
+	animation: pop-in 420ms 80ms var(--ease-spring) both;
 }
 .person-head h2 {
-	font-size: var(--text-xl);
-	font-weight: 600;
-	letter-spacing: var(--tracking-tight);
-	line-height: var(--leading-tight);
+	margin-top: 14px;
+	font-family: var(--font-display);
+	font-size: 32px;
+	font-weight: 400;
+	letter-spacing: -0.02em;
+	line-height: 1.1;
 	overflow-wrap: anywhere;
 }
-.person-links {
+.person-meta {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px 12px;
+	align-items: center;
+	gap: 6px;
+	margin-top: 12px;
 }
-.person-links a {
+.person-stats,
+.person-link {
 	display: inline-flex;
 	align-items: center;
-	gap: 5px;
-	color: var(--secondary);
+	gap: 6px;
+	height: 28px;
+	padding: 0 11px;
+	border-radius: var(--radius-pill);
 	font-size: var(--text-sm);
-	transition: color 150ms ease;
 }
-.person-links a:hover {
+.person-stats {
+	padding-left: 0;
+	margin-right: 6px;
+	color: var(--tertiary);
+}
+.person-stats strong {
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+}
+.person-link {
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	color: var(--secondary);
+	transition:
+		background-color 150ms ease,
+		box-shadow 150ms ease,
+		color 150ms ease;
+}
+.person-link:hover {
+	background: var(--lift);
+	box-shadow: var(--raised);
 	color: var(--ink);
 }
-.person-links :is(svg, img) {
+.person-link :is(svg, img) {
 	width: 12px;
 	height: 12px;
 	flex-shrink: 0;
 }
-.person-edit {
-	align-self: flex-start;
-}
-.person-edit svg {
-	width: 15px;
-	height: 15px;
-}
-.person-edit:hover {
-	background: var(--hover);
-	color: var(--ink);
-}
 .person-bio {
-	max-width: 62ch;
+	max-width: 60ch;
+	margin-top: 14px;
 	color: var(--muted-ink);
-	font-size: var(--text-md);
+	font-size: var(--text-base);
 	line-height: var(--leading-relaxed);
 	white-space: pre-line;
 	overflow-wrap: anywhere;
 }
-.person-stats {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	color: var(--tertiary);
-	font-size: var(--text-sm);
-}
-.person-stats strong {
-	color: var(--ink);
-	font-weight: 600;
-	font-variant-numeric: tabular-nums;
-}
+/* Connect a saved link: the omnibar's well. Faint at rest, lifting into the raised tab when
+   focused, its icon brightening. Radius 14, like the bar. */
 .person-connect {
-	margin: 0 12px 8px;
+	position: relative;
+	width: 100%;
+	max-width: 640px;
+	margin: 0 auto 6px;
+	padding: 0 16px;
+}
+.person-connect-icon {
+	position: absolute;
+	z-index: 1;
+	top: 16px;
+	left: 32px;
+	width: 16px;
+	height: 16px;
+	color: var(--tertiary);
+	pointer-events: none;
+	transition: color 200ms ease;
+}
+.person-connect:focus-within .person-connect-icon {
+	color: var(--ink);
+}
+.person-connect .token-field {
+	min-height: 48px;
+	padding: 6px 10px 6px 44px;
+	border: 0;
+	border-radius: var(--radius-card);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	transition:
+		background-color 280ms var(--ease-out),
+		box-shadow 420ms var(--ease-spring);
+}
+@media (hover: hover) {
+	.person-connect .token-field:hover:not(:focus-within) {
+		box-shadow: inset 0 0 0 1px var(--line);
+	}
+}
+.person-connect .token-field:focus-within {
+	background: var(--elevated);
+	box-shadow:
+		var(--raised),
+		0 0 0 4px color-mix(in srgb, var(--ink) 4%, transparent),
+		0 12px 30px var(--shadow-soft);
+}
+.person-connect .token-field .token-search:not([type='checkbox']) {
+	font-size: 15px;
+}
+.person-connect .token-field .token-search::placeholder {
+	color: var(--tertiary);
 }
 
 .post-feed {
@@ -5772,7 +5902,23 @@ a.editor-source:hover > svg {
 	}
 
 	.person-head {
-		padding-inline: 8px;
+		padding-inline: 6px;
+	}
+	.person-cover {
+		height: 104px;
+		border-radius: var(--radius-card);
+	}
+	.person-identity > .person-avatar {
+		margin-top: -32px;
+	}
+	.person-head h2 {
+		font-size: 28px;
+	}
+	.person-connect {
+		padding-inline: 6px;
+	}
+	.person-connect-icon {
+		left: 22px;
 	}
 	.people-bar {
 		padding-left: 8px;
