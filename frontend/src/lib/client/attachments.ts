@@ -13,6 +13,11 @@ export function autosize(value: unknown): Attachment<HTMLTextAreaElement> {
 		};
 		fit();
 		node.addEventListener('input', fit);
-		return () => node.removeEventListener('input', fit);
+		// A webfont arriving after the first fit changes how the text wraps.
+		document.fonts?.addEventListener('loadingdone', fit);
+		return () => {
+			node.removeEventListener('input', fit);
+			document.fonts?.removeEventListener('loadingdone', fit);
+		};
 	};
 }
