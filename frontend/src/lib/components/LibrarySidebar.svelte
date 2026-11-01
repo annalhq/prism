@@ -147,7 +147,9 @@
 			const place = () => {
 				cancelAnimationFrame(frame);
 				frame = requestAnimationFrame(() => {
-					const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+					// Only rows carry the highlight. The Tags heading marks its page by colour alone,
+					// so on the tags page the highlight fades out instead of covering the heading.
+					const active = nav.querySelector<HTMLElement>('.sidebar-link[aria-current="page"]');
 					const box = active?.getBoundingClientRect();
 					if (!active || !box?.height) {
 						nav.dataset.indicator = 'off';

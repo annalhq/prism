@@ -1158,6 +1158,13 @@ kbd {
 .sidebar-heading-link.active {
 	color: var(--ink);
 }
+/* The tags page is marked on its heading, with a quiet underline instead of the row highlight. */
+.sidebar-heading-link.active {
+	text-decoration: underline;
+	text-decoration-color: var(--tertiary);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 4px;
+}
 .sidebar-section-heading .icon-button {
 	width: 26px;
 	height: 26px;
