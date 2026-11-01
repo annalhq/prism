@@ -152,34 +152,42 @@ html{background:var(--canvas)}
 body{width:360px;min-height:120px;margin:0;padding:10px;background:var(--canvas);color:var(--ink);font:13px/1.45 var(--font);-webkit-font-smoothing:antialiased}
 button,input,textarea{font:inherit;color:inherit}
 
-.shell{padding:14px 10px 8px;animation:popup-rise 200ms var(--ease) both}
-.mark{display:grid;place-items:center;width:34px;height:34px;margin-bottom:14px;border:1px solid var(--line);border-radius:var(--r-control);background:var(--surface);color:var(--ink)}
-h1{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.015em}
-.lede{margin:4px 0 16px;color:var(--ink-2);font-size:12px}
-.label{display:block;margin:0 0 6px;color:var(--ink-2);font-size:12px;font-weight:500}
-textarea{display:block;width:100%;resize:none;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-control);background:var(--field);font:12px/1.5 var(--mono);outline:none;transition:border-color 140ms var(--ease),box-shadow 140ms var(--ease)}
+/* Pairing and notices: the web app's sheet in small. A raised mark, a serif title, the code in a
+   well that lifts when focused, and one pill to connect. */
+.shell{padding:16px 14px 12px;border-radius:var(--r-panel);background:var(--surface);box-shadow:var(--raised);animation:popup-rise 380ms var(--spring) both}
+.mark{display:grid;place-items:center;width:36px;height:36px;margin-bottom:16px;border-radius:var(--r-control);background:var(--lift);box-shadow:var(--raised);color:var(--ink);animation:popup-pop 420ms 60ms var(--spring) both}
+h1{margin:0;font-family:var(--display);font-size:22px;font-weight:400;letter-spacing:-0.015em;line-height:1.15}
+.lede{margin:6px 0 18px;color:var(--ink-2);font-size:12px;line-height:1.5}
+.label{display:block;margin:0 0 6px 4px;color:var(--ink-2);font-size:12px;font-weight:500}
+textarea{display:block;width:100%;resize:none;padding:10px 12px;border:0;border-radius:12px;background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);font:12px/1.5 var(--mono);outline:none;transition:background-color 260ms var(--ease),box-shadow 380ms var(--spring)}
 textarea::placeholder{color:var(--ink-3)}
-textarea:focus{border-color:color-mix(in srgb,var(--line),var(--ink) 25%);box-shadow:0 0 0 3px var(--hairline)}
-.shell .origin{min-height:16px;margin:6px 0 10px;color:var(--ink-3);font-size:11px;overflow-wrap:anywhere}
-.shell .message{min-height:16px;margin:8px 0 0;color:var(--ink-2);font-size:12px}
+textarea:hover:not(:focus){box-shadow:inset 0 0 0 1px var(--line)}
+textarea:focus{background:var(--lift);box-shadow:var(--raised),0 0 0 4px var(--hairline)}
+.shell .origin{min-height:16px;margin:6px 4px 12px;color:var(--ink-3);font-size:11px;overflow-wrap:anywhere}
+.shell .message{min-height:16px;margin:10px 4px 0;color:var(--ink-2);font-size:12px}
+.shell .message:not(:empty){animation:popup-fade 200ms var(--ease) both}
 .shell .error{color:var(--danger)!important}
 
-.shell .primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;border:0;border-radius:var(--r-control);background:var(--accent);color:var(--accent-ink);font-size:13px;font-weight:600;cursor:pointer;transition:transform 140ms var(--ease),opacity 140ms var(--ease)}
+.shell .primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 16px;border:0;border-radius:var(--r-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--accent-ink);font-size:13px;font-weight:600;cursor:pointer;transition:transform 260ms var(--spring),opacity 160ms var(--ease)}
 .shell .primary.block{width:100%}
-.shell .primary:active:not(:disabled){transform:scale(.97)}
+.shell .primary:active:not(:disabled){transform:scale(.97);transition-duration:100ms}
 .shell .primary:disabled{cursor:default}
-.shell .primary:disabled:not(.is-busy){opacity:.45}
+.shell .primary:disabled:not(.is-busy){opacity:.4;box-shadow:none}
 .shell .spinner{display:none;width:12px;height:12px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:popup-spin 700ms linear infinite}
 .shell .is-busy .spinner{display:block}
 
-.connection{display:flex;align-items:center;gap:7px;padding:8px 4px 0 8px;color:var(--ink-3);font-size:11px}
-.dot{flex:none;width:6px;height:6px;border-radius:50%;background:#5fbf7f;box-shadow:0 0 0 3px rgb(95 191 127 / 14%)}
+/* Connected: a quiet line under the card, its dot breathing slowly. */
+.connection{display:flex;align-items:center;gap:8px;padding:10px 4px 0 10px;color:var(--ink-3);font-size:11px;animation:popup-fade 400ms 200ms var(--ease) both}
+.dot{flex:none;width:6px;height:6px;border-radius:50%;background:#5fbf7f;box-shadow:0 0 0 3px rgb(95 191 127 / 16%);animation:popup-breathe 3.2s ease-in-out infinite}
 .connection .origin{flex:1;min-height:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.connection .quiet{height:26px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--ink-3);font-size:11px;cursor:pointer;transition:background-color 140ms var(--ease),color 140ms var(--ease)}
-.connection .quiet:hover{background:var(--hover);color:var(--danger)}
+.connection .quiet{height:28px;padding:0 10px;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink-3);font-size:11px;cursor:pointer;transition:background-color 140ms var(--ease),color 140ms var(--ease)}
+.connection .quiet:hover{background:color-mix(in srgb,var(--danger) 10%,transparent);color:var(--danger)}
 button:focus-visible{outline:2px solid var(--ring);outline-offset:1px}
 
-@keyframes popup-rise{from{opacity:0;transform:translateY(4px) scale(.98)}}
+@keyframes popup-rise{from{opacity:0;transform:translateY(6px) scale(.98);filter:blur(3px)}}
+@keyframes popup-pop{from{opacity:0;transform:scale(.7)}}
+@keyframes popup-fade{from{opacity:0}}
+@keyframes popup-breathe{50%{box-shadow:0 0 0 5px rgb(95 191 127 / 6%)}}
 @keyframes popup-spin{to{transform:rotate(1turn)}}
 @media (prefers-reduced-motion:reduce){*:not(.spinner){animation:none!important;transition:none!important}.spinner{animation-duration:1.4s!important}}
 `;

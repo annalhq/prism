@@ -1,6 +1,7 @@
 import { renderCaptureForm } from '../capture-form';
 import type { Capture } from '../protocol';
-import { ease } from './layout';
+// The web app's spring: quick to start, settling softly with no overshoot.
+const spring = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -31,9 +32,9 @@ class CapturePanel {
 				? [{ opacity: 1 }, { opacity: 0 }]
 				: [
 						{ opacity: 1, transform: 'none' },
-						{ opacity: 0, transform: 'translateY(2px) scale(0.98)' }
+						{ opacity: 0, transform: 'translateY(-4px) scale(0.97)' }
 					],
-			{ duration: 140, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' }
+			{ duration: 160, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' }
 		);
 		exit.finished.then(
 			() => host.remove(),
@@ -46,7 +47,7 @@ class CapturePanel {
 		const light = matchMedia('(prefers-color-scheme: light)').matches;
 		const host = document.createElement('div');
 		host.dataset.prismPopover = 'true';
-		host.style.cssText = `position:fixed;z-index:2147483647;max-height:calc(100vh - 20px);overflow:auto;border-radius:14px;transform-origin:top right;filter:${
+		host.style.cssText = `position:fixed;z-index:2147483647;max-height:calc(100vh - 20px);overflow:auto;border-radius:20px;transform-origin:top right;filter:${
 			light
 				? 'drop-shadow(0 10px 24px rgb(38 37 30 / 12%)) drop-shadow(0 1px 3px rgb(38 37 30 / 8%))'
 				: 'drop-shadow(0 14px 32px rgb(0 0 0 / 45%)) drop-shadow(0 1px 3px rgb(0 0 0 / 30%))'
@@ -63,10 +64,10 @@ class CapturePanel {
 			reducedMotion()
 				? [{ opacity: 0 }, { opacity: 1 }]
 				: [
-						{ opacity: 0, transform: 'translateY(4px) scale(0.98)' },
+						{ opacity: 0, transform: 'translateY(-6px) scale(0.96)' },
 						{ opacity: 1, transform: 'none' }
 					],
-			{ duration: 200, easing: ease }
+			{ duration: 360, easing: spring }
 		);
 		shadow.addEventListener('prism-close', this.close);
 		shadow.addEventListener('prism-saved', onSaved);
@@ -82,7 +83,7 @@ class CapturePanel {
 		} catch (error) {
 			const status = document.createElement('p');
 			status.textContent = (error as Error).message;
-			status.style.cssText = `margin:0;padding:14px 16px;border:1px solid ${light ? '#26251e1a' : '#303030'};border-radius:14px;background:${light ? '#fbfbf9' : '#1a1a1a'};color:${light ? '#cf2d56' : '#f2a6a0'};font:13px/1.45 system-ui,sans-serif`;
+			status.style.cssText = `margin:0;padding:14px 16px;border:1px solid ${light ? '#26251e1a' : '#303030'};border-radius:20px;background:${light ? '#f2f1ed' : '#1a1a1a'};color:${light ? '#cf2d56' : '#f2a6a0'};font:13px/1.45 system-ui,sans-serif`;
 			shadow.append(status);
 		}
 	}

@@ -21,7 +21,7 @@ import { normalizeUrl } from '#lib/domain/urls.js';
 import { parseCommand, ValidationError } from '#lib/domain/validation.js';
 import type { OwnerContext } from '../auth.js';
 import { inTransaction, type Transaction } from '../db/connection.js';
-import { bookmarks, changeLog, entities, vaults } from '../db/schema.js';
+import { bookmarks, changeLog, entities, tags, vaults } from '../db/schema.js';
 import { ApiError } from '../http.js';
 import { bookmarkProjection } from './projections.js';
 import { prepareEnvelope, readReceipt, writeReceipt } from './receipts.js';
@@ -32,7 +32,11 @@ import { Rejected, reject } from './rejections.js';
 import { changeTaxonomy, changeTagMembership, organizeBookmark } from './organization.js';
 import { changeSavedSearch } from './saved-searches.js';
 import { recordOpen } from './activity.js';
-import { isOrganizationCommand, type OrganizationCommand } from '#lib/domain/organization.js';
+import {
+	isOrganizationCommand,
+	normalizeOrganizationName,
+	type OrganizationCommand
+} from '#lib/domain/organization.js';
 
 class AlreadyExists extends Error {
 	constructor(readonly id: string) {
@@ -259,7 +263,7 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 				const now = new Date();
 				const changes: Change[] = [];
 				if (command.type === 'extension.bookmark.create') {
-					const { tagIds, person, ...bookmark } = command;
+					const { tagIds, newTags, person, ...bookmark } = command;
 					changes.push(
 						await applyBookmark(
 							mutation,
@@ -269,7 +273,37 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 							now
 						)
 					);
-					for (const tagId of tagIds) {
+					// New tags join the chosen ones: an active tag with the same name is reused (it
+					// may have been made in Prism since the extension's catalog loaded); otherwise
+					// the tag is created with the extension's ID.
+					const chosen = new Set(tagIds);
+					for (const tag of newTags ?? []) {
+						const [existing] = await mutation
+							.select({ id: tags.id })
+							.from(tags)
+							.where(
+								and(
+									eq(tags.vaultId, owner.vaultId),
+									eq(tags.normalizedName, normalizeOrganizationName(tag.name).normalizedName),
+									isNull(tags.deletedAt)
+								)
+							)
+							.limit(1);
+						if (existing) chosen.add(existing.id);
+						else {
+							changes.push(
+								...(await applyOrganization(
+									mutation,
+									owner.vaultId,
+									{ type: 'tag.create', id: tag.id, name: tag.name },
+									seq,
+									now
+								))
+							);
+							chosen.add(tag.id);
+						}
+					}
+					for (const tagId of chosen) {
 						changes.push(
 							...(await applyOrganization(
 								mutation,

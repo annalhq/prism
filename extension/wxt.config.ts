@@ -13,7 +13,7 @@ export default defineConfig({
 		optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
 		web_accessible_resources: [
 			{
-				resources: ['geist-latin-wght-normal.woff2'],
+				resources: ['libre-franklin-latin-wght-normal.woff2', 'stk-bureau-serif-book.woff2'],
 				matches: ['https://x.com/*', 'https://twitter.com/*']
 			}
 		],

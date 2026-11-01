@@ -29,7 +29,6 @@
 
 	<main id="landing-main" class="landing-hero" tabindex="-1">
 		<div class="landing-card">
-			<p class="landing-eyebrow"><span aria-hidden="true"></span>Bookmarks · People · Notes</p>
 			<h1>Every link you keep,<br /><span class="landing-soft">one keystroke away.</span></h1>
 			<p class="landing-lede">A quiet, private library for bookmarks, people and notes.</p>
 			<div class="landing-actions">
@@ -43,5 +42,4 @@
 			</div>
 		</div>
 	</main>
-	<p class="landing-hint" aria-hidden="true">Tap the water</p>
 </div>

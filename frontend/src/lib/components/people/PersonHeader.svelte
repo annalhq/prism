@@ -10,10 +10,13 @@
 		website = null,
 		links = [],
 		count,
+		photo = null,
 		onBack,
 		onEdit
 	}: {
 		person: Row;
+		// Their X photo; only the owner's library has one to show.
+		photo?: string | null;
 		website?: string | null;
 		links?: Row[];
 		count: number;
@@ -38,7 +41,7 @@
 			>{/if}
 	</div>
 	<div class="person-identity">
-		<PersonAvatar {name} size={76} />
+		<PersonAvatar {name} {photo} size={76} />
 		<h2>{name}</h2>
 		<div class="person-meta">
 			<span class="person-stats"><strong>{count}</strong> {count === 1 ? 'link' : 'links'}</span

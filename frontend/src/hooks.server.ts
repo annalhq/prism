@@ -22,7 +22,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 		if (api && !extensionApi) await requireOwner(event);
 		const response = await resolve(event);
-		if (api || authPage) response.headers.set('Cache-Control', 'no-store');
+		// Person photos are immutable per URL and set their own private caching; everything else
+		// from the API and auth pages is never stored.
+		const avatar = api && /^\/api\/v1\/people\/[^/]+\/avatar$/.test(event.url.pathname);
+		if ((api || authPage) && !(avatar && response.ok))
+			response.headers.set('Cache-Control', 'no-store');
 		// Native form POSTs need a non-opaque Origin. Suppress referrers only off-origin.
 		if (authPage) response.headers.set('Referrer-Policy', 'same-origin');
 		response.headers.set('X-Request-Id', event.locals.requestId);

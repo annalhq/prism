@@ -13,6 +13,9 @@ export type SaveInput = {
 		title: string;
 		url: string;
 		tagIds: string[];
+		// Tags typed here that Prism doesn't have yet; Prism creates them (or reuses one of the
+		// same name) when it saves the bookmark.
+		newTags?: { id: string; name: string }[];
 		person?: { id: string };
 	};
 };
@@ -20,7 +23,8 @@ export type SaveInput = {
 export type ExtensionMessage =
 	| { type: 'connection'; code?: string }
 	| { type: 'pair'; code: string }
-	| { type: 'catalog' }
+	// `fresh` skips the stored copy and asks Prism. The answer says whether it came from storage.
+	| { type: 'catalog'; fresh?: boolean }
 	| { type: 'save'; input: SaveInput }
 	| {
 			type: 'save-result';

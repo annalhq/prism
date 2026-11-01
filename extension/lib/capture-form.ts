@@ -1,87 +1,124 @@
 import { browser } from 'wxt/browser';
 import type { Capture, Catalog, ExtensionMessage, SaveInput } from './protocol';
-import { icons, themeCss } from './theme';
+import { avatarHue, icons, initials, themeCss } from './theme';
 
 type Tag = Catalog['tags'][number];
 type Person = Catalog['people'][number];
-type Token = { kind: 'tag'; item: Tag } | { kind: 'person'; item: Person };
+type NewTag = { id: string; name: string };
+type Token =
+	| { kind: 'tag'; item: Tag }
+	| { kind: 'new-tag'; item: NewTag }
+	| { kind: 'person'; item: Person };
 type SaveState = 'idle' | 'saving' | 'queued' | 'saved';
 
+// Matches the web app's capture card: a serif title, a faint well for tags and people that
+// lifts into the raised tab while typing, raised chips and suggestions, people as their coloured
+// monogram, and motion on one soft spring. Radii nest: card 20 − padding 8 → wells 12.
 const formCss = `${themeCss}
 :host{display:block}
 .panel{font-family:var(--font);font-size:13px;line-height:1.45;color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .panel *{box-sizing:border-box}
 .panel button,.panel input{font:inherit;color:inherit}
-.panel .card{display:flex;flex-direction:column;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
-.panel:not(.compact) .card{animation:prism-rise 200ms var(--ease) both}
+.panel .card{display:flex;flex-direction:column;margin:0;padding:8px;background:var(--surface);border-radius:var(--r-panel);box-shadow:var(--raised),0 18px 48px var(--shadow-strong);overflow:hidden}
+.panel.compact .card{box-shadow:var(--raised)}
+.panel:not(.compact) .card{animation:prism-rise 380ms var(--spring) both}
 
-.panel .site{display:flex;align-items:center;gap:6px;min-width:0;padding:12px 14px 0;color:var(--ink-3);font-size:11px}
+.panel .site{display:flex;align-items:center;gap:7px;min-width:0;padding:6px 8px 0;color:var(--ink-3);font-size:11px}
 .panel .site-icon{display:grid;flex:none;place-items:center;width:14px;height:14px}
 .panel .site-icon img{width:14px;height:14px;border-radius:3px}
 .panel .site-host{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.panel .title{width:100%;margin:0;padding:6px 14px 12px;border:0;background:transparent;font-size:16px;font-weight:500;line-height:1.35;letter-spacing:-0.012em;outline:none}
+.panel .title{width:100%;margin:0;padding:6px 8px 12px;border:0;background:transparent;font-family:var(--display);font-size:20px;font-weight:400;line-height:1.25;letter-spacing:-0.01em;outline:none}
 .panel .title::placeholder,.panel .token-input::placeholder{color:var(--ink-3);opacity:1}
 .panel .title[aria-invalid="true"]::placeholder{color:var(--danger)}
-.panel .divider{height:1px;margin:0 14px;background:var(--hairline)}
+.panel .divider{display:none}
 
-.panel .tokens{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:46px;padding:10px 14px;cursor:text}
-.panel .token-input{flex:1 1 90px;min-width:90px;height:26px;margin:0;padding:0;border:0;background:transparent;outline:none}
+.panel .tokens{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-height:44px;padding:6px 8px;border-radius:calc(var(--r-panel) - 8px);background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);cursor:text;transition:background-color 260ms var(--ease),box-shadow 380ms var(--spring)}
+.panel .tokens:hover:not(:focus-within){box-shadow:inset 0 0 0 1px var(--line)}
+.panel .tokens:focus-within{background:var(--lift);box-shadow:var(--raised)}
+.panel .tokens.locked{background:transparent;box-shadow:inset 0 0 0 1px var(--hairline)}
+.panel .token-input{flex:1 1 90px;min-width:90px;height:28px;margin:0;padding:0 2px;border:0;background:transparent;outline:none}
 .panel .token-input:disabled{cursor:default}
-.panel .chip{display:inline-flex;align-items:center;gap:5px;height:26px;max-width:100%;padding:0 4px 0 9px;border:1px solid var(--hairline);border-radius:var(--r-pill);background:var(--field);color:var(--ink);font-size:12px;font-weight:500;cursor:default}
-.panel .chip.enter{animation:prism-pop 220ms var(--ease) both}
+.panel .chip{display:inline-flex;align-items:center;gap:5px;height:28px;max-width:100%;padding:0 3px 0 9px;border-radius:var(--r-pill);background:var(--lift);box-shadow:var(--raised);color:var(--ink);font-size:12px;font-weight:500;cursor:default}
+.panel .chip.person{padding-left:3px;gap:6px}
+.panel .chip.enter{animation:prism-pop 300ms var(--spring) both}
 .panel .chip-glyph{display:grid;flex:none;place-items:center;color:var(--ink-3)}
 .panel .chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.panel .chip-remove{display:grid;flex:none;place-items:center;width:18px;height:18px;padding:0;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink-3);cursor:pointer;opacity:.7;transition:opacity 140ms var(--ease),background-color 140ms var(--ease),color 140ms var(--ease)}
+.panel .chip-remove{display:grid;flex:none;place-items:center;width:20px;height:20px;padding:0;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink-3);cursor:pointer;opacity:.7;transition:opacity 140ms var(--ease),background-color 140ms var(--ease),color 140ms var(--ease)}
 .panel .chip:hover .chip-remove{opacity:1}
 .panel .chip-remove:hover{background:var(--hover);color:var(--ink)}
 .panel .chip-remove:disabled{display:none}
 .panel .tokens.locked .chip{padding-right:9px}
 
-.panel .suggest{padding:0 6px 6px;animation:prism-fade 140ms var(--ease) both}
+.panel .avatar{display:grid;flex:none;place-items:center;width:var(--size);height:var(--size);border-radius:50%;background:hsl(var(--hue) 32% 27%);box-shadow:0 0 0 1px var(--hairline);color:hsl(var(--hue) 70% 86%);font-size:calc(var(--size) * .4);font-weight:600;line-height:1;user-select:none}
+@media (prefers-color-scheme:light){.panel .avatar{background:hsl(var(--hue) 70% 88%);color:hsl(var(--hue) 38% 30%)}}
+
+.panel .suggest{margin-top:6px;padding:4px;border-radius:calc(var(--r-panel) - 8px);background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);transform-origin:top center;animation:prism-drop 240ms var(--spring) both}
 .panel .suggest[hidden]{display:none}
-.panel .options{max-height:212px;margin:0;padding:0;overflow:auto;list-style:none;scrollbar-width:thin}
+.panel .options{max-height:212px;margin:0;padding:0;overflow:auto;list-style:none;scrollbar-width:none}
 .panel .options:empty{display:none}
-.panel .option{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px;border-radius:8px;color:var(--ink-2);cursor:pointer;user-select:none}
-.panel .option[aria-selected="true"]{background:var(--hover);color:var(--ink)}
-.panel .option-glyph{display:grid;flex:none;place-items:center;width:20px;height:20px;border-radius:var(--r-pill);background:var(--field);color:var(--ink-3)}
+.panel .option{display:flex;align-items:center;gap:9px;height:34px;padding:0 8px;border-radius:8px;color:var(--ink-2);cursor:pointer;user-select:none;transition:background-color 120ms var(--ease),box-shadow 120ms var(--ease),color 120ms var(--ease)}
+.panel .option[aria-selected="true"]{background:var(--lift);box-shadow:var(--raised);color:var(--ink)}
+.panel .option-glyph{display:grid;flex:none;place-items:center;width:20px;height:20px;color:var(--ink-3)}
+.panel .option[aria-selected="true"] .option-glyph{color:var(--ink)}
 .panel .option-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .panel .option-meta{flex:none;color:var(--ink-3);font-size:11px}
+.panel .option.create .option-label b{color:var(--ink);font-weight:600}
 .panel .note{margin:0;padding:6px 8px 4px;color:var(--ink-3);font-size:12px}
 .panel .note:empty{display:none}
 
-.panel .status{margin:0;padding:0 14px 10px;color:var(--ink-2);font-size:12px}
-.panel .status:empty{padding:0}
+.panel .status{margin:0;padding:10px 8px 0;color:var(--ink-2);font-size:12px;animation:prism-fade 200ms var(--ease) both}
+.panel .status:empty{display:none}
 .panel .status.error{color:var(--danger)}
 
-.panel .footer{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 6px;border-top:1px solid var(--hairline)}
-.panel .quiet{height:30px;padding:0 9px;border:0;border-radius:var(--r-control);background:transparent;color:var(--ink-2);font-size:12px;cursor:pointer;transition:background-color 140ms var(--ease),color 140ms var(--ease)}
-.panel .quiet:hover{background:var(--hover);color:var(--ink)}
-.panel .hint{display:flex;gap:3px;margin-left:auto;color:var(--ink-3);font-size:11px}
-.panel .hint kbd{min-width:18px;height:18px;padding:0 4px;border:1px solid var(--hairline);border-radius:5px;background:var(--field);font:inherit;line-height:16px;text-align:center}
-.panel .primary{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:72px;height:30px;padding:0 12px;border:0;border-radius:var(--r-control);background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:600;cursor:pointer;transition:transform 140ms var(--ease),opacity 140ms var(--ease)}
-.panel .primary:active:not(:disabled){transform:scale(.97)}
+.panel .footer{position:relative;display:flex;align-items:center;gap:6px;margin-top:10px;padding:8px 0 0}
+.panel .footer::before{content:"";position:absolute;top:0;right:8px;left:8px;border-top:1px solid var(--hairline)}
+.panel .quiet{height:32px;padding:0 12px;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink-2);font-size:12px;cursor:pointer;transition:background-color 140ms var(--ease),box-shadow 140ms var(--ease),color 140ms var(--ease),transform 240ms var(--spring)}
+.panel .quiet:hover{background:var(--lift);box-shadow:var(--raised);color:var(--ink)}
+.panel .quiet:active{transform:scale(.96)}
+.panel .hint{display:flex;gap:3px;margin-left:auto;color:var(--ink-3);font-size:10.5px}
+.panel .hint kbd{min-width:20px;height:20px;padding:0 5px;border:0;border-radius:6px;background:var(--canvas);box-shadow:inset 0 0 0 1px var(--hairline);font:inherit;line-height:20px;text-align:center}
+.panel .primary{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:76px;height:32px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--accent-ink);font-size:12px;font-weight:600;cursor:pointer;transition:transform 260ms var(--spring),opacity 160ms var(--ease),box-shadow 160ms var(--ease)}
+.panel .primary:active:not(:disabled){transform:scale(.96);transition-duration:100ms}
 .panel .primary:disabled{cursor:default}
-.panel .primary:disabled:not(.is-saving):not(.is-saved){opacity:.45}
+.panel .primary:disabled:not(.is-saving):not(.is-saved){opacity:.4;box-shadow:none}
 .panel .btn-icon{display:none;place-items:center;width:13px;height:13px}
 .panel .is-saving .btn-icon,.panel .is-saved .btn-icon{display:grid}
 .panel .spinner{width:12px;height:12px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:prism-spin 700ms linear infinite}
 .panel .btn-icon svg{display:none}
 .panel .is-saved .spinner{display:none}
-.panel .is-saved .btn-icon svg{display:block;animation:prism-pop 260ms var(--ease) both}
+.panel .is-saved .btn-icon svg{display:block;animation:prism-pop 360ms var(--spring) both}
+.panel .is-saved{animation:prism-saved 420ms var(--spring)}
 
 .panel button:focus-visible,.option:focus-visible{outline:2px solid var(--ring);outline-offset:1px}
-.panel .card:focus-within{border-color:color-mix(in srgb,var(--line),var(--ink) 8%)}
 
-@keyframes prism-rise{from{opacity:0;transform:translateY(4px) scale(.98)}}
+@keyframes prism-rise{from{opacity:0;transform:translateY(6px) scale(.98);filter:blur(3px)}}
+@keyframes prism-drop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 @keyframes prism-fade{from{opacity:0;transform:translateY(-2px)}}
-@keyframes prism-pop{from{opacity:0;transform:scale(.8)}}
+@keyframes prism-pop{from{opacity:0;transform:scale(.7)}}
+@keyframes prism-saved{40%{transform:scale(1.05)}}
 @keyframes prism-spin{to{transform:rotate(1turn)}}
 @media (prefers-reduced-motion:reduce){
 .panel *:not(.spinner){animation:none!important;transition:none!important}
 .panel .spinner{animation-duration:1.4s}
 }
 `;
+
+/** A tag's # or a person's coloured monogram, the same glyphs the web app draws. */
+function glyph(token: Token, size: number): HTMLElement {
+	if (token.kind !== 'person') {
+		const icon = document.createElement('span');
+		icon.innerHTML = icons.hash;
+		icon.style.display = 'grid';
+		return icon;
+	}
+	const avatar = document.createElement('span');
+	avatar.className = 'avatar';
+	avatar.style.setProperty('--size', `${size}px`);
+	avatar.style.setProperty('--hue', String(avatarHue(token.item.displayName)));
+	avatar.textContent = initials(token.item.displayName);
+	return avatar;
+}
 
 type SaveResultMessage = Extract<ExtensionMessage, { type: 'save-result' }>;
 async function message<T>(value: ExtensionMessage): Promise<T> {
@@ -120,8 +157,9 @@ function rank<T>(items: T[], name: (item: T) => string, query: string): T[] {
 }
 
 const tokenName = (token: Token) =>
-	token.kind === 'tag' ? token.item.name : token.item.displayName;
+	token.kind === 'person' ? token.item.displayName : token.item.name;
 const tokenKey = (token: Token) => `${token.kind}:${token.item.id}`;
+const fold = (name: string) => name.normalize('NFC').toLocaleLowerCase();
 
 export async function renderCaptureForm(
 	root: HTMLElement | ShadowRoot,
@@ -195,7 +233,7 @@ export async function renderCaptureForm(
 	let queuedTimer: ReturnType<typeof setTimeout> | undefined;
 	let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
-	const placeholder = 'Add #tags or @person';
+	const placeholder = 'Add or create #tags, or @person';
 	function dismiss() {
 		if (onDismiss) onDismiss();
 		else panel.dispatchEvent(new CustomEvent('prism-close', { bubbles: true }));
@@ -225,10 +263,10 @@ export async function renderCaptureForm(
 		for (const chip of tokensEl.querySelectorAll('.chip')) chip.remove();
 		for (const token of tokens) {
 			const chip = document.createElement('span');
-			chip.className = tokenKey(token) === lastAddedKey ? 'chip enter' : 'chip';
-			const glyph = document.createElement('span');
-			glyph.className = 'chip-glyph';
-			glyph.innerHTML = token.kind === 'tag' ? icons.hash : icons.user;
+			chip.className = `chip${token.kind === 'person' ? ' person' : ''}${tokenKey(token) === lastAddedKey ? ' enter' : ''}`;
+			const chipGlyph = document.createElement('span');
+			chipGlyph.className = 'chip-glyph';
+			chipGlyph.append(glyph(token, 22));
 			const label = document.createElement('span');
 			label.className = 'chip-label';
 			label.textContent = tokenName(token);
@@ -239,7 +277,7 @@ export async function renderCaptureForm(
 			remove.disabled = state !== 'idle';
 			remove.setAttribute(
 				'aria-label',
-				`Remove ${token.kind === 'tag' ? 'tag' : 'person'} ${tokenName(token)}`
+				`Remove ${token.kind === 'person' ? 'person' : 'tag'} ${tokenName(token)}`
 			);
 			remove.innerHTML = icons.x;
 			remove.addEventListener('click', () => {
@@ -248,7 +286,7 @@ export async function renderCaptureForm(
 				tokenInput.focus();
 				renderSuggestions();
 			});
-			chip.append(glyph, label, remove);
+			chip.append(chipGlyph, label, remove);
 			tokensEl.insertBefore(chip, tokenInput);
 		}
 		lastAddedKey = undefined;
@@ -291,6 +329,10 @@ export async function renderCaptureForm(
 		if (!catalogReady || !tokenFocused || state !== 'idle' || (mode === 'all' && !query))
 			return closeList();
 		const tagIds = new Set(tokens.flatMap((token) => (token.kind === 'tag' ? [token.item.id] : [])));
+		// Names already on this bookmark, chosen or about to be created.
+		const takenNames = new Set(
+			tokens.flatMap((token) => (token.kind === 'person' ? [] : [fold(token.item.name)]))
+		);
 		const person = tokens.find((token) => token.kind === 'person')?.item as Person | undefined;
 		const tags =
 			mode === 'people'
@@ -308,23 +350,25 @@ export async function renderCaptureForm(
 						(candidate) => candidate.displayName,
 						query
 					).slice(0, mode === 'people' ? 8 : 4);
+		// What was typed, as a tag name: no leading #, single spaces, Prism's 64-character limit.
+		const typed = (mode === 'all' ? raw : raw.slice(1)).trim().replace(/\s+/g, ' ').slice(0, 64);
+		const exists = catalog.tags.some((tag) => fold(tag.name) === fold(typed));
+		const create: Token[] =
+			mode !== 'people' && typed && !exists && !takenNames.has(fold(typed))
+				? [{ kind: 'new-tag', item: { id: crypto.randomUUID(), name: typed } }]
+				: [];
 		suggestions = [
 			...tags.map((item): Token => ({ kind: 'tag', item })),
-			...people.map((item): Token => ({ kind: 'person', item }))
+			...people.map((item): Token => ({ kind: 'person', item })),
+			...create
 		];
 		let noteText = '';
 		if (!suggestions.length) {
 			if (mode === 'people')
 				noteText = catalog.people.length ? 'No matching people.' : 'No people in Prism yet.';
-			else if (!catalog.tags.length) noteText = 'No tags yet. Create tags in Prism first.';
-			else {
-				const existing = catalog.tags.find((tag) => tag.name.toLocaleLowerCase() === query);
-				noteText = existing
-					? `#${existing.name} is already added.`
-					: query
-						? `No tag “${query}”. New tags are created in Prism.`
-						: 'All tags are added.';
-			}
+			else if (typed && (exists || takenNames.has(fold(typed))))
+				noteText = `#${typed} is already added.`;
+			else if (!typed) noteText = catalog.tags.length ? 'All tags are added.' : 'Type a name to create a tag.';
 		}
 		if (!suggestions.length && !noteText) return closeList();
 		optionsEl.replaceChildren();
@@ -333,13 +377,19 @@ export async function renderCaptureForm(
 			option.className = 'option';
 			option.id = `prism-option-${index}`;
 			option.setAttribute('role', 'option');
-			const glyph = document.createElement('span');
-			glyph.className = 'option-glyph';
-			glyph.innerHTML = token.kind === 'tag' ? icons.hash : icons.user;
+			const optionGlyph = document.createElement('span');
+			optionGlyph.className = 'option-glyph';
+			optionGlyph.append(glyph(token, 20));
 			const label = document.createElement('span');
 			label.className = 'option-label';
-			label.textContent = tokenName(token);
-			option.append(glyph, label);
+			if (token.kind === 'new-tag') {
+				option.classList.add('create');
+				label.append('Create ');
+				const name = document.createElement('b');
+				name.textContent = `#${token.item.name}`;
+				label.append(name);
+			} else label.textContent = tokenName(token);
+			option.append(optionGlyph, label);
 			if (token.kind === 'person') {
 				const meta = document.createElement('span');
 				meta.className = 'option-meta';
@@ -442,7 +492,8 @@ export async function renderCaptureForm(
 	if (compact || !title.value) title.focus();
 	else tokenInput.focus();
 
-	const catalogResponse = (await message<Catalog & { error?: string }>({ type: 'catalog' })) ?? {
+	type CatalogAnswer = Catalog & { error?: string; cached?: boolean };
+	const catalogResponse = (await message<CatalogAnswer>({ type: 'catalog' })) ?? {
 		tags: [],
 		people: []
 	};
@@ -473,6 +524,16 @@ export async function renderCaptureForm(
 		tokenInput.disabled = state !== 'idle';
 		renderTokens();
 		renderSuggestions();
+		// The stored copy answered instantly; now catch up with anything made in Prism since.
+		if (catalogResponse.cached)
+			void message<CatalogAnswer>({ type: 'catalog', fresh: true })
+				.then((fresh) => {
+					if (!fresh || fresh.error) return;
+					catalog = { tags: fresh.tags, people: fresh.people };
+					// A tag typed as new may exist now; the server matches it by name either way.
+					if (state === 'idle') renderSuggestions();
+				})
+				.catch(() => {});
 	}
 
 	function complete(already: boolean) {
@@ -521,6 +582,9 @@ export async function renderCaptureForm(
 			return;
 		}
 		const person = tokens.find((token) => token.kind === 'person');
+		const newTags = tokens.flatMap((token) =>
+			token.kind === 'new-tag' ? [{ id: token.item.id, name: token.item.name }] : []
+		);
 		const operationId = crypto.randomUUID();
 		const input: SaveInput = {
 			protocolVersion: 1,
@@ -532,6 +596,7 @@ export async function renderCaptureForm(
 				title: titleValue,
 				url: capture.url,
 				tagIds: tokens.flatMap((token) => (token.kind === 'tag' ? [token.item.id] : [])),
+				...(newTags.length ? { newTags } : {}),
 				...(person ? { person: { id: person.item.id } } : {})
 			}
 		};

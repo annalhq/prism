@@ -566,6 +566,9 @@ export function createLibraryClient(notify: () => void) {
 			window.addEventListener('online', reconnect);
 			window.addEventListener('offline', reconnect);
 			document.addEventListener('visibilitychange', visibility);
+			// Coming back from another window (say, after saving from the extension) is a focus
+			// change without a visibility change; catch up then too.
+			window.addEventListener('focus', visibility);
 			timer = setInterval(() => {
 				if (document.visibilityState === 'visible') void sync();
 			}, 30_000);
@@ -578,6 +581,7 @@ export function createLibraryClient(notify: () => void) {
 			window.removeEventListener('online', reconnect);
 			window.removeEventListener('offline', reconnect);
 			document.removeEventListener('visibilitychange', visibility);
+			window.removeEventListener('focus', visibility);
 		},
 		sync: () => sync(),
 		list<T>(table: ReplicaTable): T[] {

@@ -1,24 +1,48 @@
 import { browser } from 'wxt/browser';
 
-/** Prism design tokens, shared by the in-page panel (shadow root) and the popup document. */
+/**
+ * Prism design tokens, shared by the in-page panel (shadow root) and the popup document. They
+ * follow the web app: Libre Franklin for text, STK Bureau for titles, faint wells that lift into
+ * a raised tab when active, and one soft ease for motion.
+ */
 export const themeCss = `
-@font-face{font-family:Geist;font-style:normal;font-weight:100 900;font-display:swap;src:url("${browser.runtime.getURL('/geist-latin-wght-normal.woff2')}") format("woff2")}
+@font-face{font-family:"Libre Franklin";font-style:normal;font-weight:100 900;font-display:swap;src:url("${browser.runtime.getURL('/libre-franklin-latin-wght-normal.woff2')}") format("woff2")}
+@font-face{font-family:"STK Bureau";font-style:normal;font-weight:400;font-display:swap;src:url("${browser.runtime.getURL('/stk-bureau-serif-book.woff2')}") format("woff2")}
 :host,:root{
 --canvas:#121212;--surface:#1a1a1a;--field:#202020;--elevated:#242424;
 --ink:#efeeeb;--ink-2:#a3a29e;--ink-3:#7f7e7a;--line:#303030;--hairline:rgb(255 255 255 / 6%);
+--highlight:rgb(255 255 255 / 4%);--shadow-soft:rgb(0 0 0 / 18%);--shadow-strong:rgb(0 0 0 / 36%);
 --accent:#f5f5f7;--accent-ink:#161618;--danger:#f2a6a0;
 --hover:rgb(255 255 255 / 5%);--ring:rgb(255 255 255 / 16%);
---font:Geist,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+--raised:inset 0 0 0 1px var(--hairline),inset 0 1px 0 var(--highlight),0 1px 2px var(--shadow-soft);
+--lift:color-mix(in srgb,var(--ink) 6%,var(--elevated));
+--font:"Libre Franklin",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+--display:"STK Bureau","Iowan Old Style",Georgia,serif;
 --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
---ease:cubic-bezier(0.2,0.8,0.2,1);--r-control:10px;--r-card:14px;--r-pill:999px;
+--ease:cubic-bezier(0.2,0.8,0.2,1);--spring:cubic-bezier(0.32,0.72,0,1);
+--r-control:10px;--r-card:14px;--r-panel:20px;--r-pill:999px;
 color-scheme:dark}
 @media (prefers-color-scheme:light){:host,:root{
---canvas:#f7f7f4;--surface:#fbfbf9;--field:#ebeae5;--elevated:#fbfbf9;
+--canvas:#f7f7f4;--surface:#f2f1ed;--field:#ebeae5;--elevated:#fbfbf9;
 --ink:#26251e;--ink-2:#26251e99;--ink-3:#26251e70;--line:#26251e1a;--hairline:#26251e0f;
+--highlight:rgb(255 255 255 / 60%);--shadow-soft:rgb(38 37 30 / 8%);--shadow-strong:rgb(38 37 30 / 16%);
 --accent:#26251e;--accent-ink:#f7f7f4;--danger:#cf2d56;
 --hover:#26251e0a;--ring:#26251e29;
 color-scheme:light}}
 `;
+
+/** A person's monogram colour, the same hue the web app derives from their name. */
+export function avatarHue(name: string): number {
+	let hash = 0;
+	for (const char of name.trim().toLocaleLowerCase())
+		hash = (Math.imul(hash, 31) + char.codePointAt(0)!) | 0;
+	return Math.abs(hash) % 360;
+}
+export function initials(name: string): string {
+	const words = name.trim().split(/\s+/).filter(Boolean);
+	const letters = words.length > 1 ? [words[0]!, words.at(-1)!] : words;
+	return letters.map((word) => [...word][0] ?? '').join('').toLocaleUpperCase() || '?';
+}
 
 const svg = (body: string, size = 14) =>
 	`<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;

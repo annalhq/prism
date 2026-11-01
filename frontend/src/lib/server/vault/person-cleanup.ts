@@ -11,6 +11,7 @@ import {
 	notes,
 	people,
 	personaMembers,
+	personAvatars,
 	personIdentities,
 	vaults
 } from '../db/schema.js';
@@ -114,6 +115,17 @@ export async function cleanupPurgedPerson(
 			);
 	remaining -= links.length;
 	if (!remaining) return false;
+	// Their stored X photo goes with them: queue the object for the media worker, drop the row.
+	await tx.execute(sql`
+		INSERT INTO maintenance_jobs (vault_id, kind, deduplication_key, payload)
+		SELECT vault_id, 'media.delete', 'avatar:' || object_key, jsonb_build_object('objectKey', object_key)
+		FROM person_avatars
+		WHERE vault_id = ${vaultId}::uuid AND person_id = ${id}::uuid AND object_key IS NOT NULL
+		ON CONFLICT (vault_id, deduplication_key) DO NOTHING
+	`);
+	await tx
+		.delete(personAvatars)
+		.where(and(eq(personAvatars.vaultId, vaultId), eq(personAvatars.personId, id)));
 	await tx.delete(people).where(and(eq(people.vaultId, vaultId), eq(people.id, id)));
 	return true;
 }

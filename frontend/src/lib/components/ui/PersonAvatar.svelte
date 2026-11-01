@@ -10,7 +10,24 @@
 </script>
 
 <script lang="ts">
-	let { name, size = 32 }: { name: string; size?: number } = $props();
+	let {
+		name,
+		size = 32,
+		photo = null
+	}: {
+		name: string;
+		size?: number;
+		// Their X photo, when they have one. The monogram stays underneath: it shows while the
+		// photo loads and whenever there turns out to be none.
+		photo?: string | null;
+	} = $props();
+	let loaded = $state(false),
+		failed = $state(false);
+	$effect.pre(() => {
+		void photo;
+		loaded = false;
+		failed = false;
+	});
 	// Two letters at most: first and last word, so "Ada King Lovelace" reads "AL".
 	const initials = $derived.by(() => {
 		const words = name.trim().split(/\s+/).filter(Boolean);
@@ -30,5 +47,14 @@
 	class="person-avatar"
 	style:--avatar-size={`${size}px`}
 	style:--avatar-hue={hue}
-	aria-hidden="true">{initials}</span
+	aria-hidden="true"
+	>{initials}{#if photo && !failed}<img
+			src={photo}
+			alt=""
+			loading="lazy"
+			decoding="async"
+			class:loaded
+			onload={() => (loaded = true)}
+			onerror={() => (failed = true)}
+		/>{/if}</span
 >

@@ -37,6 +37,7 @@
 	import { formatPersonLinks, parsePersonLinks } from '#lib/domain/person-links.js';
 	import { notePreview } from '#lib/client/reference-edits.js';
 	import { tweetStatusId } from '#lib/domain/tweets.js';
+	import { personPhoto } from '#lib/client/avatars.js';
 	import {
 		bookmarkSource,
 		isReadLater,
@@ -810,6 +811,7 @@
 					website={personWebsite}
 					links={profileLinksList}
 					count={connections.get(String(person.id))?.size ?? 0}
+					photo={personPhoto(String(person.id), handleOf(String(person.id)))}
 					onBack={() => void navigate(null, 'people')}
 					onEdit={editPerson}
 				/>
@@ -873,9 +875,11 @@
 						{#each recentPeople as entry (String(entry.id))}<button
 								onclick={() => navigate({ kind: 'person', id: String(entry.id) })}
 								title={String(entry.displayName)}
-								><PersonAvatar name={String(entry.displayName)} size={40} /><span
-									>{String(entry.displayName).split(' ')[0]}</span
-								></button
+								><PersonAvatar
+									name={String(entry.displayName)}
+									photo={personPhoto(String(entry.id), handleOf(String(entry.id)))}
+									size={40}
+								/><span>{String(entry.displayName).split(' ')[0]}</span></button
 							>{/each}
 					</nav>{/if}
 			{/if}
@@ -952,6 +956,7 @@
 							{#if item.entityKind === 'person'}<PersonRow
 									person={item}
 									handle={handleOf(String(item.id))}
+									photo={personPhoto(String(item.id), handleOf(String(item.id)))}
 									count={connections.get(String(item.id))?.size ?? 0}
 									onOpen={() => navigate({ kind: 'person', id: String(item.id) })}
 								/>

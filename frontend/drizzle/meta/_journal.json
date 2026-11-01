@@ -57,6 +57,13 @@
 			"when": 1793129810981,
 			"tag": "0007_drop_avatar_config",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1793551916291,
+			"tag": "0008_person_avatars",
+			"breakpoints": true
 		}
 	]
 }

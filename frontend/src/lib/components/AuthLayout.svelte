@@ -25,7 +25,6 @@
 		<a class="landing-glass auth-back" href={resolve('/')}><ArrowLeft />Back</a>
 	</header>
 	<div class="auth-aside" aria-hidden="true">
-		<p class="landing-eyebrow"><span></span>Bookmarks · People · Notes</p>
 		<p class="auth-aside-title">
 			A quiet place<br /><span class="landing-soft">for everything you keep.</span>
 		</p>

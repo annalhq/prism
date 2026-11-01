@@ -29,6 +29,7 @@
 		"db:migrate:production:extension": "bun scripts/db/migrate-production-0005.ts",
 		"db:migrate:production:tag-position": "bun scripts/db/migrate-production-0006.ts",
 		"db:migrate:production:avatar-column": "bun scripts/db/migrate-production-0007.ts",
+		"db:migrate:production:person-avatars": "bun scripts/db/migrate-production-0008.ts",
 		"maintenance": "node scripts/not-ready.mjs maintenance",
 		"db:inventory": "bun scripts/db/inventory.ts",
 		"db:init-owner": "bun scripts/db/init-owner.ts"
@@ -39,6 +40,7 @@
 		"@internationalized/date": "3.12.4",
 		"@lucide/svelte": "1.59.0",
 		"@neondatabase/auth": "0.6.0-beta",
+		"aws4fetch": "^1.0.20",
 		"bits-ui": "2.19.5",
 		"cuelume": "0.2.8",
 		"dexie": "4.4.6",

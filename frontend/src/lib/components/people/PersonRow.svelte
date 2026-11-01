@@ -4,11 +4,13 @@
 	let {
 		person,
 		handle = null,
+		photo = null,
 		count,
 		onOpen
 	}: {
 		person: Row;
 		handle?: string | null;
+		photo?: string | null;
 		count: number;
 		onOpen: () => void;
 	} = $props();
@@ -18,7 +20,7 @@
 
 <!-- `person-card` is the row the list keyboard moves between. -->
 <button class="person-card person-row" onclick={onOpen}>
-	<PersonAvatar {name} size={36} />
+	<PersonAvatar {name} {photo} size={36} />
 	<span class="person-row-copy">
 		<span class="person-row-name"
 			><strong>{name}</strong>{#if handle}<span>@{handle}</span>{/if}</span

@@ -40,6 +40,9 @@ export type ExtensionBookmarkCommand = {
 	title: string;
 	url: string;
 	tagIds: string[];
+	// Tags typed in the extension that weren't in its catalog. Each is created with this ID,
+	// or matched by name to an existing tag (one may have been made since the catalog loaded).
+	newTags?: { id: string; name: string }[];
 	person?: { id: string };
 };
 export type NoteCommand = {

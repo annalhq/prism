@@ -13,7 +13,6 @@ type CachedCatalog = {
 const connectionKey = 'prismConnection';
 const catalogKey = 'prismCatalog';
 const outboxKey = 'prismSaveOutbox';
-const catalogTtlMs = 5 * 60_000;
 const outboxAlarm = 'prism-save-outbox';
 let catalogRefresh: { connectionId: string; promise: Promise<Catalog> } | undefined;
 let flushingOutbox = false;
@@ -75,15 +74,22 @@ async function refreshCatalog(connection: Connection): Promise<Catalog> {
 	}
 }
 
-async function getCatalog(connection: Connection): Promise<Catalog> {
-	const stored = await browser.storage.local.get(catalogKey);
-	const cache = stored[catalogKey] as CachedCatalog | undefined;
-	if (cache?.connectionId === connection.connectionId && cache.origin === connection.origin) {
-		if (Date.now() - cache.fetchedAt >= catalogTtlMs)
-			void refreshCatalog(connection).catch(() => {});
-		return cache.catalog;
+/**
+ * The stored catalog answers at once so the form never waits; the form then asks again with
+ * `fresh` every time it opens, so tags and people made in Prism show up right away instead of
+ * after a cache lifetime.
+ */
+async function getCatalog(
+	connection: Connection,
+	fresh = false
+): Promise<Catalog & { cached: boolean }> {
+	if (!fresh) {
+		const stored = await browser.storage.local.get(catalogKey);
+		const cache = stored[catalogKey] as CachedCatalog | undefined;
+		if (cache?.connectionId === connection.connectionId && cache.origin === connection.origin)
+			return { ...cache.catalog, cached: true };
 	}
-	return refreshCatalog(connection);
+	return { ...(await refreshCatalog(connection)), cached: false };
 }
 
 async function readOutbox(): Promise<PendingSave[]> {
@@ -149,6 +155,8 @@ async function flushOutbox() {
 				reportSave(item.tabId, item.input.operationId, {
 					status: result.status === 'already_exists' ? 'already_exists' : 'accepted'
 				});
+				// Tags made by this save belong in the catalog for the next one.
+				if (item.input.command.newTags?.length) void refreshCatalog(connection).catch(() => {});
 			} catch (error) {
 				const status = error instanceof ApiRequestError ? error.status : undefined;
 				const deniedPermission = (error as Error).message.includes('Grant Prism site access again');
@@ -209,7 +217,7 @@ export default defineBackground(() => {
 			}
 			const connection = await getConnection();
 			if (!connection) throw new Error('Connect the extension from Prism’s Account panel first.');
-			if (message.type === 'catalog') return await getCatalog(connection);
+			if (message.type === 'catalog') return await getCatalog(connection, message.fresh);
 			if (message.type === 'save') {
 				await updateOutbox((pending) =>
 					pending.some((item) => item.input.operationId === message.input.operationId)

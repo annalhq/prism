@@ -19,6 +19,7 @@
 	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import TweetCard from './TweetCard.svelte';
 	import { tweetStatusId } from '#lib/domain/tweets.js';
+	import { personPhoto } from '#lib/client/avatars.js';
 	import {
 		bookmarkDomain,
 		bookmarkSource,
@@ -100,7 +101,11 @@
 						tabindex="-1"
 						onclick={() => onPerson(lead.id)}
 						aria-label={`Open ${lead.name}`}
-						><PersonAvatar name={lead.name} size={24} /><span>{lead.name}</span></button
+						><PersonAvatar
+							name={lead.name}
+							photo={readonly ? null : personPhoto(lead.id, lead.handle)}
+							size={24}
+						/><span>{lead.name}</span></button
 					>{#if people.length > 1}<span class="post-more"
 							>and {#each people.slice(1, 3) as person, index (person.id)}{index ? ', ' : ''}<button
 									tabindex="-1"

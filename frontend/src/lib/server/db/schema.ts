@@ -372,6 +372,36 @@ export const personIdentities = pgTable(
 	]
 );
 
+// A person's X profile photo, fetched from unavatar.io once per handle and kept in object
+// storage. Server-only: never synced to clients, who load it through /api/v1/people/:id/avatar.
+// `missing` records that there was no photo to give, so lookups aren't repeated on every view.
+// No foreign key to people: person cleanup removes the row and queues the object's deletion.
+export const personAvatars = pgTable(
+	'person_avatars',
+	{
+		vaultId: uuid('vault_id').notNull(),
+		personId: uuid('person_id').notNull(),
+		handle: text('handle').notNull(),
+		state: text('state').notNull(),
+		objectKey: text('object_key'),
+		mime: text('mime'),
+		bytes: integer('bytes'),
+		sha256: text('sha256'),
+		fetchedAt: utc('fetched_at').notNull().defaultNow()
+	},
+	(t) => [
+		primaryKey({ columns: [t.vaultId, t.personId] }),
+		check(
+			'person_avatar_valid',
+			sql`char_length(${t.handle}) BETWEEN 1 AND 15 AND ${t.handle} ~ '^[a-z0-9_]+$' AND (
+				(${t.state} = 'missing' AND ${t.objectKey} IS NULL) OR
+				(${t.state} = 'stored' AND ${t.objectKey} IS NOT NULL AND ${t.mime} IN ('image/jpeg','image/png','image/webp')
+					AND ${t.bytes} > 0 AND ${t.bytes} <= 2097152 AND ${t.sha256} ~ '^[a-f0-9]{64}$')
+			)`
+		)
+	]
+);
+
 export const contentPeople = pgTable(
 	'content_people',
 	{
