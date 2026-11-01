@@ -234,6 +234,7 @@
 			<Dialog.Description class="sr-only"
 				>Manage your account, sync, and library.</Dialog.Description
 			>
+			<span class="settings-grabber" aria-hidden="true"></span>
 			<div class="settings-shell" class:drilled>
 				<nav class="settings-nav" aria-label="Settings sections">
 					<header class="settings-nav-head">
@@ -246,20 +247,27 @@
 					<p class="settings-sync-pill" data-tone={sync.tone}>
 						<span class="settings-dot" aria-hidden="true"></span>{sync.title}
 					</p>
-					<ul class="settings-nav-list">
-						{#each sections as entry (entry.id)}<li>
-								<button
-									class="settings-nav-item"
-									aria-current={section === entry.id ? 'page' : undefined}
-									onclick={() => openSection(entry.id)}
-									><span class="settings-nav-icon"><entry.icon /></span><span
-										class="settings-nav-label">{entry.label}</span
-									>{#if entry.hint}<small>{entry.hint}</small>{/if}<ChevronRight
-										class="settings-nav-go"
-									/></button
-								>
-							</li>{/each}
-					</ul>
+					<!-- One raised tab glides between sections, as in the library sidebar. -->
+					<div
+						class="settings-nav-rail"
+						style={`--settings-index: ${sections.findIndex((entry) => entry.id === section)}`}
+					>
+						<span class="settings-nav-indicator" aria-hidden="true"></span>
+						<ul class="settings-nav-list">
+							{#each sections as entry (entry.id)}<li>
+									<button
+										class="settings-nav-item"
+										aria-current={section === entry.id ? 'page' : undefined}
+										onclick={() => openSection(entry.id)}
+										><span class="settings-nav-icon"><entry.icon /></span><span
+											class="settings-nav-label">{entry.label}</span
+										>{#if entry.hint}<small>{entry.hint}</small>{/if}<ChevronRight
+											class="settings-nav-go"
+										/></button
+									>
+								</li>{/each}
+						</ul>
+					</div>
 				</nav>
 
 				<div class="settings-pane">
@@ -280,6 +288,7 @@
 										<div class="settings-row">
 											<span class="settings-text"><strong>Theme</strong></span>
 											<div class="settings-theme" role="radiogroup" aria-label="Theme">
+												<span class="settings-theme-thumb" aria-hidden="true"></span>
 												{#each themes as option (option.value)}<button
 														role="radio"
 														aria-checked={themePreference.value === option.value}
