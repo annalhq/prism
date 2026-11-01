@@ -1252,7 +1252,7 @@ kbd {
 }
 .workspace-search {
 	flex-shrink: 0;
-	padding: 20px 0 12px;
+	padding: 18px 0 14px;
 }
 .library-content {
 	flex: 1;
@@ -1324,6 +1324,7 @@ kbd {
 }
 .omnibar {
 	--omnibar-inset: 4px;
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -1366,9 +1367,10 @@ kbd {
 	display: grid;
 	place-items: center;
 	transition:
-		opacity 180ms var(--ease-out),
-		rotate 260ms var(--ease-out),
-		scale 260ms var(--ease-out);
+		opacity 220ms var(--ease-out),
+		rotate 460ms var(--ease-spring),
+		scale 460ms var(--ease-spring),
+		filter 220ms var(--ease-out);
 }
 .omnibar-glyph svg {
 	width: 16px;
@@ -1378,7 +1380,8 @@ kbd {
 .omnibar-leading.insert .search-glyph {
 	opacity: 0;
 	rotate: -90deg;
-	scale: 0.6;
+	scale: 0.5;
+	filter: blur(2px);
 }
 .omnibar-leading.insert .insert-glyph {
 	opacity: 1;
@@ -1451,9 +1454,33 @@ kbd {
 .omnibar input:focus-visible {
 	outline: none;
 }
+/* The resting hint: which keys reach the bar, and what each does. */
 .omnibar-shortcut {
-	margin-right: 4px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-right: 8px;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+	white-space: nowrap;
+	transition: opacity 220ms var(--ease-out);
 }
+.omnibar-shortcut kbd {
+	min-width: 22px;
+	border: 0;
+	background: var(--field);
+	box-shadow: var(--raised);
+	color: var(--secondary);
+}
+.omnibar-shortcut i {
+	width: 3px;
+	height: 3px;
+	margin-inline: 4px;
+	border-radius: 50%;
+	background: var(--tertiary);
+	opacity: 0.6;
+}
+
 .omnibar-continue,
 .omnibar-clear {
 	display: inline-flex;
@@ -1494,6 +1521,173 @@ kbd {
 .omnibar-continue svg {
 	width: 16px;
 	height: 16px;
+}
+
+/*
+ * The desktop bar. At rest it is a compact search field centred over the list, barely there: a
+ * faint well with a hairline and the keys that reach it. Pointed at, it lifts like a popover;
+ * focused or holding something, it opens out from the centre into a floating panel in the
+ * sidebar's raised tab, a step lighter than the shell with a soft halo. While adding, the list
+ * behind recedes so the panel is the only thing in focus. Radii nest: bar 14 − inset 5 → keys 9.
+ */
+.workspace-search {
+	position: relative;
+	z-index: 25;
+}
+.workspace-search .omnibar-section {
+	width: min(380px, 100%);
+	margin-inline: auto;
+	transition: width 560ms var(--ease-spring);
+}
+.workspace-search .omnibar-section:is(:focus-within, .engaged) {
+	width: min(720px, 100%);
+}
+.library-content {
+	transition:
+		opacity 360ms var(--ease-out),
+		filter 360ms var(--ease-out),
+		scale 460ms var(--ease-spring);
+}
+.library-main:has(.workspace-search .adding) .library-content {
+	opacity: 0.35;
+	filter: blur(1.5px);
+	scale: 0.995;
+}
+.workspace-search .omnibar {
+	--omnibar-inset: 5px;
+	--omnibar-radius: 14px;
+	--omnibar-key-radius: calc(var(--omnibar-radius) - var(--omnibar-inset));
+	gap: 6px;
+	min-height: 48px;
+	border: 0;
+	border-radius: var(--omnibar-radius);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	transition:
+		background-color 320ms var(--ease-out),
+		box-shadow 420ms var(--ease-spring),
+		translate 420ms var(--ease-spring);
+}
+@media (hover: hover) {
+	.workspace-search .omnibar:hover:not(:focus-within) {
+		background: var(--elevated);
+		box-shadow:
+			var(--raised),
+			0 10px 28px var(--shadow-soft);
+		translate: 0 -1px;
+	}
+	.workspace-search .omnibar:hover:not(:focus-within) .omnibar-leading {
+		color: var(--ink);
+	}
+}
+.workspace-search .omnibar:focus-within {
+	background: var(--elevated);
+	box-shadow:
+		var(--raised),
+		0 0 0 5px color-mix(in srgb, var(--ink) 4%, transparent),
+		0 20px 48px var(--shadow-soft);
+	translate: 0 -1px;
+}
+.workspace-search .omnibar-leading,
+.workspace-search .omnibar-clear,
+.workspace-search .omnibar-continue {
+	width: 38px;
+	height: 38px;
+	border-radius: var(--omnibar-key-radius);
+}
+.workspace-search .omnibar-leading {
+	color: var(--secondary);
+	transition:
+		background-color 220ms var(--ease-out),
+		color 220ms ease,
+		box-shadow 220ms var(--ease-out),
+		scale 360ms var(--ease-spring);
+}
+/* Adding only turns the glyph; the key itself stays bare. */
+.workspace-search .omnibar:focus-within .omnibar-leading,
+.workspace-search .omnibar-leading.insert {
+	color: var(--ink);
+}
+.workspace-search .omnibar-leading:hover:not(:disabled) {
+	background: var(--lift);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.workspace-search .omnibar-leading:active:not(:disabled),
+.workspace-search .omnibar-clear:active,
+.workspace-search .omnibar-continue:active:not(:disabled) {
+	scale: 0.92;
+	transition-duration: 120ms;
+}
+.workspace-search .omnibar-glyph svg {
+	width: 17px;
+	height: 17px;
+}
+.workspace-search .omnibar input:not([type='checkbox']) {
+	min-height: 38px;
+	font-size: 15px;
+}
+.workspace-search .omnibar input::placeholder {
+	color: var(--tertiary);
+	transition: color 220ms ease;
+}
+.workspace-search .omnibar:focus-within input::placeholder {
+	color: var(--secondary);
+}
+.workspace-search .omnibar-chip {
+	height: 28px;
+	box-shadow: var(--raised);
+}
+.workspace-search .omnibar-clear {
+	transition:
+		background-color 160ms ease,
+		color 160ms ease,
+		scale 360ms var(--ease-spring);
+}
+.workspace-search .omnibar-clear:hover {
+	background: var(--lift);
+	box-shadow: var(--raised);
+}
+.workspace-search .omnibar-continue {
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+		0 4px 14px var(--shadow-soft);
+	transition:
+		background-color 160ms ease,
+		scale 360ms var(--ease-spring);
+}
+.workspace-search .omnibar-continue svg {
+	transition: translate 320ms var(--ease-spring);
+}
+.workspace-search .omnibar-continue:hover:not(:disabled) svg {
+	translate: 2px 0;
+}
+.workspace-search .omnibar:focus-within .omnibar-shortcut {
+	opacity: 0.55;
+}
+/* The capture card hangs from the bar as its continuation: same lift, a deeper shadow, and
+   radii nested inside it (card 20 − padding 10 → fields 10). */
+.workspace-search .capture-picker {
+	top: calc(100% + 12px);
+	padding: 10px;
+	border: 0;
+	border-radius: 20px;
+	box-shadow:
+		var(--raised),
+		0 28px 70px var(--shadow-strong);
+	animation: capture-in 420ms var(--ease-spring);
+}
+.workspace-search .capture-source {
+	border-radius: var(--radius-control);
+}
+.workspace-search .capture-options {
+	border-radius: 14px;
+	box-shadow:
+		var(--raised),
+		0 16px 40px var(--shadow-strong);
+}
+.workspace-search .capture-options li {
+	border-radius: 10px;
 }
 
 /* Capture: one quiet card under the bar. Link, title and tags in a single step. */
@@ -5273,10 +5467,12 @@ a.editor-source:hover > svg {
 @keyframes capture-in {
 	from {
 		opacity: 0;
-		translate: 0 -4px;
-		scale: 0.985;
+		translate: 0 -8px;
+		scale: 0.97;
+		filter: blur(4px);
 	}
 }
+
 @keyframes fade-in {
 	from {
 		opacity: 0;

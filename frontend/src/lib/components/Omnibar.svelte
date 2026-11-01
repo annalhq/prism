@@ -32,7 +32,7 @@
 	import { onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { scale } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { cubicOut, quintOut } from 'svelte/easing';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
 	import { ensureTag, inferBookmarkKind, type Row } from '#lib/client/workflows.js';
 	import { normalizeUrl } from '#lib/domain/urls.js';
@@ -72,6 +72,8 @@
 		readonly?: boolean;
 	} = $props();
 	let mode = $state<'insert' | 'search'>('search');
+	// The short placeholder fits the compact resting bar; the full syntax shows once focused.
+	let focused = $state(false);
 	let draft = $state(''),
 		title = $state(''),
 		url = $state(''),
@@ -537,12 +539,18 @@
 		input?.focus();
 	}
 	const apple = typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
-	const pop = { duration: 160, start: 0.6, easing: cubicOut };
+	const pop = { duration: 240, start: 0.75, easing: quintOut };
 </script>
 
+<!-- Engaged while it holds something: a query, the add field or its card. Desktop keeps the
+     bar compact until it is focused or engaged, then widens it. -->
 <section
 	class="omnibar-section"
+	class:engaged={mode === 'insert' || !!query}
+	class:adding={mode === 'insert'}
 	aria-label={readonly ? 'Search bookmarks' : 'Search and save bookmarks'}
+	onfocusin={() => (focused = true)}
+	onfocusout={(e) => (focused = e.currentTarget.contains(e.relatedTarget as Node | null))}
 >
 	<form class="omnibar" class:search-mode={mode === 'search'} onsubmit={prepare}>
 		{#if readonly}<span class="omnibar-leading" aria-hidden="true"
@@ -585,7 +593,9 @@
 			placeholder={mode === 'search'
 				? search.chips.length
 					? 'Refine…'
-					: 'Search, #tag, @person or !tag…'
+					: focused
+						? 'Search, #tag, @person or !tag…'
+						: 'Search'
 				: 'Paste a link to save…'}
 			value={mode === 'search' ? search.rest : draft}
 			oninput={(e) => {
@@ -638,10 +648,12 @@
 						title={trailing === 'close' ? 'Close · Esc' : 'Clear · Esc'}
 						onclick={clearOrClose}
 						in:scale={pop}><X /></button
-					>{:else if trailing === 'shortcut'}<kbd
+					>{:else if trailing === 'shortcut'}<span
 						class="omnibar-shortcut"
 						aria-hidden="true"
-						in:scale={pop}>/</kbd
+						in:scale={pop}
+						><kbd>/</kbd><span>search</span>{#if !readonly}<i></i><kbd>i</kbd><span>add</span
+							>{/if}</span
 					>{:else if trailing === 'continue'}<button
 						type="submit"
 						class="omnibar-continue"
