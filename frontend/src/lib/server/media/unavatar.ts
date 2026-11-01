@@ -1,6 +1,8 @@
 // A person's X photo from unavatar.io. Its free tier allows a small number of lookups a day,
 // so every photo it returns is stored in object storage and never asked for again.
 
+import { MediaError } from './storage.js';
+
 export const X_HANDLE = /^[A-Za-z0-9_]{1,15}$/;
 const MAX_BYTES = 2 * 1024 * 1024;
 // When unavatar gives no hint of when the limit resets, wait this long before asking again.
@@ -44,7 +46,7 @@ export async function fetchXPhoto(handle: string): Promise<UnavatarResult> {
 	);
 	if (response.status === 429) return { kind: 'limited', retryAt: retryAt(response.headers) };
 	if (response.status === 404) return { kind: 'missing' };
-	if (!response.ok) throw new Error(`unavatar answered ${response.status}.`);
+	if (!response.ok) throw new MediaError(`unavatar answered ${response.status}.`);
 	const declared = Number(response.headers.get('content-length') ?? 0);
 	if (declared > MAX_BYTES) return { kind: 'missing' };
 	const bytes = new Uint8Array(await response.arrayBuffer());

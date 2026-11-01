@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { requireOwner } from '#lib/server/auth.js';
-import { ApiError, apiErrorResponse } from '#lib/server/http.js';
+import { ApiError, apiErrorResponse, safeErrorDetails } from '#lib/server/http.js';
+import { MediaError } from '#lib/server/media/storage.js';
 import { personAvatar } from '#lib/server/vault/person-avatars.js';
 import { entityId } from '#lib/server/vault/read-parameters.js';
 
@@ -28,8 +29,14 @@ export const GET: RequestHandler = async (event) => {
 		});
 	} catch (error) {
 		if (error instanceof ApiError) return apiErrorResponse(error, event.locals.requestId);
-		// A photo is decoration: any failure falls back to the monogram without noise.
-		console.error('prism.avatar.failed', { requestId: event.locals.requestId });
+		// A photo is decoration: any failure falls back to the monogram. The log says why:
+		// database codes (42P01 means the person_avatars migration hasn't run), or the
+		// storage/unavatar step and status, which never include secrets.
+		console.error('prism.avatar.failed', {
+			requestId: event.locals.requestId,
+			...safeErrorDetails(error),
+			...(error instanceof MediaError ? { detail: error.message } : {})
+		});
 		return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
 	}
 };

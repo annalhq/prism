@@ -6,12 +6,17 @@ import { AwsClient } from 'aws4fetch';
 
 let client: AwsClient | undefined;
 
+/** A failure talking to the bucket. Its message names the step and status, never a secret. */
+export class MediaError extends Error {
+	override name = 'MediaError';
+}
+
 export function storageConfigured(): boolean {
 	return !!(B2_BUCKET && B2_ENDPOINT && B2_REGION && B2_KEY_ID && B2_APP_KEY);
 }
 
 function storage(): AwsClient {
-	if (!storageConfigured()) throw new Error('Object storage is not configured.');
+	if (!storageConfigured()) throw new MediaError('Object storage is not configured.');
 	return (client ??= new AwsClient({
 		accessKeyId: B2_KEY_ID!,
 		secretAccessKey: B2_APP_KEY!,
@@ -34,7 +39,7 @@ export async function putObject(key: string, body: Uint8Array, contentType: stri
 		headers: { 'Content-Type': contentType, 'Content-Length': String(body.byteLength) },
 		signal: AbortSignal.timeout(15_000)
 	});
-	if (!response.ok) throw new Error(`Object storage refused the upload (${response.status}).`);
+	if (!response.ok) throw new MediaError(`Object storage refused the upload (${response.status}).`);
 }
 
 /** The object's bytes, or null when it does not exist. */
@@ -43,6 +48,6 @@ export async function getObject(key: string): Promise<Uint8Array | null> {
 		signal: AbortSignal.timeout(15_000)
 	});
 	if (response.status === 404) return null;
-	if (!response.ok) throw new Error(`Object storage read failed (${response.status}).`);
+	if (!response.ok) throw new MediaError(`Object storage read failed (${response.status}).`);
 	return new Uint8Array(await response.arrayBuffer());
 }
