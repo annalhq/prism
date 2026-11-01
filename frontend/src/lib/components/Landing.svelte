@@ -18,18 +18,20 @@
 </script>
 
 <a class="skip-link" href="#landing-main">Skip to content</a>
-<!-- The sharks own the page; the copy floats over them on one small frosted card. -->
+<!-- The sharks own the page; the water darkens toward the bottom edge, where the copy rests. -->
 <div class="landing">
 	<AsciiOcean class="landing-ocean" {sharks} />
+	<div class="landing-vignette" aria-hidden="true"></div>
 	<header class="landing-chrome">
 		<span class="landing-glass landing-brand"><Brand /></span>
 		<ThemeToggle class="landing-glass landing-theme" />
 	</header>
 
 	<main id="landing-main" class="landing-hero" tabindex="-1">
-		<div class="landing-glass landing-card">
-			<h1>Every link you keep,<br />one keystroke away.</h1>
-			<p>A quiet, private library for bookmarks, people and notes.</p>
+		<div class="landing-card">
+			<p class="landing-eyebrow"><span aria-hidden="true"></span>Bookmarks · People · Notes</p>
+			<h1>Every link you keep,<br /><span class="landing-soft">one keystroke away.</span></h1>
+			<p class="landing-lede">A quiet, private library for bookmarks, people and notes.</p>
 			<div class="landing-actions">
 				<a class="primary-button landing-cta" href={resolve('/auth/sign-in')}
 					>Sign in<ArrowRight /></a

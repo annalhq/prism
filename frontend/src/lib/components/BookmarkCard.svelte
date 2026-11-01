@@ -12,7 +12,8 @@
 		Clock3 as Clock3Icon,
 		Trash2 as Trash2Icon,
 		RotateCcw as RotateCcwIcon,
-		Unlink as UnlinkIcon
+		Unlink as UnlinkIcon,
+		ChevronRight as ChevronRightIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
 	import { Collapsible, ContextMenu } from 'bits-ui';
@@ -188,6 +189,7 @@
 		{#if isReadLater(item)}<span class="later-badge" title="Read later"
 				><Clock3Icon /><span class="sr-only">Read later</span></span
 			>{/if}
+		{#if hasNote}<ChevronRightIcon class="disclosure-chevron" aria-hidden="true" />{/if}
 	</div>
 	<span class="bookmark-domain">{bookmarkDomain(item, source)}</span>
 	<time class="bookmark-date" datetime={String(item.createdAt)}
