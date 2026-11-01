@@ -17,6 +17,10 @@ export type AvatarImage = { bytes: Uint8Array; mime: string; sha256: string };
 
 // The limit belongs to this server, not to a person, so one moment covers every lookup.
 let limitedUntil = 0;
+// If storage refuses a photo, fetching more would only spend unavatar's daily allowance on
+// photos that can't be kept; pause lookups until storage has had time to be fixed.
+const STORAGE_PAUSE = 10 * 60 * 1000;
+let storageFailedUntil = 0;
 // A few lookups at once, so a first visit to the people page doesn't fire a burst at unavatar;
 // the same person is only ever looked up once at a time.
 let active = 0;
@@ -58,8 +62,8 @@ async function lookUp(
 	handle: string,
 	previousKey: string | null
 ): Promise<AvatarImage | null> {
-	// Queued lookups recheck: the limit may have been hit while they waited.
-	if (Date.now() < limitedUntil) return null;
+	// Queued lookups recheck: the limit may have been hit, or storage failed, while they waited.
+	if (Date.now() < limitedUntil || Date.now() < storageFailedUntil) return null;
 	const result = await fetchXPhoto(handle);
 	if (result.kind === 'limited') {
 		limitedUntil = result.retryAt;
@@ -87,7 +91,12 @@ async function lookUp(
 	const { bytes, mime } = result;
 	const sha256 = createHash('sha256').update(bytes).digest('hex');
 	const objectKey = `avatars/${vaultId}/${personId}/${sha256}.${EXTENSIONS[mime]}`;
-	await putObject(objectKey, bytes, mime);
+	try {
+		await putObject(objectKey, bytes, mime);
+	} catch (error) {
+		storageFailedUntil = Date.now() + STORAGE_PAUSE;
+		throw error;
+	}
 	const stored = { handle, state: 'stored', objectKey, mime, bytes: bytes.byteLength, sha256 };
 	await db
 		.insert(personAvatars)
@@ -135,7 +144,8 @@ export async function personAvatar(
 			return null;
 	}
 	// Without storage it couldn't be kept, and would cost a lookup on every view.
-	if (!storageConfigured() || Date.now() < limitedUntil) return null;
+	if (!storageConfigured() || Date.now() < limitedUntil || Date.now() < storageFailedUntil)
+		return null;
 	const key = `${vaultId}:${personId}`;
 	let pending = inflight.get(key);
 	if (!pending) {

@@ -32,14 +32,24 @@ function objectUrl(key: string): string {
 	return `${endpoint.replace(/\/+$/, '')}/${encodeURIComponent(B2_BUCKET!)}/${path}`;
 }
 
+/** The S3 error code from a failed response (AccessDenied, InvalidAccessKeyId, …), if any. */
+async function errorCode(response: Response): Promise<string> {
+	const body = await response.text().catch(() => '');
+	const code = /<Code>([A-Za-z]{3,64})<\/Code>/.exec(body)?.[1];
+	return code ? ` ${code}` : '';
+}
+
 export async function putObject(key: string, body: Uint8Array, contentType: string): Promise<void> {
 	const response = await storage().fetch(objectUrl(key), {
 		method: 'PUT',
 		body: body as BodyInit,
-		headers: { 'Content-Type': contentType, 'Content-Length': String(body.byteLength) },
+		headers: { 'Content-Type': contentType },
 		signal: AbortSignal.timeout(15_000)
 	});
-	if (!response.ok) throw new MediaError(`Object storage refused the upload (${response.status}).`);
+	if (!response.ok)
+		throw new MediaError(
+			`Object storage refused the upload (${response.status}${await errorCode(response)}).`
+		);
 }
 
 /** The object's bytes, or null when it does not exist. */
@@ -48,6 +58,9 @@ export async function getObject(key: string): Promise<Uint8Array | null> {
 		signal: AbortSignal.timeout(15_000)
 	});
 	if (response.status === 404) return null;
-	if (!response.ok) throw new MediaError(`Object storage read failed (${response.status}).`);
+	if (!response.ok)
+		throw new MediaError(
+			`Object storage read failed (${response.status}${await errorCode(response)}).`
+		);
 	return new Uint8Array(await response.arrayBuffer());
 }
