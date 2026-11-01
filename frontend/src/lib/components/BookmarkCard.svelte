@@ -244,6 +244,9 @@
 					{@render row()}
 				</ContextMenu.Trigger><ContextMenu.Portal
 					><ContextMenu.Content class="menu-content">
+						<div class="menu-header" aria-hidden="true">
+							<Favicon url={source} /><span>{bookmarkDomain(item, source) || item.title}</span>
+						</div>
 						{#if item.deletedAt}<ContextMenu.Item
 								class="menu-item"
 								onSelect={() => onAction('restore')}

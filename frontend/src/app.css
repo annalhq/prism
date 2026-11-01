@@ -507,22 +507,28 @@ kbd {
 	font-size: var(--text-md);
 }
 
-/* Menus: a small frosted sheet that grows from where it was opened. */
+/*
+ * Menus (context, dropdown and select): a small frosted card that grows out of where it was
+ * opened and folds back into it. The highlighted item lifts into the sidebar's raised tab and
+ * its icon brightens. Radii nest: card 14 − padding 5 → items 9.
+ */
 .select-content,
 .menu-content {
+	--menu-pad: 5px;
+	--menu-radius: 14px;
 	z-index: 80;
-	max-height: min(360px, var(--bits-dropdown-menu-content-available-height, 60vh));
+	max-height: min(380px, var(--bits-dropdown-menu-content-available-height, 60vh));
 	overflow-y: auto;
-	padding: 5px;
+	padding: var(--menu-pad);
 	border: 0;
-	border-radius: 12px;
-	background: color-mix(in srgb, var(--elevated) 92%, transparent);
-	-webkit-backdrop-filter: blur(20px) saturate(160%);
-	backdrop-filter: blur(20px) saturate(160%);
+	border-radius: var(--menu-radius);
+	background: color-mix(in srgb, var(--elevated) 94%, transparent);
+	-webkit-backdrop-filter: blur(24px) saturate(170%);
+	backdrop-filter: blur(24px) saturate(170%);
 	box-shadow:
-		inset 0 0 0 1px var(--hairline),
-		0 1px 2px var(--shadow-faint),
-		0 12px 32px var(--shadow-strong);
+		var(--raised),
+		0 2px 6px var(--shadow-faint),
+		0 18px 44px var(--shadow-strong);
 	outline: none;
 	transform-origin: var(
 		--bits-dropdown-menu-content-transform-origin,
@@ -541,13 +547,17 @@ kbd {
 }
 .select-content[data-state='open'],
 .menu-content[data-state='open'] {
-	animation: menu-in 150ms var(--ease-out);
+	animation: menu-in 260ms var(--ease-spring);
+}
+.select-content[data-state='closed'],
+.menu-content[data-state='closed'] {
+	animation: menu-out 140ms var(--ease-out) forwards;
 }
 .select-content {
 	min-width: var(--bits-select-anchor-width, 170px);
 }
 .menu-content {
-	min-width: 200px;
+	min-width: 210px;
 	max-width: min(320px, calc(100vw - 24px));
 }
 .select-item,
@@ -555,36 +565,48 @@ kbd {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	min-height: 32px;
+	min-height: 34px;
 	padding: 0 8px 0 10px;
-	border-radius: 7px;
+	border-radius: calc(var(--menu-radius) - var(--menu-pad));
 	color: var(--muted-ink);
 	font-size: var(--text-md);
+	font-weight: 450;
 	outline: none;
 	cursor: default;
 	user-select: none;
 	overflow-wrap: anywhere;
 	transition:
-		background-color 80ms ease,
-		color 80ms ease;
+		background-color 120ms ease,
+		box-shadow 120ms ease,
+		color 120ms ease;
 }
 .menu-item > svg:first-child {
 	width: 15px;
 	height: 15px;
 	color: var(--tertiary);
-	transition: color 80ms ease;
+	transition:
+		color 120ms ease,
+		scale 260ms var(--ease-spring);
 }
 .menu-item > span {
 	flex: 1;
 	min-width: 0;
 }
+/* Shortcuts as small raised key caps, quiet until their row is highlighted. */
 .menu-item kbd {
-	min-width: 18px;
-	padding: 0 4px;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 5px;
 	border: 0;
-	background: transparent;
+	border-radius: 6px;
+	background: var(--canvas);
+	box-shadow: inset 0 0 0 1px var(--hairline);
 	color: var(--tertiary);
-	line-height: 18px;
+	font-size: 10.5px;
+	line-height: 20px;
+	transition:
+		color 120ms ease,
+		box-shadow 120ms ease;
 }
 .menu-item .menu-check {
 	width: 14px;
@@ -593,18 +615,25 @@ kbd {
 }
 .select-item[data-highlighted],
 .menu-item[data-highlighted] {
-	background: var(--selection);
+	background: var(--lift);
+	box-shadow: var(--raised);
 	color: var(--ink);
 }
 .menu-item[data-highlighted] > svg:first-child {
 	color: var(--ink);
+	scale: 1.06;
+}
+.menu-item[data-highlighted] kbd {
+	color: var(--secondary);
+	box-shadow: var(--raised);
 }
 .menu-item.danger-text,
 .menu-item.danger-text > svg:first-child {
 	color: var(--danger);
 }
 .menu-item.danger-text[data-highlighted] {
-	background: color-mix(in srgb, var(--danger) 14%, transparent);
+	background: color-mix(in srgb, var(--danger) 12%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 20%, transparent);
 }
 .select-item[data-disabled],
 .menu-item[data-disabled] {
@@ -613,8 +642,26 @@ kbd {
 }
 .menu-separator {
 	height: 1px;
-	margin: 5px 6px;
+	margin: 5px 10px;
 	background: var(--hairline);
+}
+/* What the menu acts on: the site's icon and name, above the actions. */
+.menu-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	padding: 6px 10px 8px;
+	margin-bottom: 4px;
+	border-bottom: 1px solid var(--hairline);
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+.menu-header > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .dialog-overlay {
@@ -2419,6 +2466,49 @@ kbd {
 }
 .people-tabs button[aria-selected='true']::after {
 	transform: scaleX(1);
+}
+/* Feed scope: two equal segments and a raised thumb that slides to the chosen one, like the
+   theme switch in settings. */
+.feed-scope {
+	position: relative;
+	display: inline-grid;
+	grid-template-columns: 1fr 1fr;
+	padding: 2px;
+	border-radius: var(--radius-pill);
+	background: var(--canvas);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.feed-scope-thumb {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	left: 2px;
+	width: calc(50% - 2px);
+	border-radius: var(--radius-pill);
+	background: var(--elevated);
+	box-shadow: var(--raised);
+	transition: translate 420ms var(--ease-spring);
+	pointer-events: none;
+}
+.feed-scope[data-scope='all'] .feed-scope-thumb {
+	translate: 100% 0;
+}
+.feed-scope button {
+	position: relative;
+	height: 26px;
+	padding: 0 12px;
+	border-radius: var(--radius-pill);
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+	font-weight: 500;
+	white-space: nowrap;
+	transition: color 220ms ease;
+}
+.feed-scope button:hover {
+	color: var(--secondary);
+}
+.feed-scope button[aria-checked='true'] {
+	color: var(--ink);
 }
 .people-add {
 	display: inline-flex;
@@ -5619,7 +5709,14 @@ a.editor-source:hover > svg {
 @keyframes menu-in {
 	from {
 		opacity: 0;
-		scale: 0.96;
+		scale: 0.94;
+		filter: blur(3px);
+	}
+}
+@keyframes menu-out {
+	to {
+		opacity: 0;
+		scale: 0.97;
 	}
 }
 @keyframes settings-in {

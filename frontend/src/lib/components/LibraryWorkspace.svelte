@@ -35,7 +35,9 @@
 	import PostCard, { type PostPerson } from './PostCard.svelte';
 	import { formatPersonLinks, parsePersonLinks } from '#lib/domain/person-links.js';
 	import { notePreview } from '#lib/client/reference-edits.js';
+	import { tweetStatusId } from '#lib/domain/tweets.js';
 	import {
+		bookmarkSource,
 		isReadLater,
 		moveTag,
 		personLinksIndex,
@@ -202,6 +204,20 @@
 			: 'feed'
 	);
 	const feedMode = $derived(!!profileSlug || (view === 'people' && peopleTab === 'feed'));
+	// The people feed shows what is connected to someone, or every saved post from X as well,
+	// connected or not. Kept in the URL like the tab, so it survives reloads and back.
+	const feedScope = $derived(
+		view === 'people' && peopleTab === 'feed' && page.url.searchParams.get('feed') === 'all'
+			? 'all'
+			: 'connected'
+	);
+	async function setFeedScope(scope: 'connected' | 'all') {
+		const url = new SvelteURL(page.url.href);
+		if (scope === 'all') url.searchParams.set('feed', 'all');
+		else url.searchParams.delete('feed');
+		limit = 100;
+		await goto(url, { reset: false });
+	}
 	const identityIndex = $derived.by(() => {
 		void version;
 		return personLinksIndex(library);
@@ -284,6 +300,7 @@
 					: []
 		);
 		const filterFeed = feedMode;
+		const allPosts = feedScope === 'all' && !profileSlug;
 		// The directory lists people by their latest connection, unless sorted by name.
 		const byActivity = view === 'people' && !feedMode && sort !== 'title' && !query;
 		const recency = lastAdded;
@@ -295,7 +312,10 @@
 						? {
 								...value,
 								items: value.items.filter(
-									(i) => i.entityKind === 'bookmark' && connected.has(String(i.id))
+									(i) =>
+										i.entityKind === 'bookmark' &&
+										(connected.has(String(i.id)) ||
+											(allPosts && !!tweetStatusId(bookmarkSource(i))))
 								)
 							}
 						: byActivity
@@ -816,6 +836,25 @@
 							>People{#if people.length}<span>{people.length}</span>{/if}</button
 						>
 					</div>
+					{#if peopleTab === 'feed'}<div
+							class="feed-scope"
+							role="radiogroup"
+							aria-label="Feed shows"
+							data-scope={feedScope}
+						>
+							<span class="feed-scope-thumb" aria-hidden="true"></span>
+							<button
+								role="radio"
+								aria-checked={feedScope === 'connected'}
+								title="Links connected to people"
+								onclick={() => void setFeedScope('connected')}>Connected</button
+							><button
+								role="radio"
+								aria-checked={feedScope === 'all'}
+								title="Every saved post from X, connected or not"
+								onclick={() => void setFeedScope('all')}>All posts</button
+							>
+						</div>{/if}
 					{#if peopleTab === 'directory' && people.length > 1}<button
 							class="column-sort"
 							onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
@@ -945,24 +984,28 @@
 											? 'Nothing matched this search.'
 											: profileSlug
 												? 'Nothing connected yet.'
-												: peopleEmpty && feedMode
-													? people.length
-														? 'No connected links yet.'
-														: 'Keep people close to what they make.'
-													: peopleEmpty
-														? 'No people yet.'
-														: 'No bookmarks here yet.'}
+												: peopleEmpty && feedMode && feedScope === 'all'
+													? 'No posts saved yet.'
+													: peopleEmpty && feedMode
+														? people.length
+															? 'No connected links yet.'
+															: 'Keep people close to what they make.'
+														: peopleEmpty
+															? 'No people yet.'
+															: 'No bookmarks here yet.'}
 									</h2>
 									<p>
 										{query
 											? 'Try a title, note, #tag or @username.'
 											: profileSlug
 												? 'Connect a saved link above, or tag them with @ while saving one.'
-												: peopleEmpty
-													? 'Add someone, then connect links to them. Everything they make collects on their page and here.'
-													: 'Paste a link above to save your first bookmark.'}
+												: peopleEmpty && feedMode && feedScope === 'all'
+													? 'Save a post from X and it shows up here, connected to someone or not.'
+													: peopleEmpty
+														? 'Add someone, then connect links to them. Everything they make collects on their page and here.'
+														: 'Paste a link above to save your first bookmark.'}
 									</p>
-									{#if !query && view !== 'trash' && !profileSlug && !(peopleEmpty && feedMode && people.length)}<button
+									{#if !query && view !== 'trash' && !profileSlug && !(peopleEmpty && feedMode && (people.length || feedScope === 'all'))}<button
 											class="primary-button"
 											onclick={() => create(view === 'people' ? 'person' : 'bookmark')}
 											>{view === 'people' ? 'Add person' : 'Add bookmark'}</button
