@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type {
 	Change,
 	LinkProjection,
@@ -15,6 +15,26 @@ import { ApiError } from '../http.js';
 import { entityMetadataChange } from './projections.js';
 import { reject } from './rejections.js';
 
+/** Edges for many sources at once, in the same order linkProjection returns them. */
+export async function linkEdges(
+	tx: Transaction,
+	vaultId: string,
+	sourceIds: string[]
+): Promise<Map<string, LinkProjection['edges']>> {
+	const bySource = new Map<string, LinkProjection['edges']>(sourceIds.map((id) => [id, []]));
+	if (!sourceIds.length) return bySource;
+	const rows = await tx
+		.select({
+			sourceId: entityLinks.sourceId,
+			targetId: entityLinks.targetId,
+			kind: entityLinks.kind
+		})
+		.from(entityLinks)
+		.where(and(eq(entityLinks.vaultId, vaultId), inArray(entityLinks.sourceId, sourceIds)))
+		.orderBy(entityLinks.sourceId, entityLinks.targetId, entityLinks.kind);
+	for (const { sourceId, ...edge } of rows) bySource.get(sourceId)?.push(edge);
+	return bySource;
+}
 export async function linkProjection(
 	tx: Transaction,
 	vaultId: string,
