@@ -5,10 +5,11 @@ import { MediaError } from '#lib/server/media/storage.js';
 import { personAvatar } from '#lib/server/vault/person-avatars.js';
 import { entityId } from '#lib/server/vault/read-parameters.js';
 
-// A person's X profile photo, from object storage. It is fetched from unavatar.io the first time
-// it's asked for; until then, or while unavatar's daily limit is used up, this answers 404 and
-// the client shows the monogram. The client puts the person's handle in the query string, so a
-// changed handle is a new URL; otherwise the browser may keep the image for a week.
+// A person's profile photo (from their X, GitHub, YouTube, Codeforces or Bilibili link), served
+// from object storage. It is fetched from unavatar.io the first time it's asked for; until then,
+// or while unavatar's daily limit is used up, this answers 404 and the client shows the monogram.
+// The client puts the photo's source in the query string, so a changed link is a new URL;
+// otherwise the browser may keep the image for a week.
 export const GET: RequestHandler = async (event) => {
 	try {
 		const owner = await requireOwner(event);

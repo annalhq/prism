@@ -1,3 +1,4 @@
+import { avatarSourceFromUrl } from './avatar-sources.js';
 import { normalizeUrl } from './urls.js';
 
 /** One profile a person is known by, stored as a confirmed person identity. */
@@ -30,7 +31,9 @@ const PLATFORMS: [RegExp, string][] = [
 	[/(^|\.)instagram\.com$/, 'instagram'],
 	[/(^|\.)threads\.net$/, 'threads'],
 	[/(^|\.)substack\.com$/, 'substack'],
-	[/(^|\.)medium\.com$/, 'medium']
+	[/(^|\.)medium\.com$/, 'medium'],
+	[/(^|\.)codeforces\.com$/, 'codeforces'],
+	[/(^|\.)bilibili\.com$/, 'bilibili']
 ];
 
 export function xLink(handle: string): PersonLink {
@@ -57,8 +60,14 @@ function linkFromUrl(input: string): PersonLink {
 	if (X_HOSTS.has(host) && X_HANDLE.test(first) && !X_RESERVED.has(first.toLowerCase()))
 		return xLink(first);
 	const platform = PLATFORMS.find(([pattern]) => pattern.test(host))?.[1] ?? 'web';
-	const handle =
-		platform !== 'web' && first && !first.includes('.')
+	// Where the profile's name isn't simply the first path part (codeforces.com/profile/name,
+	// youtube.com/channel/UC…, space.bilibili.com/123), the photo-source parser knows it.
+	const known = ['codeforces', 'bilibili', 'youtube'].includes(platform)
+		? avatarSourceFromUrl(parsed.canonicalUrl)
+		: null;
+	const handle = known
+		? known.id
+		: platform !== 'web' && first && !first.includes('.')
 			? decodeURIComponent(first).replace(/^@/, '')
 			: null;
 	return { platform, handle, profileUrl: parsed.canonicalUrl };

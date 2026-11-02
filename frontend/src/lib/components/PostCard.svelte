@@ -19,7 +19,6 @@
 	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import TweetCard from './TweetCard.svelte';
 	import { tweetStatusId } from '#lib/domain/tweets.js';
-	import { personPhoto } from '#lib/client/avatars.js';
 	import {
 		bookmarkDomain,
 		bookmarkSource,
@@ -27,7 +26,13 @@
 		isReadLater,
 		type Row
 	} from '#lib/client/workflows.js';
-	export type PostPerson = { id: string; name: string; handle: string | null };
+	export type PostPerson = {
+		id: string;
+		name: string;
+		handle: string | null;
+		// Their profile photo URL, when one of their links can give one.
+		photo?: string | null;
+	};
 	let {
 		item,
 		people = [],
@@ -103,7 +108,7 @@
 						aria-label={`Open ${lead.name}`}
 						><PersonAvatar
 							name={lead.name}
-							photo={readonly ? null : personPhoto(lead.id, lead.handle)}
+							photo={readonly ? null : (lead.photo ?? null)}
 							size={24}
 						/><span>{lead.name}</span></button
 					>{#if people.length > 1}<span class="post-more"

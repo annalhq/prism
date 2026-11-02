@@ -372,9 +372,11 @@ export const personIdentities = pgTable(
 	]
 );
 
-// A person's X profile photo, fetched from unavatar.io once per handle and kept in object
-// storage. Server-only: never synced to clients, who load it through /api/v1/people/:id/avatar.
-// `missing` records that there was no photo to give, so lookups aren't repeated on every view.
+// A person's profile photo, fetched from unavatar.io once per source and kept in object storage.
+// `handle` holds the source as `provider:id` (x:jack, github:torvalds, youtube:UC…, codeforces:…,
+// bilibili:…), so a changed profile link means one new fetch. Server-only: never synced to
+// clients, who load it through /api/v1/people/:id/avatar. `missing` records that there was no
+// photo to give, so lookups aren't repeated on every view.
 // No foreign key to people: person cleanup removes the row and queues the object's deletion.
 export const personAvatars = pgTable(
 	'person_avatars',
@@ -393,7 +395,7 @@ export const personAvatars = pgTable(
 		primaryKey({ columns: [t.vaultId, t.personId] }),
 		check(
 			'person_avatar_valid',
-			sql`char_length(${t.handle}) BETWEEN 1 AND 15 AND ${t.handle} ~ '^[a-z0-9_]+$' AND (
+			sql`char_length(${t.handle}) BETWEEN 3 AND 80 AND ${t.handle} ~ '^(x|github|youtube|codeforces|bilibili):[A-Za-z0-9._-]{1,64}$' AND (
 				(${t.state} = 'missing' AND ${t.objectKey} IS NULL) OR
 				(${t.state} = 'stored' AND ${t.objectKey} IS NOT NULL AND ${t.mime} IN ('image/jpeg','image/png','image/webp')
 					AND ${t.bytes} > 0 AND ${t.bytes} <= 2097152 AND ${t.sha256} ~ '^[a-f0-9]{64}$')

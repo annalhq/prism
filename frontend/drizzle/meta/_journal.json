@@ -64,6 +64,13 @@
 			"when": 1793551916291,
 			"tag": "0008_person_avatars",
 			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1793636762899,
+			"tag": "0009_person_avatar_sources",
+			"breakpoints": true
 		}
 	]
 }

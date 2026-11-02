@@ -226,6 +226,9 @@
 	});
 	const peopleById = $derived(new Map(people.map((p) => [String(p.id), p])));
 	const handleOf = (id: string) => xHandle(identityIndex.get(id));
+	// Their profile photo, from whichever of their links can give one.
+	const photoOf = (id: string) =>
+		personPhoto(id, identityIndex.get(id), peopleById.get(id)?.website);
 	const createdAt = $derived.by(() => {
 		void contentVersion;
 		if (!connections.size) return new Map<string, string>();
@@ -242,7 +245,12 @@
 			if (!row) continue;
 			for (const bookmarkId of bookmarkIds) {
 				const list = byPost.get(bookmarkId) ?? [];
-				list.push({ id, name: String(row.displayName), handle: handleOf(id) });
+				list.push({
+					id,
+					name: String(row.displayName),
+					handle: handleOf(id),
+					photo: photoOf(id)
+				});
 				byPost.set(bookmarkId, list);
 			}
 		}
@@ -811,7 +819,7 @@
 					website={personWebsite}
 					links={profileLinksList}
 					count={connections.get(String(person.id))?.size ?? 0}
-					photo={personPhoto(String(person.id), handleOf(String(person.id)))}
+					photo={photoOf(String(person.id))}
 					onBack={() => void navigate(null, 'people')}
 					onEdit={editPerson}
 				/>
@@ -877,7 +885,7 @@
 								title={String(entry.displayName)}
 								><PersonAvatar
 									name={String(entry.displayName)}
-									photo={personPhoto(String(entry.id), handleOf(String(entry.id)))}
+									photo={photoOf(String(entry.id))}
 									size={40}
 								/><span>{String(entry.displayName).split(' ')[0]}</span></button
 							>{/each}
@@ -956,7 +964,7 @@
 							{#if item.entityKind === 'person'}<PersonRow
 									person={item}
 									handle={handleOf(String(item.id))}
-									photo={personPhoto(String(item.id), handleOf(String(item.id)))}
+									photo={photoOf(String(item.id))}
 									count={connections.get(String(item.id))?.size ?? 0}
 									onOpen={() => navigate({ kind: 'person', id: String(item.id) })}
 								/>

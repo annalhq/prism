@@ -1,9 +1,10 @@
-// A person's X photo from unavatar.io. Its free tier allows a small number of lookups a day,
-// so every photo it returns is stored in object storage and never asked for again.
+// A person's profile photo from unavatar.io (X, GitHub, YouTube, Codeforces or Bilibili). Its
+// free tier allows a small number of lookups a day, so every photo it returns is stored in
+// object storage and never asked for again.
 
+import { AVATAR_SOURCE_KEY, sourceKey, type AvatarSource } from '#lib/domain/avatar-sources.js';
 import { MediaError } from './storage.js';
 
-export const X_HANDLE = /^[A-Za-z0-9_]{1,15}$/;
 const MAX_BYTES = 2 * 1024 * 1024;
 // When unavatar gives no hint of when the limit resets, wait this long before asking again.
 const DEFAULT_WAIT = 60 * 60 * 1000;
@@ -37,11 +38,11 @@ function retryAt(headers: Headers): number {
 	return now + DEFAULT_WAIT;
 }
 
-export async function fetchXPhoto(handle: string): Promise<UnavatarResult> {
-	if (!X_HANDLE.test(handle)) return { kind: 'missing' };
+export async function fetchPhoto(source: AvatarSource): Promise<UnavatarResult> {
+	if (!AVATAR_SOURCE_KEY.test(sourceKey(source))) return { kind: 'missing' };
 	// `fallback=false` answers 404 instead of a generic placeholder when there is no photo.
 	const response = await fetch(
-		`https://unavatar.io/x/${encodeURIComponent(handle)}?fallback=false`,
+		`https://unavatar.io/${source.provider}/${encodeURIComponent(source.id)}?fallback=false`,
 		{ headers: { Accept: 'image/*' }, signal: AbortSignal.timeout(10_000) }
 	);
 	if (response.status === 429) return { kind: 'limited', retryAt: retryAt(response.headers) };
