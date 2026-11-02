@@ -26,11 +26,13 @@ export default defineConfig({
 			DATABASE_URL_DIRECT: '',
 			OWNER_SUBJECT: '',
 			NEON_AUTH_BASE_URL: '',
-			B2_BUCKET: '',
-			B2_ENDPOINT: '',
-			B2_REGION: '',
-			B2_KEY_ID: '',
-			B2_APP_KEY: ''
+			// Tests never touch real object storage, whichever names a local .env uses.
+			NEON_STORAGE_ENDPOINT: '',
+			NEON_STORAGE_ACCESS_KEY_ID: '',
+			NEON_STORAGE_SECRET_ACCESS_KEY: '',
+			AWS_ENDPOINT_URL_S3: '',
+			AWS_ACCESS_KEY_ID: '',
+			AWS_SECRET_ACCESS_KEY: ''
 		}
 	}
 });

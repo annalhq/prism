@@ -5,8 +5,7 @@ import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { validateDatabaseUrl } from '../../src/lib/server/db/url.js';
 
 // Adds person_avatars: each person's X photo, fetched from unavatar.io once per handle and kept
-// in Backblaze B2.
-// The change is additive; nothing existing reads or changes. Rollback, if ever needed (stored
+// in object storage. The change is additive; nothing existing reads or changes. Rollback, if ever needed (stored
 // objects stay in the bucket under avatars/ and can be removed separately):
 //   DROP TABLE "person_avatars";
 if (process.env.CONFIRM_PRISM_PRODUCTION_MIGRATION !== '0008') {

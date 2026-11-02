@@ -21,9 +21,18 @@ export const variables = defineEnvVars({
 		...optionalPrivate,
 		description: "Set to 'enabled' to publish a read-only view of the owner library at /public"
 	},
-	B2_BUCKET: { ...optionalPrivate, description: 'Private Backblaze B2 bucket name' },
-	B2_ENDPOINT: { ...optionalPrivate, description: 'Backblaze B2 regional endpoint' },
-	B2_REGION: { ...optionalPrivate, description: 'Backblaze B2 bucket region' },
-	B2_KEY_ID: { ...optionalPrivate, description: 'Bucket-scoped Backblaze key ID' },
-	B2_APP_KEY: { ...optionalPrivate, description: 'Bucket-scoped Backblaze application key' }
+	// Neon Object Storage. Vercel reserves the AWS_* names, so production sets NEON_STORAGE_*;
+	// locally, `neon deploy` / `neon env pull` write the AWS_* names, which are read as a fallback.
+	NEON_STORAGE_BUCKET: { ...optionalPrivate, description: "Neon bucket name (default 'uploads')" },
+	NEON_STORAGE_ENDPOINT: { ...optionalPrivate, description: 'Neon branch S3 endpoint URL' },
+	NEON_STORAGE_REGION: { ...optionalPrivate, description: 'Neon storage region' },
+	NEON_STORAGE_ACCESS_KEY_ID: { ...optionalPrivate, description: 'Neon branch storage key ID' },
+	NEON_STORAGE_SECRET_ACCESS_KEY: {
+		...optionalPrivate,
+		description: 'Neon branch storage secret key'
+	},
+	AWS_ENDPOINT_URL_S3: { ...optionalPrivate, description: 'Neon endpoint, from neon env pull' },
+	AWS_REGION: { ...optionalPrivate, description: 'Neon region, from neon env pull' },
+	AWS_ACCESS_KEY_ID: { ...optionalPrivate, description: 'Neon key ID, from neon env pull' },
+	AWS_SECRET_ACCESS_KEY: { ...optionalPrivate, description: 'Neon secret, from neon env pull' }
 });

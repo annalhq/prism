@@ -1,66 +1,76 @@
-import { B2_APP_KEY, B2_BUCKET, B2_ENDPOINT, B2_KEY_ID, B2_REGION } from '$app/env/private';
-import { AwsClient } from 'aws4fetch';
+import * as env from '$app/env/private';
+import { Files, FilesError } from 'files-sdk';
+import { neon } from 'files-sdk/neon';
 
-// Backblaze B2 through its S3-compatible API, signed with SigV4. The bucket is private: objects
-// are only ever read back by the server and streamed to the signed-in owner.
+// Neon Object Storage through the Files SDK. The bucket is private: objects are only ever read
+// back by the server and streamed to the signed-in owner. Objects branch with the database, so a
+// Neon branch's person_avatars rows and their photos stay in step.
 
-let client: AwsClient | undefined;
-
-/** A failure talking to the bucket. Its message names the step and status, never a secret. */
+/** A failure talking to the bucket. Its message names the step and code, never a secret. */
 export class MediaError extends Error {
 	override name = 'MediaError';
 }
 
+// Pasted settings often carry a trailing newline, spaces or quotes; read them without that.
+const setting = (value: string | undefined) =>
+	value
+		?.trim()
+		.replace(/^(['"])(.*)\1$/, '$2')
+		.trim() || undefined;
+// Production (Vercel) sets NEON_STORAGE_*, because Vercel reserves the AWS_* names for its own
+// credentials; locally, `neon env pull` writes AWS_*. Credentials are always passed explicitly,
+// so an ambient AWS credential chain can never be used by mistake.
+const config = {
+	bucket: setting(env.NEON_STORAGE_BUCKET) ?? 'uploads',
+	endpoint: setting(env.NEON_STORAGE_ENDPOINT) ?? setting(env.AWS_ENDPOINT_URL_S3),
+	region: setting(env.NEON_STORAGE_REGION) ?? setting(env.AWS_REGION),
+	accessKeyId: setting(env.NEON_STORAGE_ACCESS_KEY_ID) ?? setting(env.AWS_ACCESS_KEY_ID),
+	secretAccessKey: setting(env.NEON_STORAGE_SECRET_ACCESS_KEY) ?? setting(env.AWS_SECRET_ACCESS_KEY)
+};
+
+let client: Files | undefined;
+
 export function storageConfigured(): boolean {
-	return !!(B2_BUCKET && B2_ENDPOINT && B2_REGION && B2_KEY_ID && B2_APP_KEY);
+	return !!(config.endpoint && config.accessKeyId && config.secretAccessKey);
 }
 
-function storage(): AwsClient {
+function storage(): Files {
 	if (!storageConfigured()) throw new MediaError('Object storage is not configured.');
-	return (client ??= new AwsClient({
-		accessKeyId: B2_KEY_ID!,
-		secretAccessKey: B2_APP_KEY!,
-		service: 's3',
-		region: B2_REGION!
+	return (client ??= new Files({
+		adapter: neon({
+			bucket: config.bucket,
+			endpoint: config.endpoint,
+			region: config.region,
+			accessKeyId: config.accessKeyId,
+			secretAccessKey: config.secretAccessKey
+		})
 	}));
 }
 
-// Path-style addressing: https://s3.<region>.backblazeb2.com/<bucket>/<key>.
-function objectUrl(key: string): string {
-	const endpoint = /^https?:\/\//.test(B2_ENDPOINT!) ? B2_ENDPOINT! : `https://${B2_ENDPOINT}`;
-	const path = key.split('/').map(encodeURIComponent).join('/');
-	return `${endpoint.replace(/\/+$/, '')}/${encodeURIComponent(B2_BUCKET!)}/${path}`;
-}
-
-/** The S3 error code from a failed response (AccessDenied, InvalidAccessKeyId, …), if any. */
-async function errorCode(response: Response): Promise<string> {
-	const body = await response.text().catch(() => '');
-	const code = /<Code>([A-Za-z]{3,64})<\/Code>/.exec(body)?.[1];
-	return code ? ` ${code}` : '';
+/** Rewords a storage failure as the step plus Files SDK's code (NotFound, Unauthorized, …). */
+function failed(step: string, error: unknown): MediaError {
+	const code =
+		error instanceof FilesError ? ` ${error.code}${error.aborted ? ', timed out' : ''}` : '';
+	return new MediaError(`Object storage ${step} failed (${code.trim() || 'unknown'}).`);
 }
 
 export async function putObject(key: string, body: Uint8Array, contentType: string): Promise<void> {
-	const response = await storage().fetch(objectUrl(key), {
-		method: 'PUT',
-		body: body as BodyInit,
-		headers: { 'Content-Type': contentType },
-		signal: AbortSignal.timeout(15_000)
-	});
-	if (!response.ok)
-		throw new MediaError(
-			`Object storage refused the upload (${response.status}${await errorCode(response)}).`
-		);
+	try {
+		await storage().upload(key, body, { contentType });
+	} catch (error) {
+		if (error instanceof MediaError) throw error;
+		throw failed('upload', error);
+	}
 }
 
 /** The object's bytes, or null when it does not exist. */
 export async function getObject(key: string): Promise<Uint8Array | null> {
-	const response = await storage().fetch(objectUrl(key), {
-		signal: AbortSignal.timeout(15_000)
-	});
-	if (response.status === 404) return null;
-	if (!response.ok)
-		throw new MediaError(
-			`Object storage read failed (${response.status}${await errorCode(response)}).`
-		);
-	return new Uint8Array(await response.arrayBuffer());
+	try {
+		const file = await storage().download(key);
+		return new Uint8Array(await file.arrayBuffer());
+	} catch (error) {
+		if (error instanceof FilesError && error.code === 'NotFound') return null;
+		if (error instanceof MediaError) throw error;
+		throw failed('read', error);
+	}
 }

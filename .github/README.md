@@ -82,21 +82,21 @@ On macOS, use `⌘` wherever this table says `Ctrl`.
 
 The omnibar uses one query language everywhere. Each finished filter becomes a chip, but the text query is still what gets stored, so search URLs, the back button and saved views all keep working.
 
-| Query                                              | Matches                                             |
-| -------------------------------------------------- | --------------------------------------------------- |
-| `segment tree`                                     | Those words anywhere in a bookmark                  |
-| `"exact phrase"`                                   | That exact phrase                                   |
-| `title:dp`                                         | Text in the title only                              |
-| `#dp #graphs`                                      | Bookmarks with **all** of these tags                |
-| `#dp\|graphs` · `#{dp, graphs}`                    | Bookmarks with **any** of these tags                |
-| `@simon` · `@a\|b`                                 | Bookmarks connected to a person (or any of several) |
-| `site:codeforces.com`                              | Links from a site, including its subdomains         |
-| `is:page` · `is:social` · `is:tweet`               | Bookmarks of that kind                              |
-| `is:later` · `is:untagged` · `is:trash`            | Read later, untagged, or trashed bookmarks          |
-| `has:note` · `has:tags` · `has:people` · `has:backlinks` | Bookmarks that have that                      |
-| `after:7d` · `before:2026-01`                      | By save date: a span (`d` `w` `m` `y`) or a date    |
-| `!x` · `-x`                                        | Negates any term above, e.g. `-site:x.com`          |
-| `!{a, b}`                                          | Bookmarks with none of these tags                   |
+| Query                                                    | Matches                                             |
+| -------------------------------------------------------- | --------------------------------------------------- |
+| `segment tree`                                           | Those words anywhere in a bookmark                  |
+| `"exact phrase"`                                         | That exact phrase                                   |
+| `title:dp`                                               | Text in the title only                              |
+| `#dp #graphs`                                            | Bookmarks with **all** of these tags                |
+| `#dp\|graphs` · `#{dp, graphs}`                          | Bookmarks with **any** of these tags                |
+| `@simon` · `@a\|b`                                       | Bookmarks connected to a person (or any of several) |
+| `site:codeforces.com`                                    | Links from a site, including its subdomains         |
+| `is:page` · `is:social` · `is:tweet`                     | Bookmarks of that kind                              |
+| `is:later` · `is:untagged` · `is:trash`                  | Read later, untagged, or trashed bookmarks          |
+| `has:note` · `has:tags` · `has:people` · `has:backlinks` | Bookmarks that have that                            |
+| `after:7d` · `before:2026-01`                            | By save date: a span (`d` `w` `m` `y`) or a date    |
+| `!x` · `-x`                                              | Negates any term above, e.g. `-site:x.com`          |
+| `!{a, b}`                                                | Bookmarks with none of these tags                   |
 
 `@` is a person bang. An exact handle or name wins; otherwise a unique prefix is enough, so results narrow while you type.
 
@@ -136,7 +136,7 @@ Fill in `frontend/.env`:
 | `OWNER_SUBJECT`           | Auth user ID of the library's owner                         |
 | `LIBRARY_PUBLIC_VIEW`     | Set to `enabled` to serve a read-only copy at `/public`     |
 | `DB_MIGRATION_TARGET`     | Set to `isolated` only when migrating a disposable database |
-| `B2_*`                    | Optional Backblaze B2 bucket settings                       |
+| `NEON_STORAGE_*`          | Optional Neon Object Storage bucket for person photos       |
 
 Then create the schema and the owner's vault, and start the app:
 
