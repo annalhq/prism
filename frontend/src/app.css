@@ -5422,26 +5422,7 @@ a.editor-source:hover > svg {
 }
 
 /* 11. Landing & auth ------------------------------------------------------ */
-/* Landing: the ASCII ocean full-bleed, with one frosted card of copy floating over it. */
-.landing {
-	position: relative;
-	isolation: isolate;
-	display: flex;
-	flex-direction: column;
-	min-height: 100dvh;
-	overflow: hidden;
-}
-.landing-ocean {
-	position: fixed;
-	inset: 0;
-	z-index: -1;
-	display: block;
-	width: 100%;
-	height: 100%;
-	font-family: var(--font-mono);
-	animation: fade-in 900ms ease both;
-}
-/* Shared frosted glass for everything floating over the water. */
+/* Frosted glass for controls floating over imagery (the profile cover's buttons). */
 .landing-glass {
 	border: 1px solid var(--hairline);
 	background: color-mix(in srgb, var(--canvas) 58%, transparent);
@@ -5453,215 +5434,258 @@ a.editor-source:hover > svg {
 		background: var(--elevated);
 	}
 }
-.landing-chrome,
-.auth-chrome {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: max(20px, env(safe-area-inset-top)) clamp(20px, 4vw, 40px) 0;
-	animation: fade-in 600ms 200ms both;
-}
-.landing-brand {
-	display: inline-flex;
-	padding: 6px 14px 6px 8px;
-	border-radius: var(--radius-pill);
-}
-.landing-theme {
-	width: 36px;
-	height: 36px;
-	border-radius: 50%;
-	transition:
-		background-color 150ms ease,
-		color 150ms ease,
-		rotate 300ms var(--ease-out);
-}
-.landing-theme {
-	width: 40px;
-	height: 40px;
-	color: var(--ink);
-}
-.landing-theme:hover {
-	background: var(--hover);
-	color: var(--ink);
-}
-.landing-theme:active {
-	rotate: -20deg;
-}
-/* A soft fall of canvas colour from the bottom edge, so the copy reads without a box around
-   it while the sharks keep the open water above. Taps pass straight through to the ocean. */
-.landing-vignette {
-	position: fixed;
-	inset: 0;
-	z-index: -1;
-	background:
-		linear-gradient(
-			to top,
-			var(--canvas) 0%,
-			color-mix(in srgb, var(--canvas) 86%, transparent) 22%,
-			color-mix(in srgb, var(--canvas) 30%, transparent) 46%,
-			transparent 64%
-		),
-		radial-gradient(
-			120% 80% at 50% 40%,
-			transparent 55%,
-			color-mix(in srgb, var(--canvas) 70%, transparent) 100%
-		);
-	pointer-events: none;
-	animation: fade-in 1200ms 200ms ease both;
-}
-/* The copy sits low and to the left so the sharks keep the middle of the page. */
-.landing-hero {
-	display: flex;
-	flex: 1;
-	align-items: flex-end;
-	padding: 24px clamp(20px, 5vw, 64px) clamp(32px, 8vh, 72px);
-	pointer-events: none;
-	outline: none;
-}
-.landing-card {
+/*
+ * Landing and sign-in. Paper's GrainGradient, white and orange in its corners, fills the window;
+ * the Prism mark rests on it, top left. The landing is its headline and one glass pill to sign in,
+ * grouped low on the screen; sign-in is the form in a smoky glass card. The same on every screen,
+ * only sized to fit. A soft shade at the top and foot keeps the white text clear of the gradient's
+ * white corners.
+ */
+.grain-page {
+	--auth-accent: #fc7819;
+	--grain-inset: 20px;
+	--landing-foot: max(56px, calc(env(safe-area-inset-bottom) + 36px));
+	position: relative;
+	isolation: isolate;
 	display: flex;
 	flex-direction: column;
-	align-items: flex-start;
-	max-width: 620px;
+	justify-content: flex-end;
+	min-height: 100dvh;
+	padding: max(var(--shell-margin), env(safe-area-inset-top)) var(--grain-inset)
+		max(var(--shell-margin), env(safe-area-inset-bottom));
+	background: #000;
+}
+.grain-panel {
+	position: fixed;
+	inset: 0;
+	z-index: 0;
+	overflow: hidden;
+	background: #000;
+	color: #fff;
+}
+.grain-gradient {
+	position: absolute;
+	inset: 0;
+	animation: fade-in 1200ms ease both;
+}
+.grain-panel::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		to bottom,
+		rgb(0 0 0 / 42%) 0%,
+		rgb(0 0 0 / 12%) 24%,
+		transparent 40%,
+		transparent 58%,
+		rgb(0 0 0 / 22%) 74%,
+		rgb(0 0 0 / 58%) 100%
+	);
+	pointer-events: none;
+}
+.grain-panel-copy {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: max(22px, env(safe-area-inset-top)) calc(var(--grain-inset) + 8px) 24px;
+}
+/* The mark on the gradient: white in both themes, light and small. */
+.grain-brand {
+	display: inline-flex;
+	align-self: flex-start;
 	pointer-events: auto;
+	animation: fade-in 600ms 150ms ease both;
 }
-.landing-card > * {
-	animation: rise-in 900ms var(--ease-out) both;
-}
-.landing-card > :nth-child(1) {
-	animation-delay: 300ms;
-}
-.landing-card > :nth-child(2) {
-	animation-delay: 400ms;
-}
-.landing-card > :nth-child(3) {
-	animation-delay: 520ms;
-}
-.landing .brand {
+.grain-brand .brand {
+	gap: 9px;
+	color: #fff;
 	font-family: var(--font-display);
+	font-size: 22px;
 	font-weight: 400;
 	letter-spacing: -0.01em;
 }
-.landing-card h1 {
-	margin-top: 0;
+.grain-brand .brand img,
+:root[data-theme='light'] .grain-brand .brand-symbol img {
+	width: 24px;
+	height: 24px;
+	filter: none;
+}
+.grain-headline {
+	max-width: 760px;
+	margin-top: auto;
+	margin-bottom: calc(var(--landing-foot) + 58px + 32px);
 	font-family: var(--font-display);
+	font-size: 44px;
 	font-weight: 400;
-	font-size: clamp(38px, 6vw, 68px);
-	letter-spacing: -0.025em;
-	line-height: 1.02;
+	letter-spacing: -0.03em;
+	line-height: 1;
 	text-wrap: balance;
+	animation: rise-in 900ms 200ms var(--ease-out) both;
 }
-.landing-soft {
-	color: var(--secondary);
+/* The page itself, over the gradient. */
+.grain-card {
+	position: relative;
+	z-index: 1;
+	width: 100%;
+	border-radius: var(--shell-radius);
+	outline: none;
+	animation: sheet-up 520ms 120ms var(--ease-spring) both;
 }
-.landing-lede {
-	max-width: 420px;
-	margin-top: 18px;
-	color: var(--secondary);
-	font-size: var(--text-lg);
-	line-height: var(--leading);
-	text-wrap: pretty;
+.grain-card-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.grain-card-body {
+	display: flex;
+	flex-direction: column;
+}
+/* Landing: no card, only the way in; its copy stays for screen readers. */
+.grain-landing {
+	padding-bottom: var(--landing-foot);
+}
+.grain-landing .grain-card-head {
+	display: none;
+}
+.landing-intro {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
 }
 .landing-actions {
 	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 16px;
-	margin-top: 30px;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 12px;
 }
-.landing-cta {
-	display: inline-flex;
+/* The way in: a clear glass pill. A whisper of white with heavy blur, an even hairline edge and
+   one fine highlight along its top; the label left, the arrow in a white disc right. */
+.grain-page .landing-cta {
+	display: flex;
 	align-items: center;
-	gap: 8px;
-	min-height: 44px;
-	padding: 0 18px 0 22px;
+	justify-content: space-between;
+	min-height: 58px;
+	padding: 0 7px 0 26px;
+	border: 0;
 	border-radius: var(--radius-pill);
+	background: rgb(255 255 255 / 9%);
+	-webkit-backdrop-filter: blur(20px) saturate(170%);
+	backdrop-filter: blur(20px) saturate(170%);
 	box-shadow:
-		0 1px 0 rgb(255 255 255 / 25%) inset,
-		0 10px 30px var(--shadow-strong);
-	font-size: var(--text-base);
+		inset 0 0 0 1px rgb(255 255 255 / 20%),
+		inset 0 1px 0 rgb(255 255 255 / 28%),
+		0 12px 32px rgb(0 0 0 / 25%);
+	color: #fff;
+	font-size: var(--text-lg);
 	font-weight: 500;
+	letter-spacing: -0.01em;
 	transition:
-		background-color 150ms ease,
-		box-shadow 200ms ease,
-		scale 160ms var(--ease-spring);
+		background-color 160ms ease,
+		box-shadow 160ms ease,
+		scale 260ms var(--ease-spring);
 }
-.landing-cta svg {
-	width: 16px;
-	height: 16px;
-	transition: translate 240ms var(--ease-spring);
-}
-.landing-cta:hover {
-	background: var(--accent-hover);
+.grain-page .landing-cta:hover,
+.grain-page .landing-cta:active {
+	background: rgb(255 255 255 / 15%);
+	color: #fff;
 	box-shadow:
-		0 1px 0 rgb(255 255 255 / 25%) inset,
-		0 14px 40px var(--shadow-strong);
+		inset 0 0 0 1px rgb(255 255 255 / 28%),
+		inset 0 1px 0 rgb(255 255 255 / 34%),
+		0 12px 32px rgb(0 0 0 / 25%);
 }
-.landing-cta:hover svg {
+.grain-page .landing-cta:active {
+	scale: 0.97;
+	transition-duration: 100ms;
+}
+.landing-cta-go {
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	background: #fff;
+	color: #0b0b0b;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
+	transition: translate 320ms var(--ease-spring);
+}
+.landing-cta-go svg {
+	width: 18px;
+	height: 18px;
+	stroke-width: 2;
+}
+.landing-cta:hover .landing-cta-go {
 	translate: 3px 0;
 }
-.landing-cta:active {
-	scale: 0.97;
-}
 .landing-offline {
-	color: var(--secondary);
+	padding: 4px 0 2px;
+	color: rgb(255 255 255 / 80%);
 	font-size: var(--text-sm);
 }
-
-/*
- * Auth: the landing's ocean carries on, and the form is the app's own shell floating over it.
- * Wide screens: a full-height panel inset at the right, a serif line resting bottom-left.
- * Phones: a sheet at the foot, its corners on the phone shell's curve.
- * Fields behave like the omnibar: a faint well at rest that lifts into the raised tab when
- * focused, its icon brightening. Radii nest: field 14 − inset 5 → reveal key 9.
- */
-.auth-page {
-	--auth-accent: #f57028;
-	--auth-panel: min(480px, calc(100vw - var(--shell-margin) * 2));
-	position: relative;
-	isolation: isolate;
-	min-height: 100dvh;
-	overflow: hidden;
+/* Sign-in: the form in smoky glass, the same glass as the landing's way in, in both themes. The
+   card sets its own palette, so every field, label and button in it takes the glass look: clear
+   wells that brighten (never turn white) when focused, white text, one solid white pill. */
+.grain-page:not(.grain-landing) .grain-card {
+	--ink: #fff;
+	--muted-ink: rgb(255 255 255 / 82%);
+	--secondary: rgb(255 255 255 / 72%);
+	--tertiary: rgb(255 255 255 / 52%);
+	--line: rgb(255 255 255 / 24%);
+	--hairline: rgb(255 255 255 / 14%);
+	--highlight: rgb(255 255 255 / 7%);
+	--hover: rgb(255 255 255 / 10%);
+	--field: rgb(255 255 255 / 8%);
+	--elevated: rgb(255 255 255 / 13%);
+	--lift: rgb(255 255 255 / 13%);
+	--selection: rgb(255 255 255 / 12%);
+	--accent: #fff;
+	--accent-hover: rgb(255 255 255 / 88%);
+	--on-accent: #0b0b0b;
+	--danger: #ffb3a7;
+	--raised: inset 0 0 0 1px rgb(255 255 255 / 22%), inset 0 1px 0 rgb(255 255 255 / 18%);
+	color-scheme: dark;
+	padding: 20px 20px 22px;
+	background: rgb(14 14 14 / 46%);
+	color: var(--ink);
+	-webkit-backdrop-filter: blur(30px) saturate(160%);
+	backdrop-filter: blur(30px) saturate(160%);
+	box-shadow:
+		inset 0 0 0 1px rgb(255 255 255 / 14%),
+		inset 0 1px 0 rgb(255 255 255 / 20%),
+		0 24px 60px rgb(0 0 0 / 40%);
 }
-:root[data-theme='light'] .auth-page {
-	--auth-accent: #2563eb;
+.grain-page:not(.grain-landing) .grain-card-body {
+	padding-top: 22px;
 }
-.auth-ocean {
-	position: fixed;
-	inset: 0;
-	z-index: -2;
-	display: block;
-	width: 100%;
-	height: 100%;
-	font-family: var(--font-mono);
-	animation: fade-in 900ms ease both;
+.grain-card .auth-submit {
+	min-height: 54px;
+	border-radius: var(--radius-pill);
+	box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
+	font-size: var(--text-lg);
 }
-/* Darkens toward the panel and the bottom edge, so the copy and the sheet read cleanly. */
-.auth-vignette {
-	position: fixed;
-	inset: 0;
-	z-index: -1;
-	background:
-		linear-gradient(
-			to top,
-			var(--canvas) 0%,
-			color-mix(in srgb, var(--canvas) 70%, transparent) 26%,
-			transparent 55%
-		),
-		linear-gradient(to left, color-mix(in srgb, var(--canvas) 85%, transparent) 0%, transparent 55%);
-	pointer-events: none;
-	animation: fade-in 1200ms 200ms ease both;
+.grain-card .auth-input {
+	border-radius: 16px;
 }
-.auth-chrome {
-	position: relative;
-	z-index: 2;
-	width: calc(100% - var(--auth-panel) - var(--shell-margin));
+.grain-card .auth-input:focus-within {
+	box-shadow:
+		inset 0 0 0 1px rgb(255 255 255 / 34%),
+		0 0 0 4px rgb(252 120 25 / 22%);
 }
+.grain-card .auth-input input:-webkit-autofill {
+	-webkit-box-shadow: 0 0 0 100px rgb(44 44 44) inset;
+	-webkit-text-fill-color: #fff;
+	caret-color: #fff;
+}
+/* Sign-in's way back, at the top of the card. */
 .auth-back {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 8px 14px 8px 10px;
+	padding: 6px 12px 6px 8px;
 	border-radius: var(--radius-pill);
 	color: var(--secondary);
 	font-size: var(--text-md);
@@ -5675,85 +5699,11 @@ a.editor-source:hover > svg {
 	transition: translate 280ms var(--ease-spring);
 }
 .auth-back:hover {
+	background: var(--hover);
 	color: var(--ink);
 }
 .auth-back:hover svg {
 	translate: -3px 0;
-}
-.auth-aside {
-	position: fixed;
-	bottom: clamp(32px, 8vh, 72px);
-	left: clamp(20px, 5vw, 64px);
-	max-width: calc(100vw - var(--auth-panel) - clamp(20px, 5vw, 64px) - 48px);
-	pointer-events: none;
-}
-.auth-aside {
-	animation: fade-in 600ms 200ms ease both;
-}
-.auth-aside-title {
-	margin-top: 0;
-	font-family: var(--font-display);
-	font-size: clamp(32px, 4.4vw, 56px);
-	letter-spacing: -0.025em;
-	line-height: 1.04;
-	text-wrap: balance;
-}
-/* The panel: the app shell's surface and curve, inset from the window like the shell. */
-.auth-sheet {
-	position: fixed;
-	z-index: 3;
-	top: var(--shell-margin);
-	right: var(--shell-margin);
-	bottom: var(--shell-margin);
-	display: flex;
-	flex-direction: column;
-	width: var(--auth-panel);
-	padding: 18px 18px 28px 28px;
-	overflow-y: auto;
-	border-radius: var(--shell-radius);
-	background: var(--surface);
-	box-shadow:
-		var(--edge),
-		0 30px 90px var(--shadow-strong);
-	outline: none;
-	animation: auth-panel-in 360ms var(--ease-out) both;
-}
-.auth-sheet-head {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-}
-.auth-sheet-head .brand img {
-	width: 26px;
-	height: 26px;
-}
-.auth-theme {
-	width: 36px;
-	height: 36px;
-	border-radius: 50%;
-	transition:
-		background-color 150ms ease,
-		color 150ms ease,
-		box-shadow 150ms ease,
-		rotate 420ms var(--ease-spring);
-}
-.auth-theme:hover {
-	background: var(--lift);
-	box-shadow: var(--raised);
-	color: var(--ink);
-}
-.auth-theme:active {
-	rotate: -20deg;
-}
-.auth-sheet-body {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	justify-content: center;
-	width: 100%;
-	max-width: 340px;
-	margin: 0 auto;
-	padding: 32px 10px 0 0;
 }
 .auth-step {
 	display: flex;
@@ -5983,42 +5933,40 @@ a.editor-source:hover > svg {
 	margin-top: 16px;
 	font-size: var(--text-sm);
 }
-/* Between phone and wide: the panel alone, no line of copy squeezed beside it. */
-@media (max-width: 1023px) {
-	.auth-aside {
-		display: none;
+/* Wider screens: the same page, given room. The landing's group sits lower left at a reading
+   width; the sign-in card is centred at a form's width. */
+@media (min-width: 768px) {
+	.grain-page {
+		--grain-inset: clamp(32px, 6vw, 96px);
+	}
+	.grain-headline {
+		font-size: clamp(56px, 6.4vw, 92px);
+		margin-bottom: calc(var(--landing-foot) + 58px + 44px);
+	}
+	.grain-landing .grain-card {
+		max-width: 380px;
+	}
+	.grain-page:not(.grain-landing) {
+		align-items: center;
+		justify-content: center;
+	}
+	.grain-page:not(.grain-landing) .grain-card {
+		max-width: 420px;
+		padding: 24px 28px 28px;
+		animation: settings-in 420ms 120ms var(--ease-spring) both;
 	}
 }
 @media (max-width: 767px) {
-	.auth-page {
-		--auth-panel: auto;
-	}
-	.auth-chrome {
-		width: 100%;
-	}
-	.auth-vignette {
-		background: linear-gradient(
-			to top,
-			var(--canvas) 0%,
-			color-mix(in srgb, var(--canvas) 60%, transparent) 50%,
-			transparent 80%
-		);
-	}
-	.auth-sheet {
-		top: auto;
-		left: var(--shell-margin);
-		bottom: max(var(--shell-margin), env(safe-area-inset-bottom));
-		max-height: calc(100dvh - 84px);
-		padding: 16px 16px 24px 22px;
-		animation: auth-panel-in 360ms var(--ease-out) both;
-	}
-	.auth-sheet-body {
-		flex: none;
-		max-width: none;
-		padding: 20px 6px 0 0;
-	}
 	.auth-step h1 {
 		font-size: 30px;
+	}
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.grain-page:not(.grain-landing) .grain-card {
+		background: rgb(22 22 22 / 94%);
+	}
+	.grain-page .landing-cta {
+		background: rgb(40 40 40 / 90%);
 	}
 }
 
@@ -6672,28 +6620,6 @@ a.editor-source:hover > svg {
 		background: var(--hover);
 	}
 
-	/* Landing on phones: the copy spans the width and rests above the home indicator. */
-	.landing-hero {
-		padding: 16px 20px max(20px, env(safe-area-inset-bottom));
-	}
-	.landing-card {
-		max-width: none;
-		width: 100%;
-	}
-	.landing-lede {
-		margin-top: 14px;
-		font-size: var(--text-base);
-	}
-	.landing-actions {
-		width: 100%;
-		margin-top: 24px;
-	}
-	.landing-cta {
-		flex: 1;
-		justify-content: center;
-		min-height: 48px;
-	}
-
 	/* The feed on phones: full width, the post under its author rather than indented. */
 	.post {
 		--post-pad-y: 18px;
@@ -6829,12 +6755,6 @@ a.editor-source:hover > svg {
 	from {
 		opacity: 0;
 		translate: 0 3px;
-	}
-}
-@keyframes auth-panel-in {
-	from {
-		opacity: 0;
-		scale: 0.99;
 	}
 }
 @keyframes collapsible-down {
