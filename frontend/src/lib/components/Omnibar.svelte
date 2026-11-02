@@ -949,7 +949,9 @@
 							onclick={discardDraft}>Discard</button
 						>{/if}
 					<span class="capture-submit">
-						<kbd class="capture-kbd" aria-hidden="true">{apple ? '⌘' : 'Ctrl'} ↵</kbd>
+						<kbd class="capture-kbd" aria-hidden="true"
+							>{apple ? '⌘' : 'Ctrl'} <CornerDownLeft class="kbd-icon" /></kbd
+						>
 						<button type="submit" class="primary-button" class:busy
 							>{busy ? 'Saving…' : created ? 'Finish' : 'Save'}</button
 						>

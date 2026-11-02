@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { ChevronRight, CornerDownRight, Search, X } from '@lucide/svelte';
+	import { ChevronRight, CornerDownLeft, CornerDownRight, Search, X } from '@lucide/svelte';
 	import StashTree from './StashTree.svelte';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
 	import { NoteSession } from '#lib/client/note-session.svelte.js';
@@ -205,9 +205,13 @@
 			/>
 		</label>
 		<p class="stash-hint">
-			{#if problem}<span class="stash-problem" role="alert">{problem}</span>{:else if parentTitle}↵
+			{#if problem}<span class="stash-problem" role="alert">{problem}</span
+				>{:else if parentTitle}<CornerDownLeft class="kbd-icon" aria-label="Enter" />
 				under
-				<b>{parentTitle}</b> · ⇧↵ beside it{:else}↵ to add{/if}
+				<b>{parentTitle}</b> · ⇧<CornerDownLeft class="kbd-icon" aria-label="Enter" /> beside it{:else}<CornerDownLeft
+					class="kbd-icon"
+					aria-label="Enter"
+				/> to add{/if}
 		</p>
 	</div>
 	<p

@@ -592,21 +592,29 @@ kbd {
 	flex: 1;
 	min-width: 0;
 }
-/* Shortcuts as small raised key caps, quiet until their row is highlighted. */
+/* Shortcuts: just the key, quiet text beside the action, a touch brighter on its row. */
 .menu-item kbd {
-	min-width: 20px;
-	height: 20px;
-	padding: 0 5px;
+	display: inline-grid;
+	place-items: center;
+	min-width: 16px;
+	height: 18px;
+	padding: 0;
 	border: 0;
-	border-radius: 6px;
-	background: var(--canvas);
-	box-shadow: inset 0 0 0 1px var(--hairline);
+	background: none;
+	box-shadow: none;
 	color: var(--tertiary);
-	font-size: 10.5px;
-	line-height: 20px;
-	transition:
-		color 120ms ease,
-		box-shadow 120ms ease;
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: 18px;
+	transition: color 120ms ease;
+}
+/* The Enter key drawn as an icon wherever a shortcut mentions it. */
+.kbd-icon {
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	vertical-align: -2px;
+	stroke-width: 2;
 }
 .menu-item .menu-check {
 	width: 14px;
@@ -625,7 +633,6 @@ kbd {
 }
 .menu-item[data-highlighted] kbd {
 	color: var(--secondary);
-	box-shadow: var(--raised);
 }
 .menu-item.danger-text,
 .menu-item.danger-text > svg:first-child {

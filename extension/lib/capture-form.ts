@@ -77,7 +77,7 @@ const formCss = `${themeCss}
 .panel .quiet:hover{background:var(--lift);box-shadow:var(--raised);color:var(--ink)}
 .panel .quiet:active{transform:scale(.96)}
 .panel .hint{display:flex;gap:3px;margin-left:auto;color:var(--ink-3);font-size:10.5px}
-.panel .hint kbd{min-width:20px;height:20px;padding:0 5px;border:0;border-radius:6px;background:var(--canvas);box-shadow:inset 0 0 0 1px var(--hairline);font:inherit;line-height:20px;text-align:center}
+.panel .hint kbd{display:inline-grid;place-items:center;min-width:14px;height:18px;padding:0 1px;border:0;background:none;font:inherit;line-height:18px}
 .panel .primary{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:76px;height:32px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--accent-ink);font-size:12px;font-weight:600;cursor:pointer;transition:transform 260ms var(--spring),opacity 160ms var(--ease),box-shadow 160ms var(--ease)}
 .panel .primary:active:not(:disabled){transform:scale(.96);transition-duration:100ms}
 .panel .primary:disabled{cursor:default}
@@ -192,7 +192,7 @@ export async function renderCaptureForm(
 			<p class="status" role="status" aria-live="polite"></p>
 			<div class="footer">
 				<button type="button" class="quiet" data-dismiss>${compact ? 'Cancel' : 'Close'}</button>
-				<span class="hint" title="Save with ${isMac ? '⌘' : 'Ctrl'}+Enter" aria-hidden="true"><kbd>${isMac ? '⌘' : 'Ctrl'}</kbd><kbd>↵</kbd></span>
+				<span class="hint" title="Save with ${isMac ? '⌘' : 'Ctrl'}+Enter" aria-hidden="true"><kbd>${isMac ? '⌘' : 'Ctrl'}</kbd><kbd>${icons.enter}</kbd></span>
 				<button type="submit" class="primary"><span class="btn-icon" aria-hidden="true"><span class="spinner"></span>${icons.check}</span><span class="btn-label">Save</span></button>
 			</div>
 		</form>`;

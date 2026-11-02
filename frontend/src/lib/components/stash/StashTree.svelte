@@ -7,7 +7,8 @@
 		Copy,
 		CornerLeftUp,
 		Trash2,
-		Pencil
+		Pencil,
+		CornerDownLeft
 	} from '@lucide/svelte';
 	import { ContextMenu } from 'bits-ui';
 	import { slide } from 'svelte/transition';
@@ -308,7 +309,9 @@
 						<Favicon url={menuNode.url} /><span>{domain(menuNode.url)}</span>
 					</div>
 					<ContextMenu.Item class="menu-item" onSelect={() => openLink(menuNode.url)}
-						><ArrowUpRight /><span>Open link</span><kbd>↵</kbd></ContextMenu.Item
+						><ArrowUpRight /><span>Open link</span><kbd aria-label="Enter"
+							><CornerDownLeft class="kbd-icon" /></kbd
+						></ContextMenu.Item
 					>
 					<ContextMenu.Item class="menu-item" onSelect={() => onCopy?.(menuNode.url)}
 						><Copy /><span>Copy link</span></ContextMenu.Item
