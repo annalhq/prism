@@ -13,8 +13,18 @@ export const GET: RequestHandler = async (event) => {
 	try {
 		const owner = await requireOwner(event);
 		const image = await personAvatar(owner, entityId(event.params.id));
-		if (!image)
-			return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+		// No photo (yet): say why, so it can be told apart from a failure in the network panel.
+		if ('miss' in image)
+			return new Response(null, {
+				status: 404,
+				headers: {
+					'Cache-Control': 'no-store',
+					'X-Prism-Avatar': image.miss,
+					...(image.retryAt
+						? { 'X-Prism-Avatar-Retry': new Date(image.retryAt).toISOString() }
+						: {})
+				}
+			});
 		const etag = `"${image.sha256}"`;
 		const headers = {
 			'Content-Type': image.mime,
@@ -37,6 +47,9 @@ export const GET: RequestHandler = async (event) => {
 			...safeErrorDetails(error),
 			...(error instanceof MediaError ? { detail: error.message } : {})
 		});
-		return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+		return new Response(null, {
+			status: 404,
+			headers: { 'Cache-Control': 'no-store', 'X-Prism-Avatar': 'error' }
+		});
 	}
 };

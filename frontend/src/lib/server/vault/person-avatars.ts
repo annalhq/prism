@@ -14,6 +14,11 @@ const RETRY_MISSING_AFTER = 7 * 24 * 60 * 60 * 1000;
 const EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as const;
 
 export type AvatarImage = { bytes: Uint8Array; mime: string; sha256: string };
+/** Why there is no photo to show (yet), in plain words for the response header. */
+export type AvatarMiss = {
+	miss: 'no-handle' | 'no-storage' | 'no-photo' | 'unavatar-limit' | 'storage-paused';
+	retryAt?: number;
+};
 
 // The limit belongs to this server, not to a person, so one moment covers every lookup.
 let limitedUntil = 0;
@@ -25,7 +30,7 @@ let storageFailedUntil = 0;
 // the same person is only ever looked up once at a time.
 let active = 0;
 const waiting: (() => void)[] = [];
-const inflight = new Map<string, Promise<AvatarImage | null>>();
+const inflight = new Map<string, Promise<AvatarImage | AvatarMiss>>();
 async function queued<T>(task: () => Promise<T>): Promise<T> {
 	if (active >= 3) await new Promise<void>((resolve) => waiting.push(resolve));
 	active++;
@@ -61,13 +66,14 @@ async function lookUp(
 	personId: string,
 	handle: string,
 	previousKey: string | null
-): Promise<AvatarImage | null> {
+): Promise<AvatarImage | AvatarMiss> {
 	// Queued lookups recheck: the limit may have been hit, or storage failed, while they waited.
-	if (Date.now() < limitedUntil || Date.now() < storageFailedUntil) return null;
+	const paused = pauseReason();
+	if (paused) return paused;
 	const result = await fetchXPhoto(handle);
 	if (result.kind === 'limited') {
 		limitedUntil = result.retryAt;
-		return null;
+		return { miss: 'unavatar-limit', retryAt: limitedUntil };
 	}
 	const db = database();
 	if (result.kind === 'missing') {
@@ -86,7 +92,7 @@ async function lookUp(
 					fetchedAt: new Date()
 				}
 			});
-		return null;
+		return { miss: 'no-photo' };
 	}
 	const { bytes, mime } = result;
 	const sha256 = createHash('sha256').update(bytes).digest('hex');
@@ -119,21 +125,28 @@ async function lookUp(
 	return { bytes, mime, sha256 };
 }
 
-/** The person's X photo, or null when there is none to show (yet). */
+function pauseReason(): AvatarMiss | null {
+	const now = Date.now();
+	if (now < limitedUntil) return { miss: 'unavatar-limit', retryAt: limitedUntil };
+	if (now < storageFailedUntil) return { miss: 'storage-paused', retryAt: storageFailedUntil };
+	return null;
+}
+
+/** The person's X photo, or why there is none to show (yet). */
 export async function personAvatar(
 	owner: OwnerContext,
 	personId: string
-): Promise<AvatarImage | null> {
+): Promise<AvatarImage | AvatarMiss> {
 	const { vaultId } = owner;
 	const handle = await xHandleOf(vaultId, personId);
-	if (!handle) return null;
+	if (!handle) return { miss: 'no-handle' };
 	const [saved] = await database()
 		.select()
 		.from(personAvatars)
 		.where(and(eq(personAvatars.vaultId, vaultId), eq(personAvatars.personId, personId)));
 	if (saved?.handle === handle) {
 		if (saved.state === 'stored' && saved.objectKey && saved.mime && saved.sha256) {
-			if (!storageConfigured()) return null;
+			if (!storageConfigured()) return { miss: 'no-storage' };
 			const bytes = await getObject(saved.objectKey);
 			if (bytes) return { bytes, mime: saved.mime, sha256: saved.sha256 };
 			// The object went missing from the bucket; fetch it again below.
@@ -141,11 +154,12 @@ export async function personAvatar(
 			saved.state === 'missing' &&
 			Date.now() - saved.fetchedAt.getTime() < RETRY_MISSING_AFTER
 		)
-			return null;
+			return { miss: 'no-photo', retryAt: saved.fetchedAt.getTime() + RETRY_MISSING_AFTER };
 	}
 	// Without storage it couldn't be kept, and would cost a lookup on every view.
-	if (!storageConfigured() || Date.now() < limitedUntil || Date.now() < storageFailedUntil)
-		return null;
+	if (!storageConfigured()) return { miss: 'no-storage' };
+	const paused = pauseReason();
+	if (paused) return paused;
 	const key = `${vaultId}:${personId}`;
 	let pending = inflight.get(key);
 	if (!pending) {
