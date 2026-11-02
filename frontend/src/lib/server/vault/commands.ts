@@ -180,7 +180,7 @@ async function applyBookmark(
 	let urlHash = entity.urlHash;
 	if (command.type === 'bookmark.update') {
 		const inputUrl = command.patch.url === undefined ? bookmark.url : command.patch.url;
-		if (bookmark.kind !== 'image' && bookmark.kind !== 'text' && inputUrl === null)
+		if (!['image', 'text', 'stash'].includes(bookmark.kind) && inputUrl === null)
 			reject('invalid_command', 'Page and social bookmarks require a URL.', { id });
 		const normalized = inputUrl
 			? normalizeUrl(inputUrl)

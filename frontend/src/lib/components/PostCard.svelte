@@ -19,6 +19,9 @@
 	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import { renderMarkdown } from '#lib/client/markdown.js';
 	import { renderNote } from '#lib/domain/notes.js';
+	import { SvelteSet } from 'svelte/reactivity';
+	import StashTree from './stash/StashTree.svelte';
+	import { parseStash } from '#lib/domain/stash.js';
 	import TweetCard from './TweetCard.svelte';
 	import { tweetStatusId } from '#lib/domain/tweets.js';
 	import {
@@ -67,10 +70,18 @@
 	// tweet API, so it keeps the plain link card.
 	const tweetId = $derived(readonly ? null : tweetStatusId(source));
 	const domain = $derived(bookmarkDomain(item, source));
+	// A rabbit hole shows its trail, the first level open; its note is the trail, not prose.
+	const stash = $derived(item.kind === 'stash');
+	const trail = $derived(stash ? parseStash(note) : []);
+	const trailOpen = new SvelteSet<string>();
+	$effect(() => {
+		trailOpen.clear();
+		for (const node of trail) if (node.children.length) trailOpen.add(node.key);
+	});
 	// The note as rendered Markdown: local first, Sätteri when it arrives (owner only).
 	let noteHtml = $state('');
 	$effect(() => {
-		if (!note) return;
+		if (!note || stash) return;
 		const markdown = note;
 		noteHtml = renderNote(markdown);
 		if (readonly) return;
@@ -140,7 +151,7 @@
 					>{/if}
 			</header>{/if}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- Sanitised by the note renderers. -->
-		{#if note}<div class="post-text note-prose">{@html noteHtml}</div>{/if}
+		{#if note && !stash}<div class="post-text note-prose">{@html noteHtml}</div>{/if}
 		<!-- The link itself, nested like a quoted card: just what it is and where it lives. -->
 		{#snippet linkCard()}
 			<a
@@ -159,7 +170,13 @@
 					>{/if}</a
 			>
 		{/snippet}
-		{#if tweetId}<TweetCard
+		{#if stash}<div class="post-stash">
+				<button class="post-link-title post-stash-title bookmark-title" onclick={onEdit}
+					>{item.title}</button
+				>
+				{#if trail.length}<StashTree nodes={trail} open={trailOpen} readonly limit={6} />{/if}
+			</div>
+		{:else if tweetId}<TweetCard
 				id={tweetId}
 				{onOpen}
 				fallback={linkCard}

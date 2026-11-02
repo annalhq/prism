@@ -14,7 +14,8 @@
 		RotateCcw as RotateCcwIcon,
 		Unlink as UnlinkIcon,
 		ChevronRight as ChevronRightIcon,
-		NotebookText as NoteIcon
+		NotebookText as NoteIcon,
+		Rabbit as RabbitIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
 	import { Collapsible, ContextMenu } from 'bits-ui';
@@ -22,6 +23,9 @@
 	import Favicon from './ui/Favicon.svelte';
 	import { renderMarkdown } from '#lib/client/markdown.js';
 	import { renderNote } from '#lib/domain/notes.js';
+	import { SvelteSet } from 'svelte/reactivity';
+	import StashTree from './stash/StashTree.svelte';
+	import { branchKeys, countLinks, parseStash } from '#lib/domain/stash.js';
 	import {
 		bookmarkDomain,
 		bookmarkSource,
@@ -54,12 +58,20 @@
 	let offset = $state(0),
 		menuOpen = $state(false);
 	const hasNote = $derived(note.trim().length > 0);
+	// A rabbit hole's note is its trail: shown as the tree, every folder open, not as prose.
+	const stash = $derived(item.kind === 'stash');
+	const trail = $derived(stash ? parseStash(note) : []);
+	const trailOpen = new SvelteSet<string>();
+	$effect(() => {
+		trailOpen.clear();
+		for (const key of branchKeys(trail)) trailOpen.add(key);
+	});
 	// The note reads as rendered Markdown. The local renderer answers at once (so the expand
 	// animation measures the real height); Sätteri's rendering replaces it when it arrives. The
 	// public page can't reach the owner-only renderer, so it keeps the local one.
 	let noteHtml = $state('');
 	$effect(() => {
-		if (!hasNote) return;
+		if (!hasNote || stash) return;
 		const markdown = note;
 		noteHtml = renderNote(markdown);
 		if (readonly) return;
@@ -197,6 +209,7 @@
 {#snippet row()}
 	<div class="row-leading">
 		{#if item.kind === 'text'}<span class="favicon fallback" title="Note"><NoteIcon /></span
+			>{:else if stash}<span class="favicon fallback" title="Rabbit hole"><RabbitIcon /></span
 			>{:else}<Favicon url={source} />{/if}
 	</div>
 
@@ -214,7 +227,11 @@
 			>{/if}
 		{#if hasNote}<ChevronRightIcon class="disclosure-chevron" aria-hidden="true" />{/if}
 	</div>
-	<span class="bookmark-domain">{bookmarkDomain(item, source)}</span>
+	<span class="bookmark-domain"
+		>{#if stash}<span class="stash-count"
+				>{countLinks(trail)} {countLinks(trail) === 1 ? 'link' : 'links'}</span
+			>{:else}{bookmarkDomain(item, source)}{/if}</span
+	>
 	<time class="bookmark-date" datetime={String(item.createdAt)}
 		>{new Date(String(item.createdAt)).toLocaleDateString(undefined, {
 			month: 'short',
@@ -304,8 +321,12 @@
 				></ContextMenu.Root
 			>{/if}
 		<Collapsible.Content class="bookmark-expansion">
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -- Sanitised by the note renderers. -->
-			{#if hasNote}<div class="note-prose">{@html noteHtml}</div>{/if}
+			{#if stash && trail.length}<div class="stash-preview">
+					<StashTree nodes={trail} open={trailOpen} readonly limit={8} />
+				</div>{:else if hasNote}<div class="note-prose">
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -- Sanitised by the note renderers. -->
+					{@html noteHtml}
+				</div>{/if}
 		</Collapsible.Content>
 	</Collapsible.Root>
 </div>

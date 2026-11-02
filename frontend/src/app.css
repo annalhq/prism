@@ -1499,6 +1499,22 @@ kbd {
 	rotate: 0deg;
 	scale: 1;
 }
+/* A link and one space in the add field: the plus becomes a rabbit, one space from a rabbit hole. */
+.burrow-glyph {
+	opacity: 0;
+	rotate: -90deg;
+	scale: 0.5;
+}
+.omnibar-leading.burrowing :is(.search-glyph, .insert-glyph) {
+	opacity: 0;
+	rotate: 90deg;
+	scale: 0.5;
+}
+.omnibar-leading.burrowing .burrow-glyph {
+	opacity: 1;
+	rotate: 0deg;
+	scale: 1;
+}
 /* Search filters as chips, inline before the text still being typed. */
 .omnibar-chips {
 	display: flex;
@@ -3825,6 +3841,467 @@ a.editor-source:hover > svg {
 }
 .note-prose > :first-child {
 	margin-top: 0;
+}
+/*
+ * Rabbit holes: the trail as a file tree, after the Magic UI file tree, made to stay readable at
+ * any size. Each link hangs off the one it came from on a curved connector; the connectors on
+ * the way to the selected link are drawn darker, and a trail bar above names that way. Rows are
+ * the icon and title with the description on a quiet second line; a closed folder says how many
+ * links it holds. The selected row lifts into the sidebar's raised tab. Radii nest (rows 9).
+ */
+.stash-editor {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding-top: 14px;
+}
+/* Where you are: first link › … › selected. Long trails squeeze the middle steps. */
+.stash-trail {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+	margin: 0 -4px;
+	overflow: hidden;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+.stash-trail-step {
+	flex: 0 1 auto;
+	min-width: 2.5em;
+	max-width: 12em;
+	padding: 3px 6px;
+	overflow: hidden;
+	border-radius: 6px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	transition:
+		background-color 140ms ease,
+		color 140ms ease;
+}
+.stash-trail-step:hover {
+	background: var(--highlight);
+	color: var(--ink);
+}
+.stash-trail-step[aria-current='location'] {
+	flex-shrink: 0;
+	max-width: 16em;
+	color: var(--ink);
+	font-weight: 500;
+}
+.stash-trail-sep {
+	flex-shrink: 0;
+	width: 12px;
+	height: 12px;
+	opacity: 0.6;
+}
+.stash-find {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 34px;
+	padding: 0 4px 0 10px;
+	border-radius: var(--radius-control);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	color: var(--tertiary);
+	transition:
+		background-color 200ms ease,
+		box-shadow 200ms ease;
+}
+.stash-find:focus-within {
+	background: var(--lift);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.stash-find > svg {
+	width: 14px;
+	height: 14px;
+}
+.stash-find input:not([type='checkbox']) {
+	flex: 1;
+	min-height: 32px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	font-size: var(--text-md);
+}
+.stash-find input:focus {
+	box-shadow: none;
+}
+.stash-find-clear {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	color: var(--tertiary);
+}
+.stash-find-clear:hover {
+	background: var(--hover);
+	color: var(--ink);
+}
+.stash-find-clear svg {
+	width: 13px;
+	height: 13px;
+}
+.stash-tree-frame {
+	margin-inline: -8px;
+}
+.stash-tree,
+.stash-children {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.stash-tree {
+	outline: none;
+}
+.stash-tree:focus-visible {
+	border-radius: 10px;
+	box-shadow: inset 0 0 0 1px var(--line);
+}
+/* Connectors: a child list sits under its folder's icon; every link in it draws a curved
+   elbow from the guide, and the guide runs on past it while more links follow. */
+.stash-children {
+	--stash-guide: var(--line);
+	--stash-path: var(--secondary);
+	margin-left: 17px;
+	padding: 1px 0 1px 14px;
+}
+.stash-children > .stash-node {
+	position: relative;
+}
+.stash-children > .stash-node::before,
+.stash-children > .stash-node::after {
+	content: '';
+	position: absolute;
+	left: -14px;
+	pointer-events: none;
+	transition: border-color 200ms ease;
+}
+/* The guide continuing to the next sibling. */
+.stash-children > .stash-node:not(:last-child)::before {
+	top: 0;
+	bottom: 0;
+	border-left: 1px solid var(--stash-guide);
+}
+/* The elbow into this link's first line. */
+.stash-children > .stash-node::after {
+	top: 0;
+	width: 11px;
+	height: 17px;
+	border-bottom: 1px solid var(--stash-guide);
+	border-left: 1px solid var(--stash-guide);
+	border-bottom-left-radius: 7px;
+}
+/* The way to the selected link: its elbow, and the guide down from the folder to it. */
+.stash-children > .stash-node.on-path::after,
+.stash-children:has(> .stash-node.on-path) > .stash-node:has(~ .stash-node.on-path)::before {
+	border-color: var(--stash-path);
+}
+.stash-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 9px;
+	min-width: 0;
+	padding: 7px 8px;
+	border-radius: 9px;
+	cursor: default;
+	transition:
+		background-color 140ms ease,
+		box-shadow 140ms ease;
+}
+@media (hover: hover) {
+	.stash-row:hover:not(.selected) {
+		background: var(--highlight);
+	}
+}
+.stash-tree:not(.readonly) .stash-row.selected {
+	background: var(--lift);
+	box-shadow: var(--raised);
+}
+.stash-row.match .stash-title {
+	text-decoration: underline;
+	text-decoration-color: var(--secondary);
+	text-underline-offset: 3px;
+}
+.stash-icon {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	color: var(--secondary);
+}
+.stash-icon svg {
+	width: 16px;
+	height: 16px;
+	stroke-width: 1.5;
+}
+.on-path > .stash-row .stash-icon,
+.stash-row.selected .stash-icon {
+	color: var(--ink);
+}
+.stash-toggle {
+	border-radius: 5px;
+	transition:
+		color 140ms ease,
+		scale 260ms var(--ease-spring);
+}
+.stash-toggle:hover {
+	color: var(--ink);
+}
+.stash-toggle:active {
+	scale: 0.88;
+}
+.stash-text {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+.stash-line {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	min-height: 18px;
+}
+.stash-title {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--ink);
+	font-size: var(--text-md);
+	line-height: 18px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.stash-title:hover {
+	text-decoration: underline;
+	text-decoration-color: var(--tertiary);
+	text-underline-offset: 3px;
+}
+.stash-title.repeated {
+	text-decoration: underline dotted var(--tertiary);
+	text-underline-offset: 3px;
+}
+.stash-title.shimmer {
+	background: linear-gradient(
+		90deg,
+		var(--tertiary) 0%,
+		var(--tertiary) 35%,
+		var(--ink) 50%,
+		var(--tertiary) 65%,
+		var(--tertiary) 100%
+	);
+	background-size: 200% 100%;
+	background-clip: text;
+	-webkit-background-clip: text;
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	animation: title-shimmer 1.4s linear infinite;
+}
+/* How many links a closed folder holds. */
+.stash-badge {
+	flex-shrink: 0;
+	min-width: 18px;
+	padding: 0 5px;
+	border-radius: var(--radius-pill);
+	background: var(--field);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	color: var(--tertiary);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	line-height: 16px;
+	text-align: center;
+}
+.stash-description {
+	overflow: hidden;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+	line-height: 1.35;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+/* The domain stays out of the way until the row is pointed at or selected. */
+.stash-domain {
+	flex-shrink: 0;
+	margin-left: auto;
+	padding-left: 8px;
+	color: var(--tertiary);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: 18px;
+	opacity: 0;
+	transition: opacity 160ms ease;
+}
+.stash-row:hover .stash-domain,
+.stash-row.selected .stash-domain {
+	opacity: 0.8;
+}
+.stash-rename:not([type='checkbox']) {
+	flex: 1;
+	min-height: 24px;
+	padding: 0 6px;
+	border: 0;
+	border-radius: 6px;
+	background: var(--surface);
+	box-shadow: inset 0 0 0 1px var(--line);
+	font-size: var(--text-md);
+}
+.stash-describe {
+	padding: 0 8px 6px 35px;
+}
+.stash-describe input:not([type='checkbox']) {
+	min-height: 28px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	color: var(--secondary);
+	font-size: var(--text-sm);
+}
+.stash-describe input:focus {
+	color: var(--ink);
+	box-shadow: none;
+}
+.stash-empty {
+	padding: 6px 2px;
+	color: var(--tertiary);
+	font-size: var(--text-md);
+}
+.stash-more {
+	margin: 4px 0 0 8px;
+	padding: 4px 10px;
+	border-radius: var(--radius-pill);
+	color: var(--secondary);
+	font-size: var(--text-sm);
+	transition:
+		background-color 140ms ease,
+		color 140ms ease;
+}
+.stash-more:hover {
+	background: var(--highlight);
+	color: var(--ink);
+}
+/* The next link: pinned to the bottom of the editor, so long trails never push it away. */
+.stash-dock {
+	position: sticky;
+	z-index: 2;
+	bottom: -28px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 4px -22px 0;
+	padding: 10px 22px 12px;
+	background: linear-gradient(to top, var(--surface) 75%, transparent);
+}
+.stash-next {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 44px;
+	padding: 0 12px;
+	border-radius: var(--radius-card);
+	background: var(--surface);
+	box-shadow: inset 0 0 0 1px var(--line);
+	cursor: text;
+	transition:
+		background-color 260ms var(--ease-out),
+		box-shadow 380ms var(--ease-spring);
+}
+.stash-next:focus-within {
+	background: var(--lift);
+	box-shadow:
+		var(--raised),
+		0 0 0 4px color-mix(in srgb, var(--ink) 4%, transparent),
+		0 10px 28px var(--shadow-soft);
+}
+.stash-next > svg {
+	width: 15px;
+	height: 15px;
+	color: var(--tertiary);
+	transition: color 200ms ease;
+}
+.stash-next:focus-within > svg {
+	color: var(--ink);
+}
+.stash-next input:not([type='checkbox']) {
+	flex: 1;
+	min-height: 42px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	font-size: var(--text-md);
+}
+.stash-next input:focus {
+	box-shadow: none;
+}
+.stash-hint {
+	min-height: 16px;
+	padding-left: 4px;
+	color: var(--tertiary);
+	font-size: var(--text-xs);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.stash-hint b {
+	color: var(--secondary);
+	font-weight: 500;
+}
+.stash-problem {
+	color: var(--danger);
+}
+/* Read-only trees: the list row's expansion and the feed. */
+.stash-preview {
+	padding: 0 12px 12px calc(var(--row-title-inset) - 10px);
+}
+.stash-count {
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+}
+.post-stash {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 10px 6px 8px;
+	border-radius: var(--radius-card);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.post-stash-title {
+	align-self: flex-start;
+	padding: 0 8px;
+	font-family: var(--font-display);
+	font-size: var(--text-lg);
+	font-weight: 400;
+	text-align: left;
+}
+.menu-spacer {
+	width: 15px;
+	flex-shrink: 0;
+}
+.menu-empty {
+	padding: 8px 10px;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+@media (max-width: 767px) {
+	.stash-domain {
+		display: none;
+	}
+	.stash-row {
+		padding-block: 9px;
+	}
+	.stash-dock {
+		margin-inline: -18px;
+		padding-inline: 18px;
+		padding-bottom: max(18px, env(safe-area-inset-bottom));
+	}
 }
 .editor-conflict {
 	display: flex;

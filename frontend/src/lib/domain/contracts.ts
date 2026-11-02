@@ -6,7 +6,8 @@ export const MAX_BULK_BOOKMARKS = 100;
 export type Revision = `${bigint}`;
 export type Sequence = `${bigint}`;
 // `text` is a written note saved on its own: no link, its Markdown body kept in the item's note.
-export type BookmarkKind = 'page' | 'social' | 'image' | 'text';
+// `stash` is a rabbit hole: no link of its own; its trail of links is a nested list in its note.
+export type BookmarkKind = 'page' | 'social' | 'image' | 'text' | 'stash';
 export type BookmarkFields = { title: string; description: string; url: string | null };
 export type BookmarkCommand =
 	| {
@@ -37,7 +38,7 @@ export type BookmarkCommand =
 export type ExtensionBookmarkCommand = {
 	type: 'extension.bookmark.create';
 	id: string;
-	kind: Exclude<BookmarkKind, 'image' | 'text'>;
+	kind: Exclude<BookmarkKind, 'image' | 'text' | 'stash'>;
 	title: string;
 	url: string;
 	tagIds: string[];

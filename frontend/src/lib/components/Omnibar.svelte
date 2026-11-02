@@ -1,34 +1,5 @@
-<script lang="ts" module>
-	// Shared across mounts so a title fetched while typing is ready when the link is confirmed.
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- A plain request cache; nothing renders from it.
-	const titleRequests = new Map<string, Promise<string>>();
-	function requestTitle(target: string): Promise<string> {
-		const existing = titleRequests.get(target);
-		if (existing) return existing;
-		const request = fetch(`/api/v1/metadata?url=${encodeURIComponent(target)}`, {
-			headers: { accept: 'application/json' }
-		})
-			.then(async (response) => {
-				if (!response.ok) throw new Error('Title lookup failed.');
-				const payload: unknown = await response.json();
-				return payload &&
-					typeof payload === 'object' &&
-					typeof (payload as { title?: unknown }).title === 'string'
-					? (payload as { title: string }).title.trim()
-					: '';
-			})
-			.catch((error) => {
-				titleRequests.delete(target);
-				throw error;
-			});
-		if (titleRequests.size >= 50) titleRequests.delete(titleRequests.keys().next().value!);
-		titleRequests.set(target, request);
-		return request;
-	}
-</script>
-
 <script lang="ts">
-	import { Plus, Search, X, ArrowRight, Hash, CornerDownLeft } from '@lucide/svelte';
+	import { Plus, Search, X, ArrowRight, Hash, CornerDownLeft, Rabbit } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { scale } from 'svelte/transition';
@@ -40,6 +11,8 @@
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
 	import Favicon from './ui/Favicon.svelte';
 	import { autosize } from '#lib/client/attachments.js';
+	import { requestTitle, titleWithin } from '#lib/client/titles.js';
+	import { createNode, serializeStash } from '#lib/domain/stash.js';
 	import { markdownShortcuts } from '#lib/client/markdown-keys.js';
 	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import {
@@ -60,7 +33,8 @@
 		onNormal,
 		onDismiss,
 		dismissible = false,
-		readonly = false
+		readonly = false,
+		onOpenItem
 	}: {
 		library: LibraryClient | null;
 		ready: boolean;
@@ -74,6 +48,8 @@
 		dismissible?: boolean;
 		// Search only: the leading icon stays a plain magnifier and nothing can be saved.
 		readonly?: boolean;
+		// Opens a just-created item in the editor (a new rabbit hole).
+		onOpenItem?: (id: string) => void;
 	} = $props();
 	let mode = $state<'insert' | 'search'>('search');
 	// The short placeholder fits the compact resting bar; the full syntax shows once focused.
@@ -420,6 +396,87 @@
 			onDismiss?.();
 		}
 	}
+	// A link then one space: one more starts a rabbit hole. The leading glyph shows it's coming.
+	const burrowing = $derived(
+		mode === 'insert' && !url && !writing && /\S [ ]?$/.test(draft) && looksLikeLink(draft.trim())
+	);
+	// A link then two spaces (or the ". " phones put in for a double space) starts a rabbit hole.
+	function burrowGesture(value: string): string | null {
+		const match = /^(.*\S)(?: {2}|\. )$/.exec(value);
+		return match && looksLikeLink(match[1]) ? match[1] : null;
+	}
+	/**
+	 * A rabbit hole: one item holding a trail of links, this link first. It's created at once,
+	 * with any tags or people already chosen, and opened in the editor to keep digging.
+	 */
+	async function startRabbitHole(link: string) {
+		if (!library || busy || !ready) return;
+		let target: string;
+		try {
+			target = captureUrl(link);
+		} catch {
+			return;
+		}
+		busy = true;
+		error = '';
+		const stopLoading = foregroundSound();
+		const id = crypto.randomUUID();
+		try {
+			const title =
+				(await titleWithin(target, 2000)) || new URL(target).hostname.replace(/^www\./, '');
+			const first = createNode(target, title);
+			if (!first) throw new Error('That link can’t start a rabbit hole.');
+			const created = await library.save({
+				type: 'bookmark.create',
+				id,
+				kind: 'stash',
+				title: title.slice(0, 500)
+			});
+			if (created.status === 'rejected')
+				throw new Error(created.message ?? 'Could not start this rabbit hole.');
+			const trail = await library.save({
+				type: 'note.replace',
+				id,
+				expectedRevision: '0' as Revision,
+				bodyMarkdown: serializeStash([first])
+			});
+			if (trail.status === 'rejected')
+				throw new Error(trail.message ?? 'Rabbit hole started without its first link.');
+			for (const choice of selected) {
+				await library.save(
+					choice.kind === 'person'
+						? {
+								type: 'content-person.add',
+								bookmarkId: id,
+								personId: choice.id,
+								role: 'related',
+								provenance: 'manual'
+							}
+						: {
+								type: 'tag.add',
+								id,
+								tagId: choice.kind === 'new-tag' ? await ensureTag(library, choice.name) : choice.id
+							}
+				);
+			}
+			cue('success');
+			cancelTitleFetch();
+			draft = '';
+			organizer = '';
+			selected = [];
+			completed = [];
+			mode = 'search';
+			await tick();
+			(document.activeElement as HTMLElement | null)?.blur();
+			onOpenItem?.(id);
+		} catch (e) {
+			error = (e as Error).message;
+			cue('error');
+		} finally {
+			stopLoading();
+			busy = false;
+		}
+	}
 	function prepare(event: SubmitEvent) {
 		event.preventDefault();
 		if (mode === 'search' || busy || !ready) return;
@@ -649,13 +706,14 @@
 				type="button"
 				class="omnibar-leading"
 				class:insert={mode === 'insert'}
+				class:burrowing
 				disabled={!ready}
 				aria-label={mode === 'search' ? 'Switch to add bookmark' : 'Switch to search'}
 				title={mode === 'search' ? 'Add a bookmark · i' : 'Search · /'}
 				onclick={() => switchMode(mode === 'search' ? 'insert' : 'search')}
 				><span class="omnibar-glyph search-glyph"><Search /></span><span
 					class="omnibar-glyph insert-glyph"><Plus /></span
-				></button
+				><span class="omnibar-glyph burrow-glyph"><Rabbit /></span></button
 			>
 		{/if}
 		{#if mode === 'search' && search.chips.length}<span
@@ -684,12 +742,17 @@
 					: focused
 						? 'Search, #tag, @person or !tag…'
 						: 'Search'
-				: 'Paste a link, or write a note…'}
+				: 'Paste a link, write a note… (space twice: rabbit hole)'}
 			value={mode === 'search' ? search.rest : draft}
 			oninput={(e) => {
 				if (mode === 'search') query = compose(search.chips, e.currentTarget.value);
 				else {
 					draft = e.currentTarget.value;
+					const burrow = burrowGesture(draft);
+					if (burrow) {
+						void startRabbitHole(burrow);
+						return;
+					}
 					prefetchTitle(
 						draft,
 						(e as unknown as InputEvent).inputType === 'insertFromPaste' ? 0 : 300

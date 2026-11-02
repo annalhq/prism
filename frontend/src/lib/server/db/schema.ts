@@ -19,7 +19,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const entityKind = pgEnum('entity_kind', ['bookmark', 'person', 'persona']);
-export const bookmarkKind = pgEnum('bookmark_kind', ['page', 'social', 'image', 'text']);
+export const bookmarkKind = pgEnum('bookmark_kind', ['page', 'social', 'image', 'text', 'stash']);
 export const readingStatus = pgEnum('reading_status', ['unread', 'reading', 'read']);
 export const linkKind = pgEnum('link_kind', ['note_reference', 'related']);
 export const personRole = pgEnum('person_role', ['author', 'about', 'related']);
@@ -203,7 +203,7 @@ export const bookmarks = pgTable(
 			'bookmark_url_required',
 			// Compared as text: Postgres won't let a migration use an enum value it adds in the
 			// same transaction, and this rule ships with the new 'text' kind.
-			sql`${t.kind}::text IN ('image', 'text') OR (${t.url} IS NOT NULL AND ${t.canonicalUrl} IS NOT NULL)`
+			sql`${t.kind}::text IN ('image', 'text', 'stash') OR (${t.url} IS NOT NULL AND ${t.canonicalUrl} IS NOT NULL)`
 		),
 		check(
 			'bookmark_url_safe',

@@ -10,7 +10,8 @@
 		Trash2 as Trash2Icon,
 		Users as UsersIcon,
 		CornerDownRight as BacklinkIcon,
-		NotebookText as NoteIcon
+		NotebookText as NoteIcon,
+		Rabbit as RabbitIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Source links are validated external HTTP URLs. */
 	import { onMount, onDestroy } from 'svelte';
@@ -27,6 +28,8 @@
 	import { entityLabel } from '#lib/client/search.js';
 	import { ensureTag, isReadLater, type Row } from '#lib/client/workflows.js';
 	import NoteEditor from './NoteEditor.svelte';
+	import StashEditor from './stash/StashEditor.svelte';
+	import { countLinks, parseStash } from '#lib/domain/stash.js';
 	import TokenInput from './ui/TokenInput.svelte';
 	let {
 		library,
@@ -229,6 +232,14 @@
 	const host = $derived(safeSource ? new URL(safeSource).hostname.replace(/^www\./, '') : '');
 	// A written note saved on its own: no link to show or edit, and its body reads rendered.
 	const textItem = $derived(row?.kind === 'text');
+	// A rabbit hole: its trail of links is the note, edited as a tree.
+	const stashItem = $derived(row?.kind === 'stash');
+	const stashLinks = $derived.by(() => {
+		void version;
+		if (!stashItem) return 0;
+		const note = library.get<{ bodyMarkdown?: string }>('notes', entity.id);
+		return countLinks(parseStash(note?.bodyMarkdown ?? ''));
+	});
 	async function removePerson(id: string) {
 		for (const r of relationships.filter((r) => r.personId === id))
 			await act({
@@ -277,6 +288,11 @@
 				title={safeSource}
 				onclick={() => void library.save({ type: 'activity.open', id: entity.id })}
 				><Favicon url={safeSource} /><span>{host}</span><ArrowUpRightIcon /></a
+			>{:else if stashItem}<span class="editor-source muted"
+				><RabbitIcon /><span
+					>Rabbit hole · {stashLinks}
+					{stashLinks === 1 ? 'link' : 'links'}</span
+				></span
 			>{:else if textItem}<span class="editor-source muted"><NoteIcon /><span>Note</span></span
 			>{:else}<span class="editor-source muted">No link</span>{/if}
 		<span class="editor-bar-actions">
@@ -300,7 +316,7 @@
 								// "Edit link" just opened, and blurring it ends editing.
 								if (editingSource) event.preventDefault();
 							}}
-							>{#if !textItem}<DropdownMenu.Item
+							>{#if !textItem && !stashItem}<DropdownMenu.Item
 									class="menu-item"
 									onSelect={() => (editingSource = true)}
 									><PencilIcon /><span>Edit link</span></DropdownMenu.Item
@@ -380,15 +396,20 @@
 						</TokenInput>
 					</div>
 				</div>
-				<NoteEditor
-					{library}
-					{entity}
-					{version}
-					{feedback}
-					rendered={textItem}
-					placeholder={textItem ? 'Write in Markdown…' : 'Write a note…'}
-					onReference={(target) => navigate(target)}
-				/>
+				{#if stashItem}<StashEditor
+						{library}
+						id={entity.id}
+						{version}
+						{feedback}
+					/>{:else}<NoteEditor
+						{library}
+						{entity}
+						{version}
+						{feedback}
+						rendered={textItem}
+						placeholder={textItem ? 'Write in Markdown…' : 'Write a note…'}
+						onReference={(target) => navigate(target)}
+					/>{/if}
 				{#if incoming.length}<section class="editor-backlinks" aria-label="Linked here">
 						<h3>Linked here</h3>
 						{#each incoming as item (item.id)}<button

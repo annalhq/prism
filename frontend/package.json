@@ -32,6 +32,7 @@
 		"db:migrate:production:person-avatars": "bun scripts/db/migrate-production-0008.ts",
 		"db:migrate:production:avatar-sources": "bun scripts/db/migrate-production-0009.ts",
 		"db:migrate:production:text-items": "bun scripts/db/migrate-production-0010.ts",
+		"db:migrate:production:rabbit-holes": "bun scripts/db/migrate-production-0011.ts",
 		"maintenance": "node scripts/not-ready.mjs maintenance",
 		"db:inventory": "bun scripts/db/inventory.ts",
 		"db:init-owner": "bun scripts/db/init-owner.ts"

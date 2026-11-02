@@ -780,6 +780,10 @@
 		onNormal={focusLibrary}
 		onDismiss={() => (navSearching = false)}
 		dismissible={mobile}
+		onOpenItem={(id) => {
+			navSearching = false;
+			void navigate({ kind: 'bookmark', id });
+		}}
 	/>{/snippet}
 <svelte:head
 	>{#if profileSlug}<title>{person?.displayName ?? 'Person'} · Prism</title>{/if}</svelte:head
