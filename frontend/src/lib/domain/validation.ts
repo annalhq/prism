@@ -35,15 +35,15 @@ function bookmark(value: unknown): BookmarkCommand {
 	const id = uuid(c.id);
 	if (c.type === 'bookmark.create') {
 		keys(c, ['type', 'id', 'kind', 'title', 'description', 'url']);
-		if (typeof c.kind !== 'string' || !['page', 'social', 'image'].includes(c.kind))
+		if (typeof c.kind !== 'string' || !['page', 'social', 'image', 'text'].includes(c.kind))
 			throw new ValidationError('Unknown bookmark kind.');
 		const inputUrl = c.url === undefined ? null : url(c.url);
-		if (c.kind !== 'image' && inputUrl === null)
+		if (c.kind !== 'image' && c.kind !== 'text' && inputUrl === null)
 			throw new ValidationError('Page and social bookmarks require a URL.');
 		return {
 			type: c.type,
 			id,
-			kind: c.kind as 'page' | 'social' | 'image',
+			kind: c.kind as 'page' | 'social' | 'image' | 'text',
 			title: text(c.title, 500, true),
 			description: c.description === undefined ? '' : text(c.description, 10000),
 			url: inputUrl

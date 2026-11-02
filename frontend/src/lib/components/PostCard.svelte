@@ -17,6 +17,8 @@
 	import { ContextMenu } from 'bits-ui';
 	import Favicon from './ui/Favicon.svelte';
 	import PersonAvatar from './ui/PersonAvatar.svelte';
+	import { renderMarkdown } from '#lib/client/markdown.js';
+	import { renderNote } from '#lib/domain/notes.js';
 	import TweetCard from './TweetCard.svelte';
 	import { tweetStatusId } from '#lib/domain/tweets.js';
 	import {
@@ -65,6 +67,21 @@
 	// tweet API, so it keeps the plain link card.
 	const tweetId = $derived(readonly ? null : tweetStatusId(source));
 	const domain = $derived(bookmarkDomain(item, source));
+	// The note as rendered Markdown: local first, Sätteri when it arrives (owner only).
+	let noteHtml = $state('');
+	$effect(() => {
+		if (!note) return;
+		const markdown = note;
+		noteHtml = renderNote(markdown);
+		if (readonly) return;
+		let live = true;
+		void renderMarkdown(markdown).then((html) => {
+			if (live) noteHtml = html;
+		});
+		return () => {
+			live = false;
+		};
+	});
 	function openSource() {
 		if (!source) return onEdit();
 		onOpen();
@@ -122,7 +139,8 @@
 						><Clock3Icon /><span class="sr-only">Read later</span></span
 					>{/if}
 			</header>{/if}
-		{#if note}<p class="post-text">{note}</p>{/if}
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -- Sanitised by the note renderers. -->
+		{#if note}<div class="post-text note-prose">{@html noteHtml}</div>{/if}
 		<!-- The link itself, nested like a quoted card: just what it is and where it lives. -->
 		{#snippet linkCard()}
 			<a

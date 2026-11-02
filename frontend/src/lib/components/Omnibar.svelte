@@ -34,10 +34,13 @@
 	import { scale } from 'svelte/transition';
 	import { cubicOut, quintOut } from 'svelte/easing';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
+	import type { Revision } from '#lib/domain/contracts.js';
 	import { ensureTag, inferBookmarkKind, type Row } from '#lib/client/workflows.js';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { cue, foregroundSound } from '#lib/client/sounds.svelte.js';
 	import Favicon from './ui/Favicon.svelte';
+	import { autosize } from '#lib/client/attachments.js';
+	import { markdownShortcuts } from '#lib/client/markdown-keys.js';
 	import PersonAvatar from './ui/PersonAvatar.svelte';
 	import {
 		describeToken,
@@ -78,6 +81,9 @@
 	let draft = $state(''),
 		title = $state(''),
 		url = $state(''),
+		// Writing a note instead of saving a link: the Markdown body, and whether the card is open.
+		body = $state(''),
+		writing = $state(false),
 		organizer = $state(''),
 		error = $state(''),
 		busy = $state(false);
@@ -93,6 +99,7 @@
 		prefetchTimer: ReturnType<typeof setTimeout> | undefined;
 	let input = $state<HTMLInputElement>(),
 		titleInput = $state<HTMLInputElement>(),
+		bodyInput = $state<HTMLTextAreaElement>(),
 		organizerInput = $state<HTMLInputElement>();
 	let restoredScope = $state('');
 	const key = (choice: Choice) => `${choice.kind}:${choice.id || choice.name}`;
@@ -149,6 +156,8 @@
 		autoTitle = '';
 		titleEdited = false;
 		url = '';
+		body = '';
+		writing = false;
 		organizer = '';
 		selected = [];
 		completed = [];
@@ -159,6 +168,14 @@
 	function cancelTitleFetch() {
 		titleRequestedFor = '';
 		titleLoading = false;
+	}
+	// A link has no spaces and either a scheme or a host with a dot (example.com/…). Anything
+	// else typed in the add field is a note to write, not a link to save.
+	function looksLikeLink(value: string): boolean {
+		const text = value.trim();
+		if (!text || /\s/.test(text)) return false;
+		if (/^https?:\/\//i.test(text)) return true;
+		return /^[^/?#@]+\.[a-z][a-z\d-]{1,62}([/?#:]|$)/i.test(text);
 	}
 	function captureUrl(value: string): string {
 		const text = value.trim();
@@ -264,6 +281,8 @@
 				draft = typeof value.draft === 'string' ? value.draft : '';
 				title = typeof value.title === 'string' ? value.title : '';
 				url = typeof value.url === 'string' ? value.url : '';
+				body = typeof value.body === 'string' ? value.body : '';
+				writing = value.writing === true;
 				selected = Array.isArray(value.selected)
 					? value.selected.filter(
 							(choice: Choice) =>
@@ -290,6 +309,8 @@
 			draft,
 			title,
 			url,
+			body,
+			writing,
 			selected,
 			completed,
 			captureId,
@@ -374,12 +395,16 @@
 		if (next === 'insert' && url) {
 			void loadTitle(url);
 			await focusCard();
-		} else input?.focus();
+		} else if (next === 'insert' && writing) await focusCard();
+		else input?.focus();
 	}
 	async function focusCard() {
 		await tick();
 		if (created) organizerInput?.focus();
-		else titleInput?.focus();
+		else if (writing) {
+			bodyInput?.focus();
+			bodyInput?.setSelectionRange(body.length, body.length);
+		} else titleInput?.focus();
 	}
 	// One trailing control, whose job follows the bar's state: clear what was typed,
 	// otherwise close the bar where it can be closed.
@@ -399,6 +424,17 @@
 		event.preventDefault();
 		if (mode === 'search' || busy || !ready) return;
 		error = '';
+		if (draft.trim() && !looksLikeLink(draft)) {
+			// Words, not a link: open the card as a note, starting from what was typed.
+			body = draft.trim();
+			writing = true;
+			url = '';
+			captureId = crypto.randomUUID();
+			created = false;
+			completed = [];
+			void focusCard();
+			return;
+		}
 		try {
 			url = captureUrl(draft);
 			captureId = crypto.randomUUID();
@@ -430,13 +466,55 @@
 			cue('error');
 		}
 	}
+	// A note's title: its first line, without Markdown marks, kept short.
+	function noteTitle(markdown: string): string {
+		const line =
+			markdown
+				.split('\n')
+				.map((value) => value.trim())
+				.find(Boolean) ?? '';
+		const plain = line
+			.replace(/^(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)/, '')
+			.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+			.replace(/[*_~`]+/g, '')
+			.trim();
+		return (plain.length > 120 ? `${plain.slice(0, 119).trimEnd()}…` : plain) || 'Untitled note';
+	}
 	async function save() {
-		if (!library || busy || !ready || !url) return;
+		if (!library || busy || !ready || (!url && !writing)) return;
+		if (writing && !body.trim()) {
+			error = 'Write something to save, or discard this note.';
+			cue('error');
+			return;
+		}
 		commitOrganizer();
 		busy = true;
 		error = '';
 		const stopLoading = foregroundSound();
 		try {
+			if (writing && !created) {
+				const result = await library.save({
+					type: 'bookmark.create',
+					id: captureId,
+					kind: 'text',
+					title: noteTitle(body)
+				});
+				if (result.status === 'rejected')
+					throw new Error(result.message ?? 'Could not save this note.');
+				created = true;
+			}
+			// The note's Markdown goes in its body, once; a retry after a partial save skips it.
+			if (writing && !completed.includes('body')) {
+				const result = await library.save({
+					type: 'note.replace',
+					id: captureId,
+					expectedRevision: '0' as Revision,
+					bodyMarkdown: body
+				});
+				if (result.status === 'rejected')
+					throw new Error(result.message ?? 'Note saved without its text. Retry to finish.');
+				completed = [...completed, 'body'];
+			}
 			if (!created) {
 				const result = await library.save({
 					type: 'bookmark.create',
@@ -479,17 +557,26 @@
 
 			// The new row appearing in the list is the confirmation; only the sound marks it.
 			cue('success');
+			// Links stay in add mode for the next one; a written note is done, so the bar rests.
+			const finishedNote = writing;
 			cancelTitleFetch();
 			draft = '';
 			title = '';
 			autoTitle = '';
 			titleEdited = false;
 			url = '';
+			body = '';
+			writing = false;
 			organizer = '';
 			selected = [];
 			completed = [];
 			created = false;
 			captureId = '';
+			if (finishedNote) {
+				mode = 'search';
+				await tick();
+				(document.activeElement as HTMLElement | null)?.blur();
+			}
 		} catch (e) {
 			error = (e as Error).message;
 			cue('error');
@@ -505,7 +592,7 @@
 				: dismissible
 					? 'close'
 					: 'shortcut'
-			: url
+			: url || writing
 				? 'none'
 				: draft.trim()
 					? 'continue'
@@ -597,7 +684,7 @@
 					: focused
 						? 'Search, #tag, @person or !tag…'
 						: 'Search'
-				: 'Paste a link to save…'}
+				: 'Paste a link, or write a note…'}
 			value={mode === 'search' ? search.rest : draft}
 			oninput={(e) => {
 				if (mode === 'search') query = compose(search.chips, e.currentTarget.value);
@@ -632,7 +719,7 @@
 					draft = '';
 				}
 			}}
-			disabled={!ready || (mode === 'insert' && (busy || !!url))}
+			disabled={!ready || (mode === 'insert' && (busy || !!url || writing))}
 			autocomplete="off"
 			spellcheck="false"
 		/>
@@ -665,7 +752,7 @@
 			{/key}
 		</span>
 	</form>
-	{#if mode === 'insert' && url}
+	{#if mode === 'insert' && (url || writing)}
 		<form
 			class="capture-picker"
 			aria-label="Save bookmark"
@@ -675,36 +762,58 @@
 			}}
 		>
 			<fieldset disabled={busy}>
-				<button
-					type="button"
-					class="capture-source"
-					title={created ? url : `${url} · Edit link`}
-					disabled={created}
-					onclick={editLink}
-					><Favicon {url} /><span>{host}</span>{#if !created}<small>Edit</small>{/if}</button
-				>
-				<div class="capture-title-field">
-					<input
-						id="bookmark-capture-title"
-						bind:this={titleInput}
-						bind:value={title}
-						aria-label="Title"
-						oninput={() => (titleEdited = true)}
+				{#if writing}
+					<!-- A plain Markdown field: no toolbar, just the usual shortcuts (⌘B, ⌘I, ⌘⇧X, ⌘E, ⌘K). -->
+					<label class="sr-only" for="capture-body">Note</label>
+					<textarea
+						id="capture-body"
+						class="capture-body"
+						bind:this={bodyInput}
+						bind:value={body}
+						placeholder="Write in Markdown…"
+						rows="4"
+						disabled={created}
+						spellcheck="true"
 						onkeydown={(e) => {
-							if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
+							if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) {
 								e.preventDefault();
-								organizerInput?.focus();
+								void save();
 							}
 						}}
+						{@attach autosize(body)}
+						{@attach markdownShortcuts}></textarea>
+				{:else}
+					<button
+						type="button"
+						class="capture-source"
+						title={created ? url : `${url} · Edit link`}
 						disabled={created}
-						maxlength="500"
-						placeholder={titleLoading ? '' : 'Untitled'}
-						aria-busy={titleLoading}
-					/>
-					{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
-							>Fetching title…</span
-						>{/if}
-				</div>
+						onclick={editLink}
+						><Favicon {url} /><span>{host}</span>{#if !created}<small>Edit</small>{/if}</button
+					>
+					<div class="capture-title-field">
+						<input
+							id="bookmark-capture-title"
+							bind:this={titleInput}
+							bind:value={title}
+							aria-label="Title"
+							oninput={() => (titleEdited = true)}
+							onkeydown={(e) => {
+								if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
+									e.preventDefault();
+									organizerInput?.focus();
+								}
+							}}
+							disabled={created}
+							maxlength="500"
+							placeholder={titleLoading ? '' : 'Untitled'}
+							aria-busy={titleLoading}
+						/>
+						{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
+								>Fetching title…</span
+							>{/if}
+					</div>
+				{/if}
 				<div class="capture-organizer">
 					<!-- The whole token row is the field's hit area. -->
 					<label class="capture-tokens">

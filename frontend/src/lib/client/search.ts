@@ -236,7 +236,7 @@ export function parseLibraryQuery(input: string, library: LibraryReader): Parsed
 						continue;
 					}
 					const tests = values.map((value): Clause['test'] => {
-						if (['page', 'social', 'image', 'person'].includes(value)) {
+						if (['page', 'social', 'image', 'text', 'person'].includes(value)) {
 							if (!negate) filter.kinds.push(value as SearchFilter['kinds'][number]);
 							return (row) => (row.entityKind === 'bookmark' ? row.kind : row.entityKind) === value;
 						}

@@ -5,7 +5,8 @@ export const MAX_BULK_BOOKMARKS = 100;
 // Validated decimal strings on the wire; bigint belongs only inside the server.
 export type Revision = `${bigint}`;
 export type Sequence = `${bigint}`;
-export type BookmarkKind = 'page' | 'social' | 'image';
+// `text` is a written note saved on its own: no link, its Markdown body kept in the item's note.
+export type BookmarkKind = 'page' | 'social' | 'image' | 'text';
 export type BookmarkFields = { title: string; description: string; url: string | null };
 export type BookmarkCommand =
 	| {
@@ -36,7 +37,7 @@ export type BookmarkCommand =
 export type ExtensionBookmarkCommand = {
 	type: 'extension.bookmark.create';
 	id: string;
-	kind: Exclude<BookmarkKind, 'image'>;
+	kind: Exclude<BookmarkKind, 'image' | 'text'>;
 	title: string;
 	url: string;
 	tagIds: string[];

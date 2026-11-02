@@ -1,13 +1,15 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { Link2 as LinkIcon } from '@lucide/svelte';
 	import { autosize } from '#lib/client/attachments.js';
+	import { markdownShortcuts } from '#lib/client/markdown-keys.js';
+	import { renderMarkdown } from '#lib/client/markdown.js';
 	import { downloadFile } from '#lib/client/download.js';
 	import TokenInput from './ui/TokenInput.svelte';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { NoteProjection, Revision } from '#lib/domain/contracts.js';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
-	import { extractReferences, validateNoteBody } from '#lib/domain/notes.js';
+	import { extractReferences, parseReference, validateNoteBody } from '#lib/domain/notes.js';
 	import { entityLabel } from '#lib/client/search.js';
 	import {
 		addNoteLink,
@@ -19,12 +21,20 @@
 		library,
 		entity,
 		version,
-		feedback
+		feedback,
+		rendered = false,
+		placeholder = 'Write a note…',
+		onReference
 	}: {
 		library: LibraryClient;
 		entity: EntityRef;
 		version: number;
 		feedback: (message: string) => void;
+		// Text items: show the Markdown rendered while not typing; a click goes back to writing.
+		rendered?: boolean;
+		placeholder?: string;
+		// Opens a prism: link from the rendered view.
+		onReference?: (target: EntityRef) => void;
 	} = $props();
 	let body = $state(''),
 		base = $state<Revision>('0'),
@@ -58,6 +68,40 @@
 		return rows.filter((r) => !r.deletedAt && !r.purgedAt);
 	});
 	const noteText = $derived(splitLinkedNote(body).text);
+	// The rendered view shows while not typing, once there is something to show.
+	let writing = $state(false),
+		html = $state(''),
+		textarea = $state<HTMLTextAreaElement>();
+	const previewing = $derived(rendered && !writing && noteText.trim().length > 0);
+	$effect(() => {
+		if (!previewing) return;
+		const markdown = noteText;
+		let live = true;
+		void renderMarkdown(markdown).then((value) => {
+			if (live) html = value;
+		});
+		return () => {
+			live = false;
+		};
+	});
+	async function write() {
+		writing = true;
+		await tick();
+		textarea?.focus();
+	}
+	function previewClick(event: MouseEvent) {
+		const anchor = (event.target as HTMLElement).closest('a');
+		if (!anchor) {
+			// Selecting text to copy shouldn't drop into the editor.
+			if (!window.getSelection()?.toString()) void write();
+			return;
+		}
+		event.preventDefault();
+		const href = anchor.getAttribute('href') ?? '';
+		const reference = parseReference(href);
+		if (reference) onReference?.(reference);
+		else if (/^(https?|mailto):/i.test(href)) window.open(href, '_blank', 'noopener,noreferrer');
+	}
 	const references = $derived(
 		extractReferences(body)
 			.filter((r) => r.kind !== 'persona')
@@ -237,26 +281,47 @@
 				><button onclick={downloadDraft}>Export draft</button>
 			</div>
 		</div>{/if}
-	<label class="sr-only" for="note-body">Note</label><textarea
-		id="note-body"
-		class="editor-note-body"
-		value={noteText}
-		oninput={(event) => {
-			body = joinLinkedNote(event.currentTarget.value, splitLinkedNote(body).links);
-			edited();
-		}}
-		onblur={() => {
-			if (dirty && !busy) void save();
-		}}
-		onkeydown={(event) => {
-			if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-				event.preventDefault();
-				void save();
-			}
-		}}
-		placeholder="Write a note…"
-		rows="5"
-		{@attach autosize(noteText)}></textarea>
+	{#if previewing}
+		<!-- Sanitised on render: no raw HTML, safe links only. Click to write; links navigate. -->
+		<div
+			class="editor-note-rendered"
+			role="button"
+			tabindex="0"
+			aria-label="Edit note"
+			onclick={previewClick}
+			onkeydown={(event) => {
+				if (event.key === 'Enter' && event.target === event.currentTarget) {
+					event.preventDefault();
+					void write();
+				}
+			}}
+		>
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- HTML is sanitised by the renderer. -->
+			{@html html}
+		</div>
+	{:else}<label class="sr-only" for="note-body">Note</label><textarea
+			id="note-body"
+			class="editor-note-body"
+			bind:this={textarea}
+			value={noteText}
+			oninput={(event) => {
+				body = joinLinkedNote(event.currentTarget.value, splitLinkedNote(body).links);
+				edited();
+			}}
+			onblur={() => {
+				if (dirty && !busy) void save();
+				writing = false;
+			}}
+			onkeydown={(event) => {
+				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+					event.preventDefault();
+					void save();
+				}
+			}}
+			{placeholder}
+			rows="5"
+			{@attach autosize(noteText)}
+			{@attach markdownShortcuts}></textarea>{/if}
 	<div class="editor-prop">
 		<span class="editor-prop-icon" title="Linked in this note"><LinkIcon /></span>
 		<TokenInput

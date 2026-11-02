@@ -97,7 +97,7 @@ export function parseSearchFilter(value: unknown): SearchFilter {
 		...('collection' in f
 			? { collection: f.collection === null ? null : reference(f.collection, 64) }
 			: {}),
-		kinds: enumList(f.kinds, ['page', 'social', 'image', 'person', 'persona'] as const),
+		kinds: enumList(f.kinds, ['page', 'social', 'image', 'text', 'person', 'persona'] as const),
 		people: uniqueReferences(
 			list(f.people).map((value) => {
 				const r = object(value);

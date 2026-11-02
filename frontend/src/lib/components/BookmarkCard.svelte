@@ -13,12 +13,15 @@
 		Trash2 as Trash2Icon,
 		RotateCcw as RotateCcwIcon,
 		Unlink as UnlinkIcon,
-		ChevronRight as ChevronRightIcon
+		ChevronRight as ChevronRightIcon,
+		NotebookText as NoteIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
 	import { Collapsible, ContextMenu } from 'bits-ui';
 	import type { Attachment } from 'svelte/attachments';
 	import Favicon from './ui/Favicon.svelte';
+	import { renderMarkdown } from '#lib/client/markdown.js';
+	import { renderNote } from '#lib/domain/notes.js';
 	import {
 		bookmarkDomain,
 		bookmarkSource,
@@ -51,6 +54,23 @@
 	let offset = $state(0),
 		menuOpen = $state(false);
 	const hasNote = $derived(note.trim().length > 0);
+	// The note reads as rendered Markdown. The local renderer answers at once (so the expand
+	// animation measures the real height); Sätteri's rendering replaces it when it arrives. The
+	// public page can't reach the owner-only renderer, so it keeps the local one.
+	let noteHtml = $state('');
+	$effect(() => {
+		if (!hasNote) return;
+		const markdown = note;
+		noteHtml = renderNote(markdown);
+		if (readonly) return;
+		let live = true;
+		void renderMarkdown(markdown).then((html) => {
+			if (live) noteHtml = html;
+		});
+		return () => {
+			live = false;
+		};
+	});
 	// Collapses whenever the note comes or goes; toggled by the row in between.
 	let expanded = $derived.by(() => {
 		void hasNote;
@@ -175,7 +195,10 @@
 </script>
 
 {#snippet row()}
-	<div class="row-leading"><Favicon url={source} /></div>
+	<div class="row-leading">
+		{#if item.kind === 'text'}<span class="favicon fallback" title="Note"><NoteIcon /></span
+			>{:else}<Favicon url={source} />{/if}
+	</div>
 
 	<div class="bookmark-content">
 		{#if source}<a
@@ -281,7 +304,8 @@
 				></ContextMenu.Root
 			>{/if}
 		<Collapsible.Content class="bookmark-expansion">
-			{#if hasNote}<p>{note}</p>{/if}
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- Sanitised by the note renderers. -->
+			{#if hasNote}<div class="note-prose">{@html noteHtml}</div>{/if}
 		</Collapsible.Content>
 	</Collapsible.Root>
 </div>

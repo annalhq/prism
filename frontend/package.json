@@ -31,6 +31,7 @@
 		"db:migrate:production:avatar-column": "bun scripts/db/migrate-production-0007.ts",
 		"db:migrate:production:person-avatars": "bun scripts/db/migrate-production-0008.ts",
 		"db:migrate:production:avatar-sources": "bun scripts/db/migrate-production-0009.ts",
+		"db:migrate:production:text-items": "bun scripts/db/migrate-production-0010.ts",
 		"maintenance": "node scripts/not-ready.mjs maintenance",
 		"db:inventory": "bun scripts/db/inventory.ts",
 		"db:init-owner": "bun scripts/db/init-owner.ts"
@@ -55,6 +56,7 @@
 		"mdast-util-from-markdown": "2.1.0",
 		"mdast-util-to-hast": "13.2.1",
 		"pg": "8.23.1",
+		"satteri": "^0.11.6",
 		"sveltweet": "^0.5.1",
 		"unicode-case-folding": "1.1.2"
 	},
