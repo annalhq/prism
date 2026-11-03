@@ -7,11 +7,12 @@ import {
 	type CommandResult,
 	type Revision
 } from '#lib/domain/contracts.js';
-import type {
-	BootstrapStart,
-	ReplicaRecord,
-	ReplicaTable,
-	VaultIdentity
+import {
+	BOOTSTRAP_BATCH_CAPABILITY,
+	type BootstrapPage,
+	type BootstrapStart,
+	type ReplicaTable,
+	type VaultIdentity
 } from '#lib/domain/replica.js';
 import { applyFrame, overlay, putRecord, type Records } from './projections.js';
 import { VaultStorage, recordKey, type Draft, type PendingOperation } from './storage.js';
@@ -295,27 +296,39 @@ export function createLibraryClient(notify: () => void) {
 		perfMark('bootstrap-start');
 		const start = await request<BootstrapStart>('/api/v1/sync/bootstrap', { method: 'POST' });
 		let requests = 1;
+		const base = `/api/v1/sync/bootstrap/${encodeURIComponent(start.token)}`;
+		// Follows continuations into staging until the transport reports the end.
+		const download = async (staging: Records, url: (after: string | null) => string) => {
+			let after: string | null = null;
+			do {
+				const page: BootstrapPage = await request(url(after));
+				requests++;
+				for (const row of page.records) putRecord(staging, row);
+				if (page.nextAfter && page.nextAfter === after)
+					throw new Error('Bootstrap page did not advance.');
+				after = page.nextAfter;
+			} while (after);
+		};
 		try {
 			const staging: Records = new Map();
-			for (const table of start.tables) {
-				let after: string | null = null;
-				do {
-					const query = new URLSearchParams({ table });
-					if (after) query.set('after', after);
-					const page: { records: ReplicaRecord[]; nextAfter: string | null } = await request(
-						`/api/v1/sync/bootstrap/${encodeURIComponent(start.token)}?${query}`
-					);
-					requests++;
-					for (const row of page.records) putRecord(staging, row);
-					if (page.nextAfter && page.nextAfter === after)
-						throw new Error('Bootstrap page did not advance.');
-					after = page.nextAfter;
-				} while (after);
-			}
+			// Batches span tables; servers without the capability (older deployments, or after a
+			// rollback) still get one request per table page. Both fill the same staging replica,
+			// which is published only after catch-up from the original start cursor.
+			if (start.capabilities?.includes(BOOTSTRAP_BATCH_CAPABILITY))
+				await download(staging, (after) =>
+					after ? `${base}/batch?${new URLSearchParams({ after })}` : `${base}/batch`
+				);
+			else
+				for (const table of start.tables)
+					await download(staging, (after) => {
+						const query = new URLSearchParams({ table });
+						if (after) query.set('after', after);
+						return `${base}?${query}`;
+					});
 			await persist(staging, await pullInto(staging, start.cursor), { replace: true });
 			perfMark('bootstrap-complete', { requests, records: staging.size });
 		} finally {
-			await fetch(`/api/v1/sync/bootstrap/${encodeURIComponent(start.token)}`, {
+			await fetch(base, {
 				method: 'DELETE',
 				credentials: 'same-origin'
 			}).catch(() => undefined);

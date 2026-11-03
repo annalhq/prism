@@ -9,6 +9,8 @@
 //   --cold-start MS             extra delay on the first API response of a cold-backend sample
 //                               (default 1500); simulated, not a measured Neon/Vercel cold start
 //   --base URL                  use an already running server instead of starting vite preview
+//   --transport batch|per-table bootstrap transport the mocked server offers (default batch);
+//                               per-table reproduces a server without bootstrap-batch-v1
 //
 // No real database, auth or storage is touched: the preview server runs with those settings
 // blanked (as in playwright.config.ts) and every /api/v1 request is answered by this script.
@@ -44,12 +46,16 @@ const { values: options } = parseArgs({
 		samples: { type: 'string', default: '10' },
 		scenarios: { type: 'string', default: 'cold,cold-backend,warm,search,offline' },
 		latency: { type: 'string', default: '40' },
+		transport: { type: 'string', default: 'batch' },
 		'cold-start': { type: 'string', default: '1500' },
 		base: { type: 'string' }
 	}
 });
 const samples = Math.max(1, Number(options.samples));
 const latency = Math.max(0, Number(options.latency));
+if (!['batch', 'per-table'].includes(options.transport))
+	throw new Error('Unknown transport; use batch or per-table.');
+const batched = options.transport === 'batch';
 const coldStart = Math.max(0, Number(options['cold-start']));
 const scenarios = options.scenarios.split(',').map((name) => name.trim());
 const known = ['cold', 'cold-backend', 'warm', 'search', 'offline'];
@@ -191,7 +197,29 @@ function createApi({ cold }) {
 				startSeq: sequence,
 				cursor,
 				tables: TABLES,
-				expiresAt: new Date(Date.now() + 3_600_000).toISOString()
+				expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+				...(batched ? { capabilities: ['bootstrap-batch-v1'] } : {})
+			});
+			bootstrapBytes += response.body.length;
+			return response.fulfil();
+		}
+		if (batched && path.endsWith('/batch') && method === 'GET') {
+			// Same page shape as the server: up to 200 records across consecutive tables.
+			count('bootstrapBatch');
+			const after = url.searchParams.get('after');
+			let { table, key } = after ? JSON.parse(after) : { table: 0, key: '' };
+			/** @type {ReplicaRecord[]} */
+			const records = [];
+			while (table < TABLES.length && records.length < PAGE_RECORDS) {
+				const remaining = (byTable.get(TABLES[table]) ?? []).filter((row) => row.key > key);
+				const page = remaining.slice(0, PAGE_RECORDS - records.length);
+				records.push(...page);
+				if (remaining.length > page.length) key = page[page.length - 1].key;
+				else [table, key] = [table + 1, ''];
+			}
+			const response = json(route, {
+				records,
+				nextAfter: table < TABLES.length ? JSON.stringify({ table, key }) : null
 			});
 			bootstrapBytes += response.body.length;
 			return response.fulfil();
@@ -496,7 +524,8 @@ const report = {
 		memoryGiB: Math.round(totalmem() / 2 ** 30),
 		viewport: '1280x800',
 		server: options.base ?? 'vite preview of the local production build (auth/database blanked)',
-		network: `Loopback, no throttling. Mocked API responses delayed ${latency} ms; cold-backend adds ${coldStart} ms to the first API response (simulated).`
+		network: `Loopback, no throttling. Mocked API responses delayed ${latency} ms; cold-backend adds ${coldStart} ms to the first API response (simulated).`,
+		bootstrapTransport: options.transport
 	},
 	fixture: {
 		size: options.size,
@@ -528,7 +557,7 @@ const report = {
 	runs: Object.fromEntries(Object.entries(results).map(([name, value]) => [name, value.runs]))
 };
 await mkdir('artifacts', { recursive: true });
-const file = `artifacts/performance-library-${options.size}.json`;
+const file = `artifacts/performance-library-${options.size}${batched ? '' : '-per-table'}.json`;
 await writeFile(file, `${JSON.stringify(report, null, 2)}\n`);
 for (const [name, summary] of Object.entries(report.scenarios)) {
 	/** @param {string} key */

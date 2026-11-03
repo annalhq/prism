@@ -24,6 +24,8 @@ export type ReplicaRecord = {
 	lastSeq: Sequence;
 	value: Record<string, unknown>;
 };
+/** Batched bootstrap: records from consecutive tables per request, via `…/{token}/batch`. */
+export const BOOTSTRAP_BATCH_CAPABILITY = 'bootstrap-batch-v1';
 export type BootstrapStart = {
 	token: string;
 	epoch: string;
@@ -31,6 +33,8 @@ export type BootstrapStart = {
 	cursor: string;
 	tables: readonly ReplicaTable[];
 	expiresAt: string;
+	/** Additive transports this server offers; absent on older deployments. */
+	capabilities?: readonly string[];
 };
 export type BootstrapPage = { records: ReplicaRecord[]; nextAfter: string | null };
 export type ChangesPage = {

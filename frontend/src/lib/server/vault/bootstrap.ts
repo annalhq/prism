@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { MAX_COMMAND_BYTES, serializedBytes, type Sequence } from '#lib/domain/contracts.js';
 import {
+	BOOTSTRAP_BATCH_CAPABILITY,
 	REPLICA_TABLES,
 	type BootstrapPage,
 	type BootstrapStart,
@@ -63,7 +64,8 @@ export async function startBootstrap(owner: OwnerContext): Promise<BootstrapStar
 			startSeq: String(vault.changeSeq) as Sequence,
 			cursor: encodeCursor(owner.vaultId, vault.syncEpoch, vault.changeSeq),
 			tables: REPLICA_TABLES,
-			expiresAt: expiresAt.toISOString()
+			expiresAt: expiresAt.toISOString(),
+			capabilities: [BOOTSTRAP_BATCH_CAPABILITY]
 		};
 	});
 }
@@ -196,6 +198,70 @@ function project(
 		};
 	return { table, key, lastSeq: String(value.lastSeq) as Sequence, value };
 }
+type SourceRow = { key: string; data: Record<string, unknown> };
+
+/** One statement over a replicated table: `range` narrows past a continuation, `order` sorts. */
+function selectRows(
+	tx: Transaction,
+	owner: OwnerContext,
+	table: ReplicaTable,
+	range: SQL,
+	order: SQL,
+	limit: number
+) {
+	const source = sources[table];
+	const liveOwner = (column: string) =>
+		sql`exists(select 1 from knowledge_entities e where e.vault_id = t.vault_id and e.id = ${sql.raw(`t.${column}`)} and e.purged_at is null)`;
+	// jsonb overrides preserve bigint precision before PostgreSQL serializes the row.
+	const revision = ['bookmarks', 'people', 'personas'].includes(table)
+		? sql`'{}'::jsonb`
+		: sql`jsonb_build_object('revision', t.revision::text, 'last_seq', t.last_seq::text)`;
+	const extras =
+		table === 'activity'
+			? sql`jsonb_build_object('open_count', t.open_count::text)`
+			: table === 'links'
+				? sql`jsonb_build_object('last_seq', greatest(t.last_seq, coalesce((select n.last_seq from entity_notes n where n.vault_id=t.vault_id and n.entity_id=t.id),0))::text)`
+				: sql`'{}'::jsonb`;
+	return tx.execute<SourceRow>(
+		sql`select ${sql.raw(source.key)} as key, to_jsonb(t) || ${revision} || ${extras} as data from ${sql.raw(source.name)} t where t.vault_id = ${owner.vaultId}::uuid and ${range} ${source.owner ? sql`and ${liveOwner(source.owner)}` : sql``} ${source.secondOwner ? sql`and ${liveOwner(source.secondOwner)}` : sql``} order by ${order} limit ${limit}`
+	);
+}
+
+/**
+ * Projects fetched rows in order while `fits` accepts them, stopping at the first that doesn't.
+ * `fits` gets the serialized size of the records so far (without separators), their count, and
+ * the next record's size; `bytes` is returned in the same terms.
+ */
+async function projectRows(
+	tx: Transaction,
+	owner: OwnerContext,
+	table: ReplicaTable,
+	rows: SourceRow[],
+	fits: (recordBytes: number, count: number, size: number, key: string) => boolean
+) {
+	const prepared = await prepare(
+		tx,
+		owner.vaultId,
+		table,
+		rows.map((row) => row.data)
+	);
+	const records: ReplicaRecord[] = [];
+	// A running total of the records' own sizes, so the page is never re-serialised per row.
+	let bytes = 0;
+	for (const row of rows) {
+		const record = project(prepared, table, row.key, row.data);
+		const size = serializedBytes(record);
+		if (!fits(bytes, records.length, size, row.key)) break;
+		records.push(record);
+		bytes += size;
+	}
+	return { records, bytes };
+}
+
+const tooLarge = () =>
+	new ApiError(413, 'record_too_large', 'A replicated record exceeds the page budget.');
+
+/** One table, one page: the original per-table transport, kept unchanged for older clients. */
 export async function bootstrapPage(
 	owner: OwnerContext,
 	token: string,
@@ -208,56 +274,199 @@ export async function bootstrapPage(
 	return inTransaction(
 		async (tx) => {
 			await requireLease(tx, owner, token);
-			const source = sources[selected];
-			const liveOwner = (column: string) =>
-				sql`exists(select 1 from knowledge_entities e where e.vault_id = t.vault_id and e.id = ${sql.raw(`t.${column}`)} and e.purged_at is null)`;
+			const key = sql.raw(sources[selected].key);
 			// Stable immutable keys; each statement scans at most 201 rows, never the whole vault.
-			// jsonb overrides preserve bigint precision before PostgreSQL serializes the row.
-			const revision = ['bookmarks', 'people', 'personas'].includes(selected)
-				? sql`'{}'::jsonb`
-				: sql`jsonb_build_object('revision', t.revision::text, 'last_seq', t.last_seq::text)`;
-			const extras =
-				selected === 'activity'
-					? sql`jsonb_build_object('open_count', t.open_count::text)`
-					: selected === 'links'
-						? sql`jsonb_build_object('last_seq', greatest(t.last_seq, coalesce((select n.last_seq from entity_notes n where n.vault_id=t.vault_id and n.entity_id=t.id),0))::text)`
-						: sql`'{}'::jsonb`;
-			const rows = await tx.execute<{ key: string; data: Record<string, unknown> }>(
-				sql`select ${sql.raw(source.key)} as key, to_jsonb(t) || ${revision} || ${extras} as data from ${sql.raw(source.name)} t where t.vault_id = ${owner.vaultId}::uuid and ${sql.raw(source.key)} > ${after} ${source.owner ? sql`and ${liveOwner(source.owner)}` : sql``} ${source.secondOwner ? sql`and ${liveOwner(source.secondOwner)}` : sql``} order by ${sql.raw(source.key)} limit 201`
-			);
-			const page = rows.rows.slice(0, 200);
-			const prepared = await prepare(
+			const rows = await selectRows(tx, owner, selected, sql`${key} > ${after}`, key, 201);
+			const { records } = await projectRows(
 				tx,
-				owner.vaultId,
+				owner,
 				selected,
-				page.map((row) => row.data)
+				rows.rows.slice(0, 200),
+				// The envelope with this row's continuation key, the records, and `count` commas.
+				(bytes, count, size, rowKey) =>
+					serializedBytes({ records: [], nextAfter: rowKey }) + bytes + size + count <=
+					MAX_COMMAND_BYTES
 			);
+			if (!records.length && rows.rows.length) throw tooLarge();
+			return { records, nextAfter: rows.rows.length > records.length ? records.at(-1)!.key : null };
+		},
+		{ isolationLevel: 'repeatable read', accessMode: 'read only' }
+	);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Batched bootstrap (capability `bootstrap-batch-v1`): many tables per request.
+
+const BATCH_RECORDS = 200;
+// Checked between table segments only: a running statement is bounded by statement_timeout.
+const BATCH_SERVICE_MS = 8_000;
+const MAX_CONTINUATION = 256;
+// Envelope with the longest continuation the budget allows, reserved before any record is added.
+const BATCH_ENVELOPE = serializedBytes({ records: [], nextAfter: 'x'.repeat(MAX_CONTINUATION) });
+
+// Each table's immutable key as native columns, so a continuation is a keyset seek on the key's
+// own type instead of sorting text casts. The emitted record key stays the text form above.
+const keyColumns: Record<ReplicaTable, readonly { column: string; type: string }[]> = {
+	entities: [{ column: 'id', type: 'uuid' }],
+	bookmarks: [{ column: 'id', type: 'uuid' }],
+	people: [{ column: 'id', type: 'uuid' }],
+	personas: [{ column: 'id', type: 'uuid' }],
+	notes: [{ column: 'entity_id', type: 'uuid' }],
+	tags: [{ column: 'id', type: 'uuid' }],
+	collections: [{ column: 'id', type: 'uuid' }],
+	links: [{ column: 'id', type: 'uuid' }],
+	identities: [{ column: 'id', type: 'uuid' }],
+	relationships: [
+		{ column: 'bookmark_id', type: 'uuid' },
+		{ column: 'person_id', type: 'uuid' },
+		{ column: 'role', type: 'person_role' }
+	],
+	memberships: [
+		{ column: 'persona_id', type: 'uuid' },
+		{ column: 'member_id', type: 'uuid' }
+	],
+	savedSearches: [{ column: 'id', type: 'uuid' }],
+	activity: [{ column: 'bookmark_id', type: 'uuid' }]
+};
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const keyFormats: Record<ReplicaTable, RegExp> = Object.fromEntries(
+	REPLICA_TABLES.map((table) => [
+		table,
+		table === 'relationships'
+			? new RegExp(`^${UUID}/${UUID}/(author|about|related)$`)
+			: table === 'memberships'
+				? new RegExp(`^${UUID}/${UUID}$`)
+				: new RegExp(`^${UUID}$`)
+	])
+) as Record<ReplicaTable, RegExp>;
+
+type Continuation = { table: number; key: string | null };
+
+// Bound to the lease, so a continuation from another bootstrap is rejected rather than reused.
+const leaseTag = (token: string) => hash(token).slice(0, 32);
+
+function encodeContinuation(token: string, position: Continuation): string {
+	const value = Buffer.from(
+		JSON.stringify({ v: 1, l: leaseTag(token), t: position.table, k: position.key })
+	).toString('base64url');
+	if (value.length > MAX_CONTINUATION)
+		throw new Error('Bootstrap continuation exceeds its budget.');
+	return value;
+}
+
+function decodeContinuation(token: string, input: string): Continuation {
+	const invalid = () =>
+		new ApiError(400, 'invalid_page', 'Invalid bootstrap table or continuation.');
+	if (!input) return { table: 0, key: null };
+	if (input.length > MAX_CONTINUATION || !/^[A-Za-z0-9_-]+$/.test(input)) throw invalid();
+	let value: unknown;
+	try {
+		value = JSON.parse(Buffer.from(input, 'base64url').toString('utf8'));
+	} catch {
+		throw invalid();
+	}
+	const { v, l, t, k } = (value ?? {}) as Record<string, unknown>;
+	if (
+		v !== 1 ||
+		typeof t !== 'number' ||
+		!Number.isInteger(t) ||
+		t < 0 ||
+		t >= REPLICA_TABLES.length ||
+		!(k === null || (typeof k === 'string' && keyFormats[REPLICA_TABLES[t]].test(k))) ||
+		Object.keys(value as object).length !== 4
+	)
+		throw invalid();
+	if (l !== leaseTag(token))
+		throw new ApiError(410, 'reset_required', 'Bootstrap continuation belongs to another lease.');
+	return { table: t, key: k as string | null };
+}
+
+function seekAfter(table: ReplicaTable, key: string | null): SQL {
+	if (key === null) return sql`true`;
+	const columns = keyColumns[table];
+	const values = key.split('/');
+	const left = sql.join(
+		columns.map(({ column }) => sql.raw(`t.${column}`)),
+		sql`, `
+	);
+	const right = sql.join(
+		columns.map(({ type }, index) => sql`${values[index]}::${sql.raw(type)}`),
+		sql`, `
+	);
+	return sql`(${left}) > (${right})`;
+}
+
+const keyOrder = (table: ReplicaTable) =>
+	sql.raw(keyColumns[table].map(({ column }) => `t.${column}`).join(', '));
+
+/**
+ * Up to 200 records across consecutive tables in one consistent read. The continuation names the
+ * last emitted row (never a fetched-but-omitted one); null means every table has been visited,
+ * including empty ones.
+ */
+export async function bootstrapBatchPage(
+	owner: OwnerContext,
+	token: string,
+	after = ''
+): Promise<BootstrapPage> {
+	const start = decodeContinuation(token, after);
+	return inTransaction(
+		async (tx) => {
+			await requireLease(tx, owner, token);
+			let position = start;
+			const started = performance.now();
 			const records: ReplicaRecord[] = [];
-			// The page's JSON size, kept as a running total: the records' own sizes, the commas
-			// between them, and the envelope with this row's continuation key. Same number as
-			// serialising the whole page, without re-serialising it for every row.
-			let recordBytes = 0;
-			for (const row of page) {
-				const record = project(prepared, selected, row.key, row.data);
-				const size = serializedBytes(record);
-				const total =
-					serializedBytes({ records: [], nextAfter: row.key }) +
-					recordBytes +
-					size +
-					records.length;
-				if (total > MAX_COMMAND_BYTES) {
-					if (!records.length)
-						throw new ApiError(
-							413,
-							'record_too_large',
-							'A replicated record exceeds the page budget.'
-						);
+			let bytes = BATCH_ENVELOPE;
+			for (
+				let segments = 0;
+				position.table < REPLICA_TABLES.length &&
+				segments < REPLICA_TABLES.length &&
+				records.length < BATCH_RECORDS &&
+				!(segments && performance.now() - started > BATCH_SERVICE_MS);
+				segments++
+			) {
+				const table = REPLICA_TABLES[position.table];
+				const wanted = BATCH_RECORDS - records.length;
+				const rows = await selectRows(
+					tx,
+					owner,
+					table,
+					seekAfter(table, position.key),
+					keyOrder(table),
+					wanted + 1
+				);
+				const page = rows.rows.slice(0, wanted);
+				const before = records.length;
+				const segment = await projectRows(
+					tx,
+					owner,
+					table,
+					page,
+					// `count` commas within the segment, and one joining it to earlier records.
+					(segmentBytes, count, size) =>
+						bytes + segmentBytes + size + count + (before ? 1 : 0) <= MAX_COMMAND_BYTES
+				);
+				if (segment.records.length < page.length) {
+					// The byte budget is full. An individually oversized record can never fit.
+					if (!records.length && !segment.records.length) throw tooLarge();
+					records.push(...segment.records);
+					if (segment.records.length)
+						position = { table: position.table, key: segment.records.at(-1)!.key };
 					break;
 				}
-				records.push(record);
-				recordBytes += size;
+				records.push(...segment.records);
+				const added = segment.records.length;
+				if (added) bytes += segment.bytes + (added - 1) + (before ? 1 : 0);
+				position =
+					rows.rows.length > page.length
+						? { table: position.table, key: segment.records.at(-1)!.key }
+						: { table: position.table + 1, key: null };
 			}
-			return { records, nextAfter: rows.rows.length > records.length ? records.at(-1)!.key : null };
+			return {
+				records,
+				nextAfter:
+					position.table < REPLICA_TABLES.length ? encodeContinuation(token, position) : null
+			};
 		},
 		{ isolationLevel: 'repeatable read', accessMode: 'read only' }
 	);
