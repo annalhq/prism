@@ -1,11 +1,14 @@
 import type { RequestHandler } from './$types';
 import { requireOwner } from '#lib/server/auth.js';
 import { ApiError, apiErrorResponse } from '#lib/server/http.js';
+import { timed } from '#lib/server/timing.js';
 import { pullChanges } from '#lib/server/vault/sync.js';
 export const GET: RequestHandler = async (event) => {
 	try {
 		return Response.json(
-			await pullChanges(await requireOwner(event), event.url.searchParams.get('cursor') ?? ''),
+			await timed(event, 'sync', async () =>
+				pullChanges(await requireOwner(event), event.url.searchParams.get('cursor') ?? '')
+			),
 			{ headers: { 'Cache-Control': 'no-store' } }
 		);
 	} catch (error) {

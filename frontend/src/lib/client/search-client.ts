@@ -1,4 +1,5 @@
 import { REPLICA_TABLES } from '#lib/domain/replica.js';
+import { perfSearch } from './perf.js';
 import { searchLibrary, type LibraryReader } from './search.js';
 import {
 	snapshotReader,
@@ -9,7 +10,7 @@ import {
 
 type Result = ReturnType<typeof searchLibrary>;
 type Waiting = {
-	resolve: (result: Result) => void;
+	resolve: (result: Result, viaWorker: number) => void;
 	fallback: () => Result;
 	timer: ReturnType<typeof setTimeout>;
 };
@@ -23,7 +24,7 @@ export function createSearchClient() {
 		if (!item) return;
 		waiting.delete(id);
 		clearTimeout(item.timer);
-		item.resolve(item.fallback());
+		item.resolve(item.fallback(), 0);
 	}
 	function failWorker() {
 		failed = true;
@@ -44,7 +45,7 @@ export function createSearchClient() {
 				}
 				waiting.delete(event.data.id);
 				clearTimeout(item.timer);
-				item.resolve(event.data.result);
+				item.resolve(event.data.result, 1);
 			};
 			worker.onerror = failWorker;
 			worker.onmessageerror = failWorker;
@@ -54,16 +55,22 @@ export function createSearchClient() {
 	}
 	return {
 		query(reader: LibraryReader, view: string, input: string, sort = 'newest'): Promise<Result> {
+			const startedAt = performance.now();
 			const snapshot: SearchSnapshot = {};
 			for (const table of REPLICA_TABLES)
 				snapshot[table] = structuredClone(reader.list<Record<string, unknown>>(table));
 			const fallback = () => searchLibrary(snapshotReader(snapshot), view, input, sort);
 			ensureWorker();
-			if (!worker) return Promise.resolve(fallback());
+			// Includes snapshot cloning and worker transfer; `worker` 0 means the inline fallback.
+			const settled = (result: Result, viaWorker: number) => {
+				perfSearch(startedAt, { worker: viaWorker });
+				return result;
+			};
+			if (!worker) return Promise.resolve(settled(fallback(), 0));
 			const id = ++sequence;
-			return new Promise((resolve) => {
+			return new Promise<Result>((resolve) => {
 				waiting.set(id, {
-					resolve,
+					resolve: (result, viaWorker) => resolve(settled(result, viaWorker)),
 					fallback,
 					timer: setTimeout(() => {
 						failWorker();

@@ -15,6 +15,7 @@ import { eq, sql } from 'drizzle-orm';
 import { database } from './db/connection';
 import { vaults } from './db/schema';
 import { ApiError } from './http';
+import { timed } from './timing';
 
 export type OwnerContext = Readonly<{ subject: string; vaultId: string }>;
 
@@ -106,15 +107,17 @@ export function requireOwner(event: RequestEvent): Promise<OwnerContext> {
 }
 
 async function resolveOwner(event: RequestEvent): Promise<OwnerContext> {
-	const session = await ownerSession(event);
+	const session = await timed(event, 'session', () => ownerSession(event));
 	if (!session) throw new ApiError(401, 'sign_in_required', 'Sign in to access this library.');
 	if (!DATABASE_URL)
 		throw new ApiError(503, 'database_not_configured', 'Database access is not configured.');
-	const [vault] = await database()
-		.select({ id: vaults.id })
-		.from(vaults)
-		.where(eq(vaults.ownerSubject, session.subject))
-		.limit(1);
+	const [vault] = await timed(event, 'vault', () =>
+		database()
+			.select({ id: vaults.id })
+			.from(vaults)
+			.where(eq(vaults.ownerSubject, session.subject))
+			.limit(1)
+	);
 	if (!vault)
 		throw new ApiError(
 			503,

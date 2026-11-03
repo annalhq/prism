@@ -24,6 +24,7 @@
 		"test:integration": "vitest run --project integration",
 		"test:e2e": "playwright test",
 		"bench": "node scripts/baseline.mjs",
+		"bench:library": "node scripts/performance-library.mjs",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "bun scripts/db/migrate.ts",
 		"db:migrate:production:extension": "bun scripts/db/migrate-production-0005.ts",

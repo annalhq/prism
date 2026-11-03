@@ -16,6 +16,7 @@ import type {
 import { applyFrame, overlay, putRecord, type Records } from './projections.js';
 import { VaultStorage, recordKey, type Draft, type PendingOperation } from './storage.js';
 import { acknowledge, dependencies } from './queue.js';
+import { perfMark } from '../perf.js';
 
 export type SaveOutcome = {
 	status: 'accepted' | 'queued' | 'rejected' | 'already_exists';
@@ -202,6 +203,7 @@ export function createLibraryClient(notify: () => void) {
 		// The initial identity may come from this navigation's authenticated server load.
 		// Subsequent syncs always verify the session again; localStorage is never authority.
 		const identity = verifiedIdentity ?? (await request<VaultIdentity>('/api/v1/session'));
+		perfMark('identity-available');
 		const nextScope = `${location.origin}:${identity.vaultId}:${identity.subject}`;
 		if (nextScope !== scope || !database?.isOpen()) {
 			database?.close();
@@ -216,12 +218,15 @@ export function createLibraryClient(notify: () => void) {
 			refresh();
 			database = new VaultStorage(encodeURIComponent(scope));
 			await database.open();
+			perfMark('dexie-open');
 			await reload();
+			perfMark('replica-read', { records: confirmed.size });
 		}
 		state.identity = identity;
 		// A committed cursor marks a complete replica, including an empty library.
 		// Publish it before waiting for the sync lock, network, or queued commands.
 		state.ready = !!cursor;
+		if (state.ready) perfMark('replica-ready', { cached: 1 });
 		refresh();
 		try {
 			localStorage.setItem(
@@ -287,7 +292,9 @@ export function createLibraryClient(notify: () => void) {
 	async function bootstrap() {
 		state.status = 'Downloading library';
 		notify();
+		perfMark('bootstrap-start');
 		const start = await request<BootstrapStart>('/api/v1/sync/bootstrap', { method: 'POST' });
+		let requests = 1;
 		try {
 			const staging: Records = new Map();
 			for (const table of start.tables) {
@@ -298,6 +305,7 @@ export function createLibraryClient(notify: () => void) {
 					const page: { records: ReplicaRecord[]; nextAfter: string | null } = await request(
 						`/api/v1/sync/bootstrap/${encodeURIComponent(start.token)}?${query}`
 					);
+					requests++;
 					for (const row of page.records) putRecord(staging, row);
 					if (page.nextAfter && page.nextAfter === after)
 						throw new Error('Bootstrap page did not advance.');
@@ -305,6 +313,7 @@ export function createLibraryClient(notify: () => void) {
 				} while (after);
 			}
 			await persist(staging, await pullInto(staging, start.cursor), { replace: true });
+			perfMark('bootstrap-complete', { requests, records: staging.size });
 		} finally {
 			await fetch(`/api/v1/sync/bootstrap/${encodeURIComponent(start.token)}`, {
 				method: 'DELETE',
@@ -453,6 +462,7 @@ export function createLibraryClient(notify: () => void) {
 				else await reload();
 			});
 			state.ready = !!cursor;
+			if (state.ready) perfMark('replica-ready', { cached: 0 });
 			state.status = !state.ready
 				? 'Waiting for library sync in another tab'
 				: state.conflicts.length
@@ -460,6 +470,7 @@ export function createLibraryClient(notify: () => void) {
 					: state.pending
 						? 'Changes queued'
 						: 'Up to date';
+			if (state.ready) perfMark('sync-complete');
 		} catch (error) {
 			state.error =
 				error instanceof HttpFailure && error.requestId
@@ -544,6 +555,7 @@ export function createLibraryClient(notify: () => void) {
 				database?.close();
 				database = new VaultStorage(encodeURIComponent(cachedScope));
 				await database.open();
+				perfMark('dexie-open');
 				scope = cachedScope;
 				confirmed = new Map();
 				visible = new Map();
@@ -553,7 +565,9 @@ export function createLibraryClient(notify: () => void) {
 			}
 			state.identity = identity;
 			await reload();
+			perfMark('replica-read', { records: confirmed.size });
 			state.ready = true;
+			perfMark('replica-ready', { cached: 1, offline: 1 });
 			state.online = false;
 			state.loading = false;
 			state.error = null;

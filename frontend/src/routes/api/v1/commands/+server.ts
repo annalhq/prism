@@ -2,6 +2,7 @@ import type { RequestHandler } from './$types';
 import { MAX_COMMAND_BYTES } from '#lib/domain/contracts.js';
 import { requireOwner } from '#lib/server/auth.js';
 import { ApiError, apiErrorResponse } from '#lib/server/http.js';
+import { timed } from '#lib/server/timing.js';
 import { boundedRequest } from '#lib/server/request-policy.js';
 import { executeCommand } from '#lib/server/vault/commands.js';
 
@@ -19,9 +20,8 @@ const commandRequest: RequestHandler = async (event) => {
 	} catch {
 		throw new ApiError(400, 'invalid_json', 'Enter a valid JSON command envelope.');
 	}
-	const started = performance.now();
-	const result = await executeCommand(owner, input);
-	const duration = (performance.now() - started).toFixed(1);
+	// Post-auth service time; the hook adds session, vault and total request stages.
+	const result = await timed(event, 'command', () => executeCommand(owner, input));
 	const status =
 		result.status !== 'rejected'
 			? 200
@@ -32,7 +32,7 @@ const commandRequest: RequestHandler = async (event) => {
 					: 409;
 	return Response.json(result, {
 		status,
-		headers: { 'Cache-Control': 'no-store', 'Server-Timing': `command;dur=${duration}` }
+		headers: { 'Cache-Control': 'no-store' }
 	});
 };
 

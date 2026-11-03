@@ -3,6 +3,7 @@ import { validateDatabaseUrl } from './url.js';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema';
+import { countQuery } from '../timing.js';
 
 let instance: ReturnType<typeof createDatabase> | undefined;
 
@@ -17,7 +18,8 @@ function createDatabase() {
 	});
 	// pg otherwise emits an unhandled error when an idle connection is lost.
 	pool.on('error', () => console.error('prism.database.idle_connection_error'));
-	return { pool, db: drizzle(pool, { schema }) };
+	// Statement counts feed the per-request Server-Timing report; no SQL text is retained.
+	return { pool, db: drizzle(pool, { schema, logger: { logQuery: countQuery } }) };
 }
 
 export function database() {

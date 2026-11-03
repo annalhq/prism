@@ -33,6 +33,7 @@
 		"test:integration": "bun run --cwd frontend test:integration",
 		"test:e2e": "bun run --cwd frontend test:e2e",
 		"bench": "bun run --cwd frontend bench",
+		"bench:library": "bun run --cwd frontend bench:library",
 		"db:generate": "bun run --cwd frontend db:generate",
 		"db:migrate": "bun run --cwd frontend db:migrate",
 		"db:inventory": "bun run --cwd frontend db:inventory",

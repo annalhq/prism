@@ -2,9 +2,32 @@ import { APP_ORIGIN } from '$app/env/private';
 import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { requireOwner } from '#lib/server/auth.js';
 import { ApiError, apiErrorResponse, safeErrorDetails } from '#lib/server/http.js';
+import { createTimings, serverTimingHeader, timed, withTimings } from '#lib/server/timing.js';
 
-export const handle: Handle = async ({ event, resolve }) => {
+export const handle: Handle = ({ event, resolve }) => {
 	event.locals.requestId = crypto.randomUUID();
+	const timings = (event.locals.timings = createTimings());
+	const started = performance.now();
+	// Stage timings only: no identifiers or content. `total` excludes response streaming.
+	const withTiming = (response: Response) => {
+		try {
+			response.headers.set(
+				'Server-Timing',
+				serverTimingHeader(
+					timings,
+					performance.now() - started,
+					response.headers.get('Server-Timing')
+				)
+			);
+		} catch {
+			// Some responses (for example redirects from fetch) have immutable headers.
+		}
+		return response;
+	};
+	return withTimings(timings, async () => withTiming(await handleRequest({ event, resolve })));
+};
+
+const handleRequest: Handle = async ({ event, resolve }) => {
 	const api = event.url.pathname.startsWith('/api/v1/');
 	const extensionApi = event.url.pathname.startsWith('/api/v1/extension/');
 	const authPage = event.url.pathname.startsWith('/auth/');
@@ -20,7 +43,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				throw new ApiError(413, 'body_too_large', 'Request body exceeds the limit.');
 			}
 		}
-		if (api && !extensionApi) await requireOwner(event);
+		if (api && !extensionApi) await timed(event, 'auth', () => requireOwner(event));
 		const response = await resolve(event);
 		// Person photos are immutable per URL and set their own private caching; everything else
 		// from the API and auth pages is never stored.

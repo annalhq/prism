@@ -52,6 +52,7 @@
 
 	import { createLibraryClient, type LibraryClient } from '#lib/client/vault/library.js';
 	import { createSearchClient } from '#lib/client/search-client.js';
+	import { perfMark } from '#lib/client/perf.js';
 	import { emptySearch, type searchLibrary } from '#lib/client/search.js';
 	import {
 		exportLibrary,
@@ -343,6 +344,10 @@
 			.catch((e) => {
 				if (n === generation) feedback((e as Error).message);
 			});
+	});
+	// Effects run after the DOM update, so this marks the first rendered library row.
+	$effect(() => {
+		if (results.items.length) perfMark('first-bookmark-rendered', { items: results.items.length });
 	});
 	onMount(() => {
 		searcher = createSearchClient();
