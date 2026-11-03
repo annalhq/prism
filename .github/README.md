@@ -179,11 +179,18 @@ For Zen and other Firefox forks, see [`extensions/firefox/README.md`](../extensi
 ### Releases
 
 `bun run release && git push --follow-tags` creates a version tag; the
-[Extensions workflow](workflows/extensions.yml) then rebuilds both extensions and attaches the
+[Release workflow](workflows/release.yml) then rebuilds both extensions and attaches the
 Firefox `.xpi` and the Chrome `.zip` to that tag's GitHub Release. Download the new build from
 there (Chrome: unzip, then **Load unpacked**, or replace the files in the folder you already
 loaded and press reload). The workflow can also be started from the Actions tab; those runs
 upload the packages as a workflow artifact instead.
+
+Every release page lists that version's breaking changes, features, bug fixes, performance work
+and refactors, generated from the [Conventional Commits](https://www.conventionalcommits.org)
+since the previous tag by [`scripts/release-notes.ts`](../scripts/release-notes.ts). Between
+releases, the [Release Drafter workflow](workflows/release-drafter.yml) keeps an **Unreleased**
+draft on the Releases page up to date with every push to `main`. Mark breaking changes as
+`feat(scope)!: …` (the `!` goes after the scope) or with a `BREAKING CHANGE:` footer.
 
 To have CI sign the Firefox build as well, add `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET` as
 repository secrets; the signed `.xpi` is attached next to the unsigned one.

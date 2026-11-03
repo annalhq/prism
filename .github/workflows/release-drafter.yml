@@ -1,0 +1,44 @@
+name: Release Drafter
+
+# Keeps a draft release named "Unreleased" up to date with every push to main, so the next
+# release's features, fixes and breaking changes are always visible on the Releases page. The
+# Release workflow replaces it with the real release when a version tag is pushed.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-drafter
+  cancel-in-progress: true
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Write draft notes
+        run: |
+          bun scripts/release-notes.ts --to HEAD > notes.md
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Update the Unreleased draft
+        run: |
+          # Draft releases can't be looked up by an existing tag, so replace the draft each time.
+          gh release delete unreleased --yes || true
+          if [ -s notes.md ]; then
+            gh release create unreleased --draft --target "$GITHUB_SHA" \
+              --title "Unreleased" --notes-file notes.md
+          fi

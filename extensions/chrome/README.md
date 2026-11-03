@@ -44,4 +44,4 @@ version it has already seen.
 
 Pushing a version tag (`bun run release && git push --follow-tags` from the repository root)
 makes GitHub Actions rebuild this extension and attach the `.zip` to the tag's GitHub Release.
-See [`.github/workflows/extensions.yml`](../../.github/workflows/extensions.yml).
+See [`.github/workflows/release.yml`](../../.github/workflows/release.yml).

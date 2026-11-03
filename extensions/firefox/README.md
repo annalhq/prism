@@ -81,4 +81,4 @@ Notes:
 
 Pushing a version tag (`bun run release && git push --follow-tags` from the repository root)
 makes GitHub Actions rebuild this extension and attach the `.xpi` (and a signed `.xpi` when the `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` repository secrets are set) to the tag's GitHub Release.
-See [`.github/workflows/extensions.yml`](../../.github/workflows/extensions.yml).
+See [`.github/workflows/release.yml`](../../.github/workflows/release.yml).
