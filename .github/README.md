@@ -185,9 +185,9 @@ there (Chrome: unzip, then **Load unpacked**, or replace the files in the folder
 loaded and press reload). The workflow can also be started from the Actions tab; those runs
 upload the packages as a workflow artifact instead.
 
-Every release page lists that version's breaking changes, features, bug fixes, performance work
-and refactors, generated from the [Conventional Commits](https://www.conventionalcommits.org)
-since the previous tag by [`scripts/release-notes.ts`](../scripts/release-notes.ts). Between
+Every release page shows that version's section of [`CHANGELOG.md`](../CHANGELOG.md): breaking
+changes, features, bug fixes, performance work and refactors, written by `bun run release` from the
+[Conventional Commits](https://www.conventionalcommits.org) since the previous tag. Between
 releases, the [Release Drafter workflow](workflows/release-drafter.yml) keeps an **Unreleased**
 draft on the Releases page up to date with every push to `main`. Mark breaking changes as
 `feat(scope)!: …` (the `!` goes after the scope) or with a `BREAKING CHANGE:` footer.

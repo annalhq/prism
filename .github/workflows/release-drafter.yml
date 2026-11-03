@@ -29,9 +29,14 @@ jobs:
         with:
           bun-version: 1.4.0
 
+      - run: bun install --frozen-lockfile
+
+      # The same changelog `bun run release` will write, previewed without touching any file.
       - name: Write draft notes
         run: |
-          bun scripts/release-notes.ts --to HEAD > notes.md
+          bunx commit-and-tag-version --dry-run \
+            | awk '/^---$/ { n++; next } n == 1' | tail -n +2 > notes.md
+          grep -q '^### ' notes.md || : > notes.md
           cat notes.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update the Unreleased draft

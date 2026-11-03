@@ -1,8 +1,9 @@
 name: Release
 
 # On every version tag (`bun run release` then `git push --follow-tags`): rebuild the Firefox and
-# Chrome extensions, write release notes from the Conventional Commits since the previous tag, and
-# publish the GitHub Release with the packages attached. Replaces the "Unreleased" draft kept by
+# Chrome extensions and publish the GitHub Release with the packages attached. The release notes
+# are this version's section of CHANGELOG.md, which commit-and-tag-version wrote from the
+# Conventional Commits since the previous tag. Replaces the "Unreleased" draft kept by
 # the Release Drafter workflow.
 on:
   push:
@@ -64,8 +65,14 @@ jobs:
       - name: Write release notes
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          bun scripts/release-notes.ts --to "$GITHUB_REF_NAME" > notes.md
-          [ -s notes.md ] || echo "Maintenance release." > notes.md
+          version="${GITHUB_REF_NAME#v}"
+          # This version's section: from its "## [x.y.z]" (or "## x.y.z") heading to the next one,
+          # without the heading itself since the release title already names the version.
+          awk -v v="$version" '
+            /^##? \[?[0-9]/ { if (found) exit; if (index($0, "[" v "]") || index($0, "# " v " ")) { found = 1; next } }
+            found
+          ' CHANGELOG.md > notes.md
+          grep -q '[^[:space:]]' notes.md || echo "Maintenance release." > notes.md
           cat notes.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove the Unreleased draft
