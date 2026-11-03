@@ -396,6 +396,45 @@
 			onDismiss?.();
 		}
 	}
+	/**
+	 * What the bar is doing, derived from its own state; styles and the page key off this one value:
+	 *   rest       compact, nothing typed
+	 *   searching  focused or holding a query (results filter the list)
+	 *   adding     the add field is open, nothing confirmed yet
+	 *   capturing  the save card is open, for a link or a note
+	 *   saving     a save is in flight
+	 * Every save that finishes calls settle(), which returns the bar to rest.
+	 */
+	const phase = $derived<'rest' | 'searching' | 'adding' | 'capturing' | 'saving'>(
+		busy
+			? 'saving'
+			: mode === 'insert'
+				? url || writing
+					? 'capturing'
+					: 'adding'
+				: query || focused
+					? 'searching'
+					: 'rest'
+	);
+	/** After a save: clear what was captured and put the bar back to rest, focus released. */
+	async function settle() {
+		cancelTitleFetch();
+		draft = '';
+		title = '';
+		autoTitle = '';
+		titleEdited = false;
+		url = '';
+		body = '';
+		writing = false;
+		organizer = '';
+		selected = [];
+		completed = [];
+		created = false;
+		captureId = '';
+		mode = 'search';
+		await tick();
+		(document.activeElement as HTMLElement | null)?.blur();
+	}
 	// A link then one space: one more starts a rabbit hole. The leading glyph shows it's coming.
 	const burrowing = $derived(
 		mode === 'insert' && !url && !writing && /\S [ ]?$/.test(draft) && looksLikeLink(draft.trim())
@@ -460,14 +499,7 @@
 				);
 			}
 			cue('success');
-			cancelTitleFetch();
-			draft = '';
-			organizer = '';
-			selected = [];
-			completed = [];
-			mode = 'search';
-			await tick();
-			(document.activeElement as HTMLElement | null)?.blur();
+			await settle();
 			onOpenItem?.(id);
 		} catch (e) {
 			error = (e as Error).message;
@@ -614,26 +646,7 @@
 
 			// The new row appearing in the list is the confirmation; only the sound marks it.
 			cue('success');
-			// Links stay in add mode for the next one; a written note is done, so the bar rests.
-			const finishedNote = writing;
-			cancelTitleFetch();
-			draft = '';
-			title = '';
-			autoTitle = '';
-			titleEdited = false;
-			url = '';
-			body = '';
-			writing = false;
-			organizer = '';
-			selected = [];
-			completed = [];
-			created = false;
-			captureId = '';
-			if (finishedNote) {
-				mode = 'search';
-				await tick();
-				(document.activeElement as HTMLElement | null)?.blur();
-			}
+			await settle();
 		} catch (e) {
 			error = (e as Error).message;
 			cue('error');
@@ -690,9 +703,8 @@
 <!-- Engaged while it holds something: a query, the add field or its card. Desktop keeps the
      bar compact until it is focused or engaged, then widens it. -->
 <section
-	class="omnibar-section"
-	class:engaged={mode === 'insert' || !!query}
-	class:adding={mode === 'insert'}
+	class={['omnibar-section', { engaged: (phase !== 'rest' && phase !== 'searching') || !!query }]}
+	data-phase={phase}
 	aria-label={readonly ? 'Search bookmarks' : 'Search and save bookmarks'}
 	onfocusin={() => (focused = true)}
 	onfocusout={(e) => (focused = e.currentTarget.contains(e.relatedTarget as Node | null))}

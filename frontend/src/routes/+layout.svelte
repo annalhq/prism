@@ -3,11 +3,31 @@
 	import { asset } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import { onNavigate } from '$app/navigation';
 	import { initializeSounds } from '#lib/client/sounds.svelte.js';
 	import { initializeTheme } from '#lib/client/theme.svelte.js';
 	onMount(initializeTheme);
 	onMount(initializeSounds);
 	let { children } = $props();
+	// Between the landing and the sign-in pages the content crossfades over the one shared
+	// gradient, instead of one page vanishing and the next appearing. Browsers without view
+	// transitions, and anyone preferring reduced motion, just navigate.
+	const grainRoutes = new Set(['/', '/auth/sign-in', '/auth/reset-password']);
+	onNavigate((navigation) => {
+		const from = navigation.from?.route.id ?? '';
+		const to = navigation.to?.route.id ?? '';
+		if (from === to || !grainRoutes.has(from) || !grainRoutes.has(to)) return;
+		if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches)
+			return;
+		return new Promise((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				// The browser aborts a transition whose update runs past a few seconds (a slow
+				// network, or a first visit in dev); cap the wait so a slow page just appears.
+				await Promise.race([navigation.complete, new Promise((done) => setTimeout(done, 1500))]);
+			});
+		});
+	});
 	const socialImage = $derived(new URL(asset('og-image.png'), page.url.origin).href);
 </script>
 

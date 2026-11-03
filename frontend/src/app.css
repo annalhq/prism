@@ -1687,7 +1687,10 @@ kbd {
 .library-content {
 	transition: opacity 360ms var(--ease-out);
 }
-.library-main:has(.workspace-search .adding) .library-content {
+.library-main:has(
+		.workspace-search :is([data-phase='adding'], [data-phase='capturing'], [data-phase='saving'])
+	)
+	.library-content {
 	opacity: 0.4;
 }
 .workspace-search .omnibar {
@@ -5466,7 +5469,17 @@ a.editor-source:hover > svg {
 .grain-gradient {
 	position: absolute;
 	inset: 0;
-	animation: fade-in 1200ms ease both;
+}
+/* The shared shader's host: invisible until its first frame is drawn, then fades in once. It
+   moves between pages already shown, so later pages never fade it again. */
+.grain-host {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	transition: opacity 1400ms var(--ease-out);
+}
+.grain-host[data-ready] {
+	opacity: 1;
 }
 .grain-panel::after {
 	content: '';
@@ -5531,7 +5544,7 @@ a.editor-source:hover > svg {
 	width: 100%;
 	border-radius: var(--shell-radius);
 	outline: none;
-	animation: sheet-up 520ms 120ms var(--ease-spring) both;
+	animation: grain-card-in 620ms 120ms var(--ease-out) both;
 }
 .grain-card-head {
 	display: flex;
@@ -5586,8 +5599,7 @@ a.editor-source:hover > svg {
 	letter-spacing: -0.01em;
 	transition:
 		background-color 160ms ease,
-		box-shadow 160ms ease,
-		scale 260ms var(--ease-spring);
+		box-shadow 160ms ease;
 }
 .grain-page .landing-cta:hover,
 .grain-page .landing-cta:active {
@@ -5598,10 +5610,7 @@ a.editor-source:hover > svg {
 		inset 0 1px 0 rgb(255 255 255 / 34%),
 		0 12px 32px rgb(0 0 0 / 25%);
 }
-.grain-page .landing-cta:active {
-	scale: 0.97;
-	transition-duration: 100ms;
-}
+
 .landing-cta-go {
 	display: grid;
 	place-items: center;
@@ -5618,8 +5627,10 @@ a.editor-source:hover > svg {
 	height: 18px;
 	stroke-width: 2;
 }
-.landing-cta:hover .landing-cta-go {
-	translate: 3px 0;
+@media (hover: hover) {
+	.landing-cta:hover .landing-cta-go {
+		translate: 3px 0;
+	}
 }
 .landing-offline {
 	padding: 4px 0 2px;
@@ -5953,7 +5964,6 @@ a.editor-source:hover > svg {
 	.grain-page:not(.grain-landing) .grain-card {
 		max-width: 420px;
 		padding: 24px 28px 28px;
-		animation: settings-in 420ms 120ms var(--ease-spring) both;
 	}
 }
 @media (max-width: 767px) {
@@ -6750,6 +6760,20 @@ a.editor-source:hover > svg {
 	from {
 		opacity: 0;
 	}
+}
+@keyframes grain-card-in {
+	from {
+		opacity: 0;
+		translate: 0 10px;
+		filter: blur(6px);
+	}
+}
+/* Landing ↔ sign-in: the page crossfades. The gradient is the same running shader on both, so it
+   reads as still while only the content changes. */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 380ms;
+	animation-timing-function: var(--ease-out);
 }
 @keyframes auth-step-in {
 	from {

@@ -132,7 +132,7 @@
 								type="email"
 								bind:value={email}
 								autocomplete={mode === 'reset' ? 'email' : 'username'}
-								placeholder="garfield@katze.com"
+								placeholder="ann@katze.de"
 								required
 								maxlength="320"
 							/>
