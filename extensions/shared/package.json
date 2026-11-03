@@ -1,0 +1,16 @@
+{
+	"name": "@prism/extension-shared",
+	"version": "0.2.0",
+	"private": true,
+	"type": "module",
+	"description": "Browser-neutral source shared by the Prism Firefox and Chrome extensions.",
+	"exports": {
+		"./manifest": "./src/manifest.ts",
+		"./background": "./src/background.ts",
+		"./content": "./src/content.ts",
+		"./popup": "./src/popup.ts"
+	},
+	"peerDependencies": {
+		"wxt": "^0.21.4"
+	}
+}

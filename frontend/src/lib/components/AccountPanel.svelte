@@ -390,8 +390,8 @@
 							{:else if section === 'extension'}
 								<section class="settings-group">
 									<p class="settings-lede">
-										Save posts and pages from Firefox. Pair once with a short-lived code; revoke a
-										browser any time.
+										Save posts and pages from Firefox or Chrome. Pair once with a short-lived code;
+										revoke a browser any time.
 									</p>
 									<div class="settings-card">
 										<div class="settings-row settings-pair">

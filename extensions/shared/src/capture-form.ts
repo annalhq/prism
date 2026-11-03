@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { extensionsPage } from './platform';
 import type { Capture, Catalog, ExtensionMessage, SaveInput } from './protocol';
 import { avatarHue, icons, initials, themeCss } from './theme';
 
@@ -127,13 +128,14 @@ async function message<T>(value: ExtensionMessage): Promise<T> {
 	} catch (error) {
 		const detail = (error as Error).message;
 		if (/receiving end does not exist|could not establish connection/i.test(detail)) {
-			// Firefox may briefly have no background listener while waking its MV3 event page.
+			// The MV3 background (Firefox event page, Chrome service worker) may briefly have no
+			// listener while it wakes.
 			await new Promise((resolve) => setTimeout(resolve, 150));
 			try {
 				return (await browser.runtime.sendMessage(value)) as T;
 			} catch {
 				throw new Error(
-					'Prism’s extension background is unavailable. Reload Prism in about:addons, then refresh this tab.'
+					`Prism’s extension background is unavailable. Reload Prism in ${extensionsPage}, then refresh this tab.`
 				);
 			}
 		}

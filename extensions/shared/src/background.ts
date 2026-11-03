@@ -1,6 +1,7 @@
-import { browser } from 'wxt/browser';
-import type { Catalog, ExtensionMessage, SaveInput } from '../lib/protocol';
-import { getPairingOrigin } from '../lib/protocol';
+import { browser, type Browser } from 'wxt/browser';
+import { browserId } from './platform';
+import type { Catalog, ExtensionMessage, SaveInput } from './protocol';
+import { getPairingOrigin } from './protocol';
 
 type Connection = { origin: string; token: string; connectionId: string };
 type PendingSave = { connectionId: string; input: SaveInput; createdAt: number; tabId?: number };
@@ -179,67 +180,80 @@ async function flushOutbox() {
 	}
 }
 
-export default defineBackground(() => {
+async function handleMessage(
+	message: ExtensionMessage,
+	sender: Browser.runtime.MessageSender
+): Promise<unknown> {
+	try {
+		if (message.type === 'connection') {
+			const current = await getConnection();
+			return current ? { connected: true, origin: current.origin } : { connected: false };
+		}
+		if (message.type === 'pair') {
+			const origin = getPairingOrigin(message.code);
+			const allowed = await browser.permissions.contains({ origins: [`${origin}/*`] });
+			if (!allowed) throw new Error('Allow access to this Prism site before connecting.');
+			const response = await fetch(`${origin}/api/v1/extension/pair`, {
+				method: 'POST',
+				cache: 'no-store',
+				credentials: 'omit',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: message.code.trim(), browser: browserId })
+			});
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok)
+				throw new Error(body.message ?? 'Pairing failed. Generate a fresh code on Prism.');
+			await browser.storage.local.set({
+				[connectionKey]: { origin, token: body.token, connectionId: body.connectionId }
+			});
+			await browser.storage.local.remove(catalogKey);
+			void flushOutbox();
+			return { connected: true, origin };
+		}
+		if (message.type === 'disconnect') {
+			await browser.storage.local.remove([connectionKey, catalogKey]);
+			return { disconnected: true };
+		}
+		const connection = await getConnection();
+		if (!connection) throw new Error('Connect the extension from Prism’s Account panel first.');
+		if (message.type === 'catalog') return await getCatalog(connection, message.fresh);
+		if (message.type === 'save') {
+			await updateOutbox((pending) =>
+				pending.some((item) => item.input.operationId === message.input.operationId)
+					? pending
+					: [
+							...pending,
+							{
+								connectionId: connection.connectionId,
+								input: message.input,
+								createdAt: Date.now(),
+								tabId: sender.tab?.id
+							}
+						]
+			);
+			await browser.alarms.create(outboxAlarm, { when: Date.now() + 30_000 });
+			void flushOutbox();
+			return { queued: true, operationId: message.input.operationId };
+		}
+		throw new Error('Unknown extension request.');
+	} catch (error) {
+		return { error: (error as Error).message };
+	}
+}
+
+/**
+ * Registers the background listeners. Responses go through `sendResponse` (with `return true` to
+ * keep the channel open) rather than a returned Promise: Firefox accepts either, but Chrome only
+ * reliably delivers async replies this way.
+ */
+export function startBackground() {
 	browser.alarms.onAlarm.addListener((alarm) => {
 		if (alarm.name === outboxAlarm) void flushOutbox();
 	});
 	browser.runtime.onStartup.addListener(() => void flushOutbox());
-	browser.runtime.onMessage.addListener(async (message: ExtensionMessage, sender) => {
-		try {
-			if (message.type === 'connection') {
-				const current = await getConnection();
-				return current ? { connected: true, origin: current.origin } : { connected: false };
-			}
-			if (message.type === 'pair') {
-				const origin = getPairingOrigin(message.code);
-				const allowed = await browser.permissions.contains({ origins: [`${origin}/*`] });
-				if (!allowed) throw new Error('Allow access to this Prism site before connecting.');
-				const response = await fetch(`${origin}/api/v1/extension/pair`, {
-					method: 'POST',
-					cache: 'no-store',
-					credentials: 'omit',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ code: message.code.trim() })
-				});
-				const body = await response.json().catch(() => ({}));
-				if (!response.ok)
-					throw new Error(body.message ?? 'Pairing failed. Generate a fresh code on Prism.');
-				await browser.storage.local.set({
-					[connectionKey]: { origin, token: body.token, connectionId: body.connectionId }
-				});
-				await browser.storage.local.remove(catalogKey);
-				void flushOutbox();
-				return { connected: true, origin };
-			}
-			if (message.type === 'disconnect') {
-				await browser.storage.local.remove([connectionKey, catalogKey]);
-				return { disconnected: true };
-			}
-			const connection = await getConnection();
-			if (!connection) throw new Error('Connect the extension from Prism’s Account panel first.');
-			if (message.type === 'catalog') return await getCatalog(connection, message.fresh);
-			if (message.type === 'save') {
-				await updateOutbox((pending) =>
-					pending.some((item) => item.input.operationId === message.input.operationId)
-						? pending
-						: [
-								...pending,
-								{
-									connectionId: connection.connectionId,
-									input: message.input,
-							createdAt: Date.now(),
-							tabId: sender.tab?.id
-								}
-							]
-				);
-				await browser.alarms.create(outboxAlarm, { when: Date.now() + 30_000 });
-				void flushOutbox();
-				return { queued: true, operationId: message.input.operationId };
-			}
-			throw new Error('Unknown extension request.');
-		} catch (error) {
-			return { error: (error as Error).message };
-		}
+	browser.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
+		void handleMessage(message, sender).then(sendResponse);
+		return true;
 	});
 	void flushOutbox();
-});
+}

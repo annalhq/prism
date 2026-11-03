@@ -1,11 +1,8 @@
 {
-	"name": "prism-extension",
+	"name": "prism-extension-firefox",
 	"version": "0.2.0",
-	"devDependencies": {
-		"typescript": "6.0.3",
-		"wxt": "^0.21.4"
-	},
 	"private": true,
+	"type": "module",
 	"scripts": {
 		"dev": "wxt -b firefox --mv3",
 		"build": "wxt build -b firefox --mv3",
@@ -13,5 +10,11 @@
 		"sign": "set -a && . ./.env && set +a && wxt build -b firefox --mv3 && bunx web-ext sign --source-dir .output/firefox-mv3 --artifacts-dir .output/signed --channel unlisted",
 		"check": "wxt prepare && tsc --noEmit"
 	},
-	"type": "module"
+	"dependencies": {
+		"@prism/extension-shared": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "6.0.3",
+		"wxt": "^0.21.4"
+	}
 }

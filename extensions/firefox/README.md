@@ -1,13 +1,15 @@
 # Prism Firefox Extension
 
-Firefox extension for saving the current page or an X/Twitter post to Prism.
+Firefox extension for saving the current page or an X/Twitter post to Prism. The code lives in
+[`../shared`](../shared); this package holds only the Firefox manifest and entrypoints. The Chrome
+build is in [`../chrome`](../chrome).
 
 From the repository root:
 
 ```sh
-bun run dev:extension
-bun run build:extension
-bun run zip:extension
+bun run dev:firefox
+bun run build:firefox
+bun run zip:firefox
 ```
 
 Connect it from Prism's Account panel by generating a pairing code and entering it in the toolbar popup. Codes expire after the selected interval and work once. The saved connection can read tag/person names and create bookmarks; revoke it from Prism at any time. The extension stores its revocable bearer credential in Firefox extension storage.
@@ -17,13 +19,13 @@ The suggested `Alt+Shift+P` shortcut opens the capture popup. Change it in `abou
 ## Building an installable `.xpi`
 
 ```sh
-bun run zip:extension
+bun run zip:firefox
 ```
 
-This writes `extension/.output/prism-extension-0.0.0-firefox.xpi`. The version comes from
-`extension/package.json`; bump it for every release (AMO rejects re-uploading an existing
+This writes `extensions/firefox/.output/prism-extension-firefox-<version>-firefox.xpi`. The version comes from
+`extensions/firefox/package.json`; bump it for every release (AMO rejects re-uploading an existing
 version). The icons are generated from the repository's `logo.svg` and live in
-`extension/public/icon/` (`16`, `32`, `48`, `96`, `128` px).
+`extensions/shared/public/icon/` (`16`, `32`, `48`, `96`, `128` px).
 
 ## Installing permanently in Zen
 
@@ -42,10 +44,10 @@ add-on. It can still be installed from a file; it does not have to be listed pub
    ```sh
    export WEB_EXT_API_KEY='user:...'
    export WEB_EXT_API_SECRET='...'
-   bun run sign:extension
+   bun run sign:firefox
    ```
 
-   The signed `.xpi` is written to `extension/.output/signed/`.
+   The signed `.xpi` is written to `extensions/firefox/.output/signed/`.
 
    Alternatively, use the AMO web UI: submit at
    <https://addons.mozilla.org/developers/addon/submit/distribution>, choose
@@ -64,7 +66,7 @@ Use this for local/personal builds. In Zen's `about:config`:
 | `extensions.autoDisableScopes` | `14` | Keeps profile-installed add-ons enabled across restarts |
 
 Then `about:addons` → gear icon → **Install Add-on From File…** → select
-`extension/.output/prism-extension-0.0.0-firefox.xpi`. It stays installed and enabled
+`extensions/firefox/.output/prism-extension-firefox-<version>-firefox.xpi`. It stays installed and enabled
 across restarts.
 
 Notes:

@@ -102,7 +102,7 @@ The omnibar uses one query language everywhere. Each finished filter becomes a c
 
 ## Browser extension
 
-The Firefox extension lives in [`extension/`](../extension). It captures into the same library with the same tag and person chips.
+Extensions for Firefox ([`extensions/firefox/`](../extensions/firefox)) and Chrome ([`extensions/chrome/`](../extensions/chrome)) share one codebase in [`extensions/shared/`](../extensions/shared). Both capture into the same library with the same tag and person chips.
 
 - **Any page:** press `Alt Shift P`, or click the toolbar button.
 - **Posts on X:** a folder button replaces the share icon on every post, so you can save the post in place.
@@ -146,30 +146,35 @@ bun run db:init-owner
 bun run dev              # http://localhost:5173
 ```
 
-### Building the extension
+### Building the extensions
 
 ```sh
-bun run dev:extension     # development build with live reload
-bun run build:extension   # production build → extension/.output/firefox-mv3
-bun run zip:extension     # installable package → extension/.output/*.xpi
+bun run dev:firefox        # Firefox dev build with live reload
+bun run dev:chrome         # Chrome dev build with live reload
+bun run build:extensions   # production builds → extensions/{firefox,chrome}/.output/
+bun run zip:extensions     # packages → extensions/firefox/.output/*.xpi, extensions/chrome/.output/*.zip
 ```
 
-To try a build, open `about:debugging` → **This Firefox** → **Load Temporary Add-on**, and pick `extension/.output/firefox-mv3/manifest.json`.
+Each browser also has its own `build:<browser>` and `zip:<browser>` script.
 
-To install it permanently, it must be signed:
+**Chrome:** open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick `extensions/chrome/.output/chrome-mv3`. See [`extensions/chrome/README.md`](../extensions/chrome/README.md).
 
-1. Bump `version` in `extension/package.json`.
-2. Put your [AMO API keys](https://addons.mozilla.org/developers/addon/api/key/) in `extension/.env`:
+**Firefox:** to try a build, open `about:debugging` → **This Firefox** → **Load Temporary Add-on**, and pick `extensions/firefox/.output/firefox-mv3/manifest.json`.
+
+To install it permanently in Firefox, it must be signed:
+
+1. Bump the version (`bun run release` bumps every extension package together).
+2. Put your [AMO API keys](https://addons.mozilla.org/developers/addon/api/key/) in `extensions/firefox/.env`:
 
    ```sh
    WEB_EXT_API_KEY=user:...
    WEB_EXT_API_SECRET=...
    ```
 
-3. Run `bun run sign:extension`.
-4. In Firefox, open `about:addons` → ⚙ → **Install Add-on From File…** and pick the `.xpi` from `extension/.output/signed/`.
+3. Run `bun run sign:firefox`.
+4. In Firefox, open `about:addons` → ⚙ → **Install Add-on From File…** and pick the `.xpi` from `extensions/firefox/.output/signed/`.
 
-For Zen and other Firefox forks, see [`extension/README.md`](../extension/README.md).
+For Zen and other Firefox forks, see [`extensions/firefox/README.md`](../extensions/firefox/README.md).
 
 ## Development
 
@@ -177,7 +182,7 @@ For Zen and other Firefox forks, see [`extension/README.md`](../extension/README
 | --------------------- | ------------------------------------------------------ |
 | `bun run dev`         | Start the development server                           |
 | `bun run build`       | Build for production                                   |
-| `bun run check`       | Type-check the app and the extension                   |
+| `bun run check`       | Type-check the app and both extensions                 |
 | `bun run lint`        | Run Prettier and ESLint                                |
 | `bun run format`      | Apply formatting                                       |
 | `bun run test`        | Run unit tests                                         |
@@ -185,8 +190,10 @@ For Zen and other Firefox forks, see [`extension/README.md`](../extension/README
 | `bun run release`     | Bump the version and update the changelog from commits |
 
 ```
-frontend/    SvelteKit app, Drizzle schema and database scripts
-extension/   Firefox extension (WXT)
+frontend/              SvelteKit app, Drizzle schema and database scripts
+extensions/shared/     Browser-neutral extension source, icons and fonts
+extensions/firefox/    Firefox extension (WXT)
+extensions/chrome/     Chrome extension (WXT)
 ```
 
 Deploys to Vercel from the repository root using `vercel.json`.

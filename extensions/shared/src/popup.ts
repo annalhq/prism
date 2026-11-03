@@ -1,9 +1,10 @@
 import { browser } from 'wxt/browser';
-import { renderCaptureForm } from '../../lib/capture-form';
-import { getPairingOrigin, type Capture, type ExtensionMessage } from '../../lib/protocol';
-import { icons, themeCss } from '../../lib/theme';
+import { renderCaptureForm } from './capture-form';
+import { getPairingOrigin, type Capture, type ExtensionMessage } from './protocol';
+import { browserName } from './platform';
+import { icons, themeCss } from './theme';
 
-const app = document.querySelector<HTMLElement>('#app')!;
+let app: HTMLElement;
 
 function showMessage(title: string, detail = '') {
 	const section = document.createElement('section');
@@ -124,7 +125,7 @@ async function showPairing() {
 		submit.disabled = true;
 		submit.classList.add('is-busy');
 		message.classList.remove('error');
-		message.textContent = `Allow access to ${origin} in Firefox…`;
+		message.textContent = `Allow access to ${origin} in ${browserName}…`;
 		try {
 			const permitted = await browser.permissions.request({ origins: [`${origin}/*`] });
 			if (!permitted) throw new Error('Site access was not granted. You can try again when ready.');
@@ -145,8 +146,7 @@ async function showPairing() {
 	});
 }
 
-const style = document.createElement('style');
-style.textContent = `${themeCss}
+const popupCss = `${themeCss}
 *{box-sizing:border-box}
 html{background:var(--canvas)}
 body{width:360px;min-height:120px;margin:0;padding:10px;background:var(--canvas);color:var(--ink);font:13px/1.45 var(--font);-webkit-font-smoothing:antialiased}
@@ -191,7 +191,13 @@ button:focus-visible{outline:2px solid var(--ring);outline-offset:1px}
 @keyframes popup-spin{to{transform:rotate(1turn)}}
 @media (prefers-reduced-motion:reduce){*:not(.spinner){animation:none!important;transition:none!important}.spinner{animation-duration:1.4s!important}}
 `;
-document.head.append(style);
-void initialize().catch((error) =>
-	showMessage('Could not open Prism capture', (error as Error).message)
-);
+/** Renders the toolbar popup into `#app`. */
+export function mountPopup() {
+	app = document.querySelector<HTMLElement>('#app')!;
+	const style = document.createElement('style');
+	style.textContent = popupCss;
+	document.head.append(style);
+	void initialize().catch((error) =>
+		showMessage('Could not open Prism capture', (error as Error).message)
+	);
+}

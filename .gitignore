@@ -7,7 +7,7 @@ node_modules
 .netlify
 dist
 build
-extension/dist
+extensions/*/dist
 
 .agents/
 plan.md

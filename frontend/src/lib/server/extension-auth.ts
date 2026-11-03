@@ -78,7 +78,14 @@ export function pairingOrigin(code: string): string {
 	return parseOrigin(parts[1]);
 }
 
-export async function redeemExtensionPairing(code: string) {
+export type ExtensionBrowser = 'firefox' | 'chrome';
+const browserLabels: Record<ExtensionBrowser, string> = {
+	firefox: 'Firefox extension',
+	chrome: 'Chrome extension'
+};
+
+/** `browser` names the device in the Account panel; older clients send none and were Firefox. */
+export async function redeemExtensionPairing(code: string, browser: ExtensionBrowser = 'firefox') {
 	const origin = pairingOrigin(code);
 	const id = randomUUID();
 	const token = `prismext.${id}.${randomBytes(32).toString('base64url')}`;
@@ -108,7 +115,7 @@ export async function redeemExtensionPairing(code: string) {
 		await tx.insert(deviceTokens).values({
 			vaultId: pairing.vaultId,
 			id,
-			name: 'Firefox extension',
+			name: browserLabels[browser],
 			tokenHash: digest(token),
 			scopes: extensionScopes,
 			expiresAt: null

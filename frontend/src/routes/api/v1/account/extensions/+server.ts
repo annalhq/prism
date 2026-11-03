@@ -39,7 +39,7 @@ export const GET: RequestHandler = async (event) => {
 				new ApiError(
 					503,
 					'extension_schema_unavailable',
-					'Firefox extension storage is not initialized. Apply reviewed database migration 0005.'
+					'Browser extension storage is not initialized. Apply reviewed database migration 0005.'
 				),
 				event.locals.requestId
 			);
@@ -80,7 +80,7 @@ export const POST: RequestHandler = async (event) => {
 				new ApiError(
 					503,
 					'extension_schema_unavailable',
-					'Firefox extension storage is not initialized. Apply reviewed database migration 0005.'
+					'Browser extension storage is not initialized. Apply reviewed database migration 0005.'
 				),
 				event.locals.requestId
 			);

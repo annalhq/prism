@@ -18,7 +18,10 @@ export const POST: RequestHandler = async (event) => {
 			input && typeof input === 'object' ? (input as { code?: unknown }).code : undefined;
 		if (typeof code !== 'string')
 			throw new ApiError(400, 'invalid_pairing_code', 'Enter a valid pairing code.');
-		const { token, connectionId } = await redeemExtensionPairing(code);
+		const requested =
+			input && typeof input === 'object' ? (input as { browser?: unknown }).browser : undefined;
+		const browser = requested === 'chrome' ? 'chrome' : 'firefox';
+		const { token, connectionId } = await redeemExtensionPairing(code, browser);
 		return Response.json({ token, connectionId }, { headers: { 'Cache-Control': 'no-store' } });
 	} catch (error) {
 		if (error instanceof ApiError) return apiErrorResponse(error, event.locals.requestId);
