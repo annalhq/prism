@@ -94,9 +94,24 @@ export function createLibraryClient(notify: () => void) {
 	let cursor: string | undefined;
 	let active = false;
 	let syncing: Promise<void> | undefined;
-	let timer: ReturnType<typeof setInterval> | undefined;
+	let pollTimer: ReturnType<typeof setTimeout> | undefined;
 	let retryTimer: ReturnType<typeof setTimeout> | undefined;
 	let retryDelay = 1_000;
+	// Idle reads back off while nothing changes; any activity returns to the first step.
+	// Command delivery has its own retry timer and never waits on these.
+	const IDLE_DELAYS = [30_000, 60_000, 120_000, 300_000];
+	let idleLevel = 0;
+	// Set by activity (focus, visibility, reconnection, a save): the sync it causes restarts the
+	// backoff at its first step instead of counting as an unchanged idle pull.
+	let activity = false;
+	let lastFreshness = -Infinity;
+	// Bumped with every committed write of confirmed records, so a reader can tell whether its
+	// in-memory replica is current without reading every record back.
+	let replicaVersion: string | undefined;
+	let channel: BroadcastChannel | undefined;
+	let peerChanged = false;
+	// Whether the last successful sync sent commands or moved the cursor (i.e. found changes).
+	let changedBySync = false;
 	let scope = '';
 	let published: Records = new Map();
 	let publishedOwner = '';
@@ -167,6 +182,46 @@ export function createLibraryClient(notify: () => void) {
 		state.conflicts = pending.filter((item) => item.status === 'conflict');
 		notify();
 	}
+	// Other tabs of this vault learn that IndexedDB changed: a bare signal, never record contents.
+	function openChannel() {
+		channel?.close();
+		channel = undefined;
+		if (typeof BroadcastChannel === 'undefined') return;
+		channel = new BroadcastChannel(`prism-sync:${scope}`);
+		channel.onmessage = () => {
+			// Reload what the sibling committed; never rebroadcast. A running sync re-reads after.
+			if (syncing) peerChanged = true;
+			else void refreshFromStorage();
+		};
+	}
+	function broadcast() {
+		try {
+			channel?.postMessage('changed');
+		} catch {
+			// Polling and focus still catch up when the channel is unavailable.
+		}
+	}
+	/** Outbox and drafts only: what sibling tabs may change without the sync lock. */
+	async function reloadLocal() {
+		if (!database) return;
+		const db = database;
+		const [operations, storedDrafts] = await db.transaction('r', db.outbox, db.drafts, () =>
+			Promise.all([db.outbox.orderBy('createdAt').toArray(), db.drafts.toArray()])
+		);
+		pending = operations;
+		drafts = new Map(storedDrafts.map((row) => [row.id, row]));
+		refresh();
+	}
+	/** Re-reads confirmed records only when another tab committed them since our last read. */
+	async function refreshFromStorage() {
+		if (!database) return;
+		const db = database;
+		const [position, version] = await db.transaction('r', db.meta, () =>
+			Promise.all([db.meta.get('cursor'), db.meta.get('replicaVersion')])
+		);
+		if (position?.value === cursor && version?.value === replicaVersion) await reloadLocal();
+		else await reload();
+	}
 	async function reloadOutbox() {
 		if (!database) return;
 		pending = await database.outbox.orderBy('createdAt').toArray();
@@ -175,7 +230,7 @@ export function createLibraryClient(notify: () => void) {
 	async function reload() {
 		if (!database) return;
 		const db = database;
-		const [records, operations, storedDrafts, position] = await db.transaction(
+		const [records, operations, storedDrafts, position, version] = await db.transaction(
 			'r',
 			db.records,
 			db.outbox,
@@ -186,7 +241,8 @@ export function createLibraryClient(notify: () => void) {
 					db.records.toArray(),
 					db.outbox.orderBy('createdAt').toArray(),
 					db.drafts.toArray(),
-					db.meta.get('cursor')
+					db.meta.get('cursor'),
+					db.meta.get('replicaVersion')
 				])
 		);
 		confirmed = new Map(
@@ -198,6 +254,7 @@ export function createLibraryClient(notify: () => void) {
 		pending = operations;
 		drafts = new Map(storedDrafts.map((row) => [row.id, row]));
 		cursor = position?.value;
+		replicaVersion = version?.value;
 		refresh();
 	}
 	async function authenticate(verifiedIdentity?: VaultIdentity) {
@@ -213,10 +270,12 @@ export function createLibraryClient(notify: () => void) {
 			pending = [];
 			drafts = new Map();
 			cursor = undefined;
+			replicaVersion = undefined;
 			state.ready = false;
 			scope = nextScope;
 			state.identity = identity;
 			refresh();
+			openChannel();
 			database = new VaultStorage(encodeURIComponent(scope));
 			await database.open();
 			perfMark('dexie-open');
@@ -253,11 +312,18 @@ export function createLibraryClient(notify: () => void) {
 			.filter(([key, row]) => replace || confirmed.get(key) !== row)
 			.map(([storageKey, row]) => ({ ...row, storageKey }));
 		const removed = replace ? [] : [...confirmed.keys()].filter((key) => !records.has(key));
-		if (replace || changed.length || removed.length || nextCursor !== cursor || operationId) {
+		const writesRecords = replace || changed.length > 0 || removed.length > 0;
+		let version = replicaVersion;
+		if (writesRecords || nextCursor !== cursor || operationId) {
 			await db.transaction('rw', db.records, db.meta, db.outbox, async () => {
 				if (replace) await db.records.clear();
 				else if (removed.length) await db.records.bulkDelete(removed);
 				if (changed.length) await db.records.bulkPut(changed);
+				if (writesRecords) {
+					const stored = Number((await db.meta.get('replicaVersion'))?.value) || 0;
+					version = String(stored + 1);
+					await db.meta.put({ key: 'replicaVersion', value: version });
+				}
 				if (nextCursor !== cursor) {
 					if (nextCursor) await db.meta.put({ key: 'cursor', value: nextCursor });
 					else await db.meta.delete('cursor');
@@ -273,9 +339,11 @@ export function createLibraryClient(notify: () => void) {
 					await db.outbox.delete(operationId);
 				}
 			});
+			broadcast();
 		}
 		confirmed = records;
 		cursor = nextCursor;
+		replicaVersion = version;
 	}
 	async function pullInto(records: Records, position: string) {
 		let hasMore = true;
@@ -366,6 +434,7 @@ export function createLibraryClient(notify: () => void) {
 								'An earlier change needs review. This later change is preserved on this device.'
 						}
 					});
+					broadcast();
 				}
 				continue;
 			}
@@ -431,6 +500,7 @@ export function createLibraryClient(notify: () => void) {
 					}
 				});
 			}
+			if (result.status !== 'accepted') broadcast();
 			await reloadOutbox();
 			if (awaitedOutcomes.has(item.operationId)) {
 				awaitedOutcomes.set(
@@ -462,18 +532,24 @@ export function createLibraryClient(notify: () => void) {
 				throw new Error(
 					'This browser does not support Web Locks. Sync is paused to protect changes across tabs. Use a browser with Web Locks support; drafts and pending work remain on this device.'
 				);
+			const before = cursor;
+			let sent = false;
 			const work = async () => {
-				await reload();
+				// Another tab may have held the lock and committed records since our last read.
+				await refreshFromStorage();
 				const initialized = !!cursor;
 				if (!initialized) await bootstrap();
-				const sent = await sendPending();
+				sent = await sendPending();
 				if (initialized || sent) await pull();
-				await reload();
+				// Confirmed records and cursor are current in memory; only the outbox and drafts
+				// can have changed in sibling tabs meanwhile.
+				await reloadLocal();
 			};
 			await navigator.locks.request(`prism-sync:${scope}`, { ifAvailable: true }, async (lock) => {
 				if (lock) await work();
-				else await reload();
+				else await refreshFromStorage();
 			});
+			if (sent || cursor !== before) changedBySync = true;
 			state.ready = !!cursor;
 			if (state.ready) perfMark('replica-ready', { cached: 0 });
 			state.status = !state.ready
@@ -512,6 +588,7 @@ export function createLibraryClient(notify: () => void) {
 	function sync(verifiedIdentity?: VaultIdentity): Promise<void> {
 		if (!syncing) {
 			clearTimeout(retryTimer);
+			changedBySync = false;
 			syncing = (async () => {
 				do {
 					syncRequested = false;
@@ -526,15 +603,43 @@ export function createLibraryClient(notify: () => void) {
 					}, retryDelay);
 					retryDelay = Math.min(retryDelay * 2, 30_000);
 				} else retryDelay = 1_000;
+				// Back off only after a successful pull that found nothing new.
+				if (changedBySync || activity) idleLevel = 0;
+				else if (!state.error && state.online)
+					idleLevel = Math.min(idleLevel + 1, IDLE_DELAYS.length - 1);
+				activity = false;
+				schedulePoll();
+				if (peerChanged) {
+					peerChanged = false;
+					void refreshFromStorage();
+				}
 			});
 		}
 		return syncing;
 	}
-	const reconnect = () => {
+	function schedulePoll() {
+		clearTimeout(pollTimer);
+		pollTimer = undefined;
+		// Hidden tabs never poll; becoming visible syncs at once.
+		if (!active || document.visibilityState !== 'visible') return;
+		pollTimer = setTimeout(() => void sync(), IDLE_DELAYS[idleLevel]);
+	}
+	// Focus, visibility and reconnection each ask for freshness; bursts within 500 ms make one
+	// request. Saves never pass through here, so coalescing cannot drop queued work.
+	function freshness() {
+		idleLevel = 0;
+		activity = true;
+		const now = performance.now();
+		if (now - lastFreshness < 500) return;
+		lastFreshness = now;
 		void sync();
-	};
+	}
+	const reconnect = () => freshness();
+	// Going offline only updates status; never coalesced away.
+	const offline = () => void sync();
 	const visibility = () => {
-		if (document.visibilityState === 'visible') void sync();
+		if (document.visibilityState === 'visible') freshness();
+		else schedulePoll(); // cancels polling while hidden
 	};
 	return {
 		state,
@@ -575,6 +680,8 @@ export function createLibraryClient(notify: () => void) {
 				pending = [];
 				drafts = new Map();
 				cursor = undefined;
+				replicaVersion = undefined;
+				openChannel();
 			}
 			state.identity = identity;
 			await reload();
@@ -591,22 +698,22 @@ export function createLibraryClient(notify: () => void) {
 			if (active) return;
 			active = true;
 			window.addEventListener('online', reconnect);
-			window.addEventListener('offline', reconnect);
+			window.addEventListener('offline', offline);
 			document.addEventListener('visibilitychange', visibility);
 			// Coming back from another window (say, after saving from the extension) is a focus
 			// change without a visibility change; catch up then too.
 			window.addEventListener('focus', visibility);
-			timer = setInterval(() => {
-				if (document.visibilityState === 'visible') void sync();
-			}, 30_000);
+			lastFreshness = performance.now();
 			await sync(verifiedIdentity);
 		},
 		stop() {
 			active = false;
-			if (timer) clearInterval(timer);
+			clearTimeout(pollTimer);
 			clearTimeout(retryTimer);
+			channel?.close();
+			channel = undefined;
 			window.removeEventListener('online', reconnect);
-			window.removeEventListener('offline', reconnect);
+			window.removeEventListener('offline', offline);
 			document.removeEventListener('visibilitychange', visibility);
 			window.removeEventListener('focus', visibility);
 		},
@@ -644,8 +751,11 @@ export function createLibraryClient(notify: () => void) {
 			if (waitForSync) awaitedOutcomes.set(operationId, { status: 'queued' });
 			try {
 				await enqueue(envelope);
+				broadcast();
 				await reloadOutbox();
 				syncRequested = true;
+				idleLevel = 0;
+				activity = true;
 				if (navigator.onLine) {
 					if (waitForSync) {
 						await sync();
@@ -670,11 +780,13 @@ export function createLibraryClient(notify: () => void) {
 			if (!database || !state.identity) throw new Error('Load the vault before editing.');
 			const draft = { id, body, baseRevision };
 			await database.drafts.put(draft);
+			broadcast();
 			drafts.set(id, draft);
 			notify();
 		},
 		async clearDraft(id: string) {
 			await database?.drafts.delete(id);
+			broadcast();
 			drafts.delete(id);
 			notify();
 		},
@@ -705,7 +817,8 @@ export function createLibraryClient(notify: () => void) {
 					throw new Error('This command exceeds 1 MiB.');
 				await enqueue(envelope, operationId);
 			} else await database!.outbox.delete(operationId);
-			await reload();
+			broadcast();
+			await reloadOutbox();
 			if (choice === 'retry') {
 				syncRequested = true;
 				void sync();
