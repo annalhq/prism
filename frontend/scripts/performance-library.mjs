@@ -18,8 +18,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { cpus, homedir, platform, release, totalmem } from 'node:os';
-import { join } from 'node:path';
+import { cpus, platform, release, totalmem } from 'node:os';
 import { parseArgs } from 'node:util';
 import { chromium } from '@playwright/test';
 
@@ -256,10 +255,9 @@ async function signedInDocument(route) {
 // ---------------------------------------------------------------------------------------------
 // Browser
 
+// Playwright's own Chromium by default; PRISM_CHROMIUM points at another build.
 function launchOptions() {
-	if (process.env.PRISM_CHROMIUM) return { executablePath: process.env.PRISM_CHROMIUM };
-	const fallback = join(homedir(), '.cache/ms-playwright/chromium-1243/chrome-linux64/chrome');
-	return existsSync(fallback) ? { executablePath: fallback } : {};
+	return process.env.PRISM_CHROMIUM ? { executablePath: process.env.PRISM_CHROMIUM } : {};
 }
 
 /** @param {Browser} browser */

@@ -1,5 +1,5 @@
-import { fromMarkdown } from 'mdast-util-from-markdown';
-import type { List, ListItem, Nodes, Paragraph, PhrasingContent } from 'mdast';
+import type { InlineNode, ListItemNode, ListNode, ParagraphNode } from '@tanstack/markdown';
+import { parseMarkdown, plainText } from './markdown.js';
 
 // A rabbit hole's trail of links, kept as a nested Markdown list in the item's note so it syncs,
 // searches and exports like any note:
@@ -33,24 +33,16 @@ function safeUrl(value: string): string | null {
 	}
 }
 
-/** Plain text of inline Markdown, keeping what was escaped as written. */
-function text(nodes: readonly PhrasingContent[]): string {
-	return nodes
-		.map((node) =>
-			'value' in node
-				? node.value
-				: 'children' in node
-					? text(node.children as PhrasingContent[])
-					: ''
-		)
-		.join('');
-}
+/** Plain text of inline Markdown, with escapes resolved. */
+const text = (nodes: readonly InlineNode[]): string => nodes.map(plainText).join('');
 
-function item(node: ListItem): StashNode | null {
-	const paragraph = node.children.find((child): child is Paragraph => child.type === 'paragraph');
+function item(node: ListItemNode): StashNode | null {
+	const paragraph = node.children.find(
+		(child): child is ParagraphNode => child.type === 'paragraph'
+	);
 	const link = paragraph?.children.find((child) => child.type === 'link');
-	const url = link?.type === 'link' ? safeUrl(link.url) : null;
-	const nested = node.children.find((child): child is List => child.type === 'list');
+	const url = link?.type === 'link' ? safeUrl(link.href) : null;
+	const nested = node.children.find((child): child is ListNode => child.type === 'list');
 	const children = nested ? list(nested) : [];
 	if (!url || !paragraph || link?.type !== 'link') return null;
 	const after = text(paragraph.children.slice(paragraph.children.indexOf(link) + 1))
@@ -65,20 +57,21 @@ function item(node: ListItem): StashNode | null {
 	};
 }
 
-function list(node: List): StashNode[] {
-	return node.children.flatMap((child) => {
+function list(node: ListNode): StashNode[] {
+	return node.items.flatMap((child) => {
 		const parsed = item(child);
 		// An item without a usable link keeps its children, one level up.
 		if (parsed) return [parsed];
-		const nested = child.children.find((c): c is List => c.type === 'list');
+		const nested = child.children.find((c): c is ListNode => c.type === 'list');
 		return nested ? list(nested) : [];
 	});
 }
 
 /** Reads the trail from a note. Tolerant of hand edits: anything that isn't a link is skipped. */
 export function parseStash(markdown: string): StashNode[] {
-	const tree = fromMarkdown(markdown);
-	return (tree.children as Nodes[]).flatMap((node) => (node.type === 'list' ? list(node) : []));
+	return parseMarkdown(markdown).children.flatMap((node) =>
+		node.type === 'list' ? list(node) : []
+	);
 }
 
 // Backslash-escapes what Markdown would otherwise read as formatting, so text round-trips.

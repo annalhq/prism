@@ -1,7 +1,4 @@
-import { fromMarkdown } from 'mdast-util-from-markdown';
-import { toHast } from 'mdast-util-to-hast';
-import { toHtml } from 'hast-util-to-html';
-import type { Root, Nodes } from 'mdast';
+import { parseMarkdown, renderSafeMarkdown, walk, type MarkdownRoot } from './markdown.js';
 
 export const MAX_NOTE_BYTES = 102_400;
 export const MAX_NOTE_REFERENCES = 200;
@@ -18,30 +15,11 @@ export function parseReference(destination: string): EntityReference | null {
 	return match ? { kind: match[1].toLowerCase() as EntityKind, id: match[2].toLowerCase() } : null;
 }
 
-function walk(node: Nodes, visit: (node: Nodes) => void): void {
-	visit(node);
-	// Code and HTML nodes have no Markdown children; their contents are never reparsed.
-	if ('children' in node) for (const child of node.children) walk(child, visit);
-}
-function definitions(tree: Root): Map<string, string> {
-	const result = new Map<string, string>();
-	walk(tree, (node) => {
-		if (node.type === 'definition' && !result.has(node.identifier))
-			result.set(node.identifier, node.url);
-	});
-	return result;
-}
-function references(tree: Root): EntityReference[] {
-	const defs = definitions(tree);
+function references(tree: MarkdownRoot): EntityReference[] {
 	const found = new Map<string, EntityReference>();
+	// Reference-style links arrive resolved against their definitions; code and HTML are skipped.
 	walk(tree, (node) => {
-		const url =
-			node.type === 'link'
-				? node.url
-				: node.type === 'linkReference'
-					? defs.get(node.identifier)
-					: undefined;
-		const reference = url ? parseReference(url) : null;
+		const reference = node.type === 'link' ? parseReference(node.href) : null;
 		if (reference) found.set(`${reference.kind}/${reference.id}`, reference);
 	});
 	return [...found.values()].sort(
@@ -49,7 +27,7 @@ function references(tree: Root): EntityReference[] {
 	);
 }
 export function extractReferences(markdown: string): EntityReference[] {
-	return references(fromMarkdown(markdown));
+	return references(parseMarkdown(markdown));
 }
 export function validateNoteBody(body: unknown): string {
 	if (typeof body !== 'string' || !body.isWellFormed() || body.includes('\0'))
@@ -78,47 +56,23 @@ export function isSafeNoteUrl(url: string): boolean {
 }
 
 // No raw HTML, remote image requests, relative URLs or arbitrary protocols. Internal
-// destinations remain typed Prism links for the future reader's navigation handler.
+// destinations remain typed Prism links for the editor's navigation handler.
 export function renderNote(markdown: string): string {
-	const tree = fromMarkdown(markdown);
-	const defs = definitions(tree);
-	const clean = (node: Nodes): void => {
-		if (!('children' in node)) return;
-		node.children = (node.children as Nodes[]).flatMap<Nodes>((child) => {
-			if (child.type === 'html' || child.type === 'definition') return [];
-			if (child.type === 'image' || child.type === 'imageReference')
-				return [{ type: 'text' as const, value: child.alt ?? '' }];
-			clean(child);
-			const url =
-				child.type === 'link'
-					? child.url
-					: child.type === 'linkReference'
-						? defs.get(child.identifier)
-						: undefined;
-			if (child.type === 'link' || child.type === 'linkReference') {
-				if (!url || !isSafeNoteUrl(url)) return child.children;
-				return [{ type: 'link' as const, url, children: child.children }];
-			}
-			return [child];
-		}) as typeof node.children;
-	};
-	clean(tree);
-	return toHtml(toHast(tree));
+	return renderSafeMarkdown(markdown, { safeUrl: isSafeNoteUrl, internalLinks: 'link' });
+}
+
+// A list or card preview: the same policy, with Prism links shown as their text.
+export function renderNotePreview(markdown: string): string {
+	return renderSafeMarkdown(markdown, { safeUrl: isSafeNoteUrl, internalLinks: 'text' });
 }
 
 export function noteSnippet(markdown: string, max = 240, targetId?: string): string {
-	const tree = fromMarkdown(markdown);
-	const defs = definitions(tree);
+	const tree = parseMarkdown(markdown);
 	const text: string[] = [];
 	let length = 0;
 	let anchor: number | undefined;
 	walk(tree, (node) => {
-		const url =
-			node.type === 'link'
-				? node.url
-				: node.type === 'linkReference'
-					? defs.get(node.identifier)
-					: undefined;
+		const url = node.type === 'link' ? node.href : undefined;
 		if (targetId && anchor === undefined && url && parseReference(url)?.id === targetId)
 			anchor = length;
 		if (node.type === 'text' || node.type === 'inlineCode' || node.type === 'code') {

@@ -21,8 +21,7 @@
 	import { Collapsible, ContextMenu } from 'bits-ui';
 	import type { Attachment } from 'svelte/attachments';
 	import Favicon from './ui/Favicon.svelte';
-	import { renderMarkdown } from '#lib/client/markdown.js';
-	import { renderNote } from '#lib/domain/notes.js';
+	import { renderNotePreview } from '#lib/domain/notes.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import StashTree from './stash/StashTree.svelte';
 	import { branchKeys, countLinks, parseStash } from '#lib/domain/stash.js';
@@ -66,27 +65,18 @@
 		trailOpen.clear();
 		for (const key of branchKeys(trail)) trailOpen.add(key);
 	});
-	// The note reads as rendered Markdown. The local renderer answers at once (so the expand
-	// animation measures the real height); Sätteri's rendering replaces it when it arrives. The
-	// public page can't reach the owner-only renderer, so it keeps the local one.
-	let noteHtml = $state('');
-	$effect(() => {
-		if (!hasNote || stash) return;
-		const markdown = note;
-		noteHtml = renderNote(markdown);
-		if (readonly) return;
-		let live = true;
-		void renderMarkdown(markdown).then((html) => {
-			if (live) noteHtml = html;
-		});
-		return () => {
-			live = false;
-		};
-	});
 	// Collapses whenever the note comes or goes; toggled by the row in between.
 	let expanded = $derived.by(() => {
 		void hasNote;
 		return false;
+	});
+	// The note reads as rendered Markdown, rendered locally and synchronously once the row is
+	// first opened (so the expand animation measures the real height). Collapsed rows never
+	// render it; after the first open it stays rendered so closing doesn't empty mid-animation.
+	let opened = false;
+	const noteHtml = $derived.by(() => {
+		if (expanded) opened = true;
+		return opened && hasNote && !stash ? renderNotePreview(note) : '';
 	});
 	$effect(() => {
 		if (!menuOpen) return;

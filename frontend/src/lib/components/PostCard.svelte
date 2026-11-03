@@ -17,8 +17,7 @@
 	import { ContextMenu } from 'bits-ui';
 	import Favicon from './ui/Favicon.svelte';
 	import PersonAvatar from './ui/PersonAvatar.svelte';
-	import { renderMarkdown } from '#lib/client/markdown.js';
-	import { renderNote } from '#lib/domain/notes.js';
+	import { renderNotePreview } from '#lib/domain/notes.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import StashTree from './stash/StashTree.svelte';
 	import { parseStash } from '#lib/domain/stash.js';
@@ -78,21 +77,8 @@
 		trailOpen.clear();
 		for (const node of trail) if (node.children.length) trailOpen.add(node.key);
 	});
-	// The note as rendered Markdown: local first, Sätteri when it arrives (owner only).
-	let noteHtml = $state('');
-	$effect(() => {
-		if (!note || stash) return;
-		const markdown = note;
-		noteHtml = renderNote(markdown);
-		if (readonly) return;
-		let live = true;
-		void renderMarkdown(markdown).then((html) => {
-			if (live) noteHtml = html;
-		});
-		return () => {
-			live = false;
-		};
-	});
+	// The note as rendered Markdown, shown in full on the card; rendered locally.
+	const noteHtml = $derived(note && !stash ? renderNotePreview(note) : '');
 	function openSource() {
 		if (!source) return onEdit();
 		onOpen();

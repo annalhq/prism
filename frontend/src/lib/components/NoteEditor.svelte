@@ -3,13 +3,17 @@
 	import { Link2 as LinkIcon } from '@lucide/svelte';
 	import { autosize } from '#lib/client/attachments.js';
 	import { markdownShortcuts } from '#lib/client/markdown-keys.js';
-	import { renderMarkdown } from '#lib/client/markdown.js';
 	import { downloadFile } from '#lib/client/download.js';
 	import TokenInput from './ui/TokenInput.svelte';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { NoteProjection, Revision } from '#lib/domain/contracts.js';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
-	import { extractReferences, parseReference, validateNoteBody } from '#lib/domain/notes.js';
+	import {
+		extractReferences,
+		parseReference,
+		renderNote,
+		validateNoteBody
+	} from '#lib/domain/notes.js';
 	import { entityLabel } from '#lib/client/search.js';
 	import {
 		addNoteLink,
@@ -70,20 +74,10 @@
 	const noteText = $derived(splitLinkedNote(body).text);
 	// The rendered view shows while not typing, once there is something to show.
 	let writing = $state(false),
-		html = $state(''),
 		textarea = $state<HTMLTextAreaElement>();
 	const previewing = $derived(rendered && !writing && noteText.trim().length > 0);
-	$effect(() => {
-		if (!previewing) return;
-		const markdown = noteText;
-		let live = true;
-		void renderMarkdown(markdown).then((value) => {
-			if (live) html = value;
-		});
-		return () => {
-			live = false;
-		};
-	});
+	// Rendered locally and synchronously, only while the rendered view shows.
+	const html = $derived(previewing ? renderNote(noteText) : '');
 	async function write() {
 		writing = true;
 		await tick();

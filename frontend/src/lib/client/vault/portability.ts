@@ -1,11 +1,10 @@
-import { fromMarkdown } from 'mdast-util-from-markdown';
-import type { Nodes } from 'mdast';
 import type { Command, Revision } from '#lib/domain/contracts.js';
 import { serializedBytes } from '#lib/domain/contracts.js';
 import { REPLICA_TABLES, type ReplicaTable } from '#lib/domain/replica.js';
 import { normalizeOrganizationName } from '#lib/domain/organization.js';
 import { normalizeUrl } from '#lib/domain/urls.js';
-import { parseReference, validateNoteBody } from '#lib/domain/notes.js';
+import { extractReferences, parseReference, validateNoteBody } from '#lib/domain/notes.js';
+import { parseMarkdown } from '#lib/domain/markdown.js';
 import { parseSearchFilter } from '#lib/domain/search.js';
 import { parseCommand, object, uuid } from '#lib/domain/validation.js';
 import type { LibraryClient } from './library.js';
@@ -241,44 +240,43 @@ export function previewImport(input: unknown): ImportPreview {
 	return result;
 }
 
-// Edit only AST link/definition destinations. Authored labels, code, HTML and prose stay byte-for-byte intact.
+// Rewrites internal destinations to imported IDs. Labels, code, HTML and prose stay byte-for-byte
+// intact: each `prism:kind/id` occurrence is replaced on its own and kept only if the parsed
+// note is unchanged once its links are remapped, which holds exactly for link and definition
+// destinations. Anything else (an escaped or unusual destination) blocks the note instead.
 function remapMarkdown(body: string, resolve: (kind: string, id: string) => string): string {
-	const edits: { start: number; end: number; text: string }[] = [];
-	const visit = (node: Nodes) => {
-		if (node.type === 'link' || node.type === 'definition') {
-			const ref = parseReference(node.url);
-			if (ref) {
-				const replacement = `prism:${ref.kind}/${resolve(ref.kind, ref.id)}`;
-				const start = node.position?.start.offset,
-					end = node.position?.end.offset;
-				if (start === undefined || end === undefined)
-					throw new Error('Reference source positions unavailable.');
-				const raw = body.slice(start, end);
-				let lower = 0;
-				if (node.type === 'definition') {
-					const delimiter = raw.indexOf(']:');
-					if (delimiter < 0) throw new Error('Cannot locate reference definition destination.');
-					lower = delimiter + 2;
-				} else if (!raw.startsWith('<')) {
-					lower = (node.children.at(-1)?.position?.end.offset ?? start) - start;
-				}
-				const target = raw.indexOf(node.url, lower);
-				if (target < 0)
-					throw new Error(
-						'Escaped internal destination requires manual remapping; original note is retained.'
-					);
-				edits.push({
-					start: start + target,
-					end: start + target + node.url.length,
-					text: replacement
-				});
-			}
-		}
-		if ('children' in node) for (const child of node.children) visit(child);
+	// Every referenced target must resolve (a missing one blocks the note, as before).
+	const table = new Map(
+		extractReferences(body).map((ref) => [`${ref.kind}/${ref.id}`, resolve(ref.kind, ref.id)])
+	);
+	const remap = (href: string) => {
+		const ref = parseReference(href);
+		const id = ref && table.get(`${ref.kind}/${ref.id}`);
+		return ref && id ? `prism:${ref.kind}/${id}` : href;
 	};
-	visit(fromMarkdown(body));
-	for (const edit of edits.sort((a, b) => b.start - a.start))
-		body = body.slice(0, edit.start) + edit.text + body.slice(edit.end);
+	const tree = (source: string, map: (href: string) => string) =>
+		JSON.stringify(parseMarkdown(source), (key, value) =>
+			key === 'href' && typeof value === 'string' ? map(value) : value
+		);
+	const expected = tree(body, remap);
+	const occurrences = [
+		...body.matchAll(
+			/prism:(bookmark|person|persona)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![0-9a-z-])/gi
+		)
+	];
+	// Right to left, so earlier offsets stay valid.
+	for (const match of occurrences.reverse()) {
+		const replacement = remap(match[0]);
+		if (replacement === match[0]) continue;
+		const next =
+			body.slice(0, match.index) + replacement + body.slice(match.index + match[0].length);
+		if (tree(next, remap) === expected) body = next;
+	}
+	// The result must parse exactly as the original with its links remapped.
+	if (tree(body, (href) => href) !== expected)
+		throw new Error(
+			'Escaped internal destination requires manual remapping; original note is retained.'
+		);
 	return body;
 }
 
