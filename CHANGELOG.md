@@ -2,6 +2,61 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.2.0](https://github.com/annalhq/prism/compare/v0.1.0...v0.2.0) (2026-11-03)
+
+### ⚠ BREAKING CHANGES
+
+* **extension:** add Chrome extension support
+* **ui:** redesign landing and auth page
+* **storage:** replace Backblaze B2 with Neon object storage
+
+### Features
+
+* add profile pics from api and backblaze support ([d4f02ea](https://github.com/annalhq/prism/commit/d4f02eadc8e8e4e34831c7cb68d53e97066d35a7))
+* **ci:** automate release notes and draft GitHub releases ([91fb8a7](https://github.com/annalhq/prism/commit/91fb8a7866e259bb07e12c9463db9a6dd5abd51f))
+* **extension:** add Chrome extension support ([dd265db](https://github.com/annalhq/prism/commit/dd265dbc1aeaf0085a9cb2c6b1b2a19dd6bb6856))
+* **notes:** add Markdown text notes and rich previews ([2bbb765](https://github.com/annalhq/prism/commit/2bbb765dcba37b25a41e243e936aa0f1d4827d80))
+* **perf:** add reproducible library performance benchmarks ([f42237b](https://github.com/annalhq/prism/commit/f42237bfba029efe240f3450e4a74492672b99ae))
+* **profile:** support multiple social avatar providers ([3f50296](https://github.com/annalhq/prism/commit/3f50296a00d3c818ebcce378ee86a2e54392bb64))
+* **stash:** add hierarchical rabbit holes for linked bookmarks ([f93159d](https://github.com/annalhq/prism/commit/f93159dbaf5a9d3e366e4d824d52bdc894ed16c0))
+* **tags:** manage public visibility in edit dialog ([d3855d6](https://github.com/annalhq/prism/commit/d3855d6b0879c039fb0b1ce7f5477818e79507bd))
+* **twitter:** add bookmark button support for OldTwitter ([20429ce](https://github.com/annalhq/prism/commit/20429ce0b967d0a0d13de1632f6f43592b92d8fd))
+* **ui:** redesign account panel ([0aea2f2](https://github.com/annalhq/prism/commit/0aea2f2cd6bdb14f545bec728a67b4d1272bfb8b))
+* **ui:** redesign landing and auth page ([76a6b5f](https://github.com/annalhq/prism/commit/76a6b5f3d08174c140d17330a9d32a5a104ca6af))
+* **ui:** redesign mobile navbar ([3f10437](https://github.com/annalhq/prism/commit/3f10437c3377e1d00d1fe9cc73eaf5ba894fa2f5))
+* **ui:** redesign Omnibar ([835feb9](https://github.com/annalhq/prism/commit/835feb9b2c64082a14b468d3f521288c2dc901fd))
+* **ui:** redesign the auth layour and screen ([6edee2b](https://github.com/annalhq/prism/commit/6edee2b034cec0ee825b9dfc8e13f2bc83aaba3c))
+* **ui:** redesign the context menu ([6dac2fc](https://github.com/annalhq/prism/commit/6dac2fc7e409d80d29eff061c89c975844146e3f))
+* **ui:** redesign the person's page ([ca81857](https://github.com/annalhq/prism/commit/ca81857a0af4cea5f0c04fbd82434d3450e279ec))
+* **ui:** refine typography, mobile bookmarks, and visual design ([612645c](https://github.com/annalhq/prism/commit/612645c56e6e85da64b79bdb370b1342dfd21a68))
+* **ui:** rehaul bookmark editor ([e628f76](https://github.com/annalhq/prism/commit/e628f764022a0614cada66326b5a236c455640a2))
+
+### Bug Fixes
+
+* [#1](https://github.com/annalhq/prism/issues/1) resolves styling for dropdown in person selection ([68a5d85](https://github.com/annalhq/prism/commit/68a5d857c36c87c79a5bc90d6be54854a9c89c0a))
+* **#3:** add -webkit-tap-highlight-color: transparent for mobile view ([dc841ce](https://github.com/annalhq/prism/commit/dc841ce8e4334a9bf5e12d04839153edd5ea7d96)), references [#3](https://github.com/annalhq/prism/issues/3)
+* **editor:** edit link option ([cb5e6ce](https://github.com/annalhq/prism/commit/cb5e6ceaea7953ecab390ab540d31a7b453f8ecc))
+* explain missing photos in avatar and photo API responses ([3b1498c](https://github.com/annalhq/prism/commit/3b1498c3bf6e97c65955383ca6e3f7683c92b32b))
+* **feed:** remove duplication of profile on cards ([e3b65a8](https://github.com/annalhq/prism/commit/e3b65a835b65bd6c0988b7a67cbc8a350b860a71))
+* improve avatar upload diagnostics and reduce wasted lookup quota ([514e886](https://github.com/annalhq/prism/commit/514e8861431533ebe202d2980f5ee341cb70ee3a))
+* **LibraryWorkspace popup:** match the styling ([bdd68cf](https://github.com/annalhq/prism/commit/bdd68cfc84f6926ce28773e8729dc74a5da0f578))
+* **sidebar:** highlight now only goes to normal rows ([9795933](https://github.com/annalhq/prism/commit/9795933d7ff02d01145fddd1c3cd73f123d43155))
+* smooth omnibar state and sign-in transitions ([c66f46f](https://github.com/annalhq/prism/commit/c66f46fccb05e43c4931bed542c81b2143d75093))
+* **ui:** resolve omnibar and mobile layout issues ([7537754](https://github.com/annalhq/prism/commit/7537754ee5e23b07725fdb5f83be7a85aa008d56))
+
+### Performance
+
+* **bootstrap:** batch library queries to reduce database round trips ([b49f9fe](https://github.com/annalhq/prism/commit/b49f9fe55ed5a205f4c6861636bfe16bc11964cc))
+* **markdown:** replace Sätteri with TanStack Markdown ([fa29cef](https://github.com/annalhq/prism/commit/fa29cef4bb19097ee390dd25219d23a4430c2f28))
+* **search:** cache worker snapshots and lazy-load import/export ([a0038ae](https://github.com/annalhq/prism/commit/a0038aea37a99b52e5ed45d67acf5dc3fd5aa8c2))
+* **sync:** batch bootstrap downloads across tables ([a04db6e](https://github.com/annalhq/prism/commit/a04db6e226bf38e91a30e6d979db3e068b2f1006))
+* **sync:** optimize idle polling and cross-tab updates ([bffeb42](https://github.com/annalhq/prism/commit/bffeb423c219c462b754b59c321e53a1f1d1ff11))
+
+### Refactoring
+
+* **storage:** replace Backblaze B2 with Neon object storage ([11a0d95](https://github.com/annalhq/prism/commit/11a0d95c42f390ec503aa0643dd9b237383cd7fe))
+* **ui:** use icon for 'enter' and simplify shortcut kbd in context ([019aa49](https://github.com/annalhq/prism/commit/019aa49cfddd4d1ee95a925cf39891054034f877))
+
 ## 0.1.0 (2026-10-28)
 
 ### ⚠ BREAKING CHANGES
