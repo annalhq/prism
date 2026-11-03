@@ -147,6 +147,8 @@ export const tags = pgTable(
 		normalizedName: text('normalized_name').notNull(),
 		// Fractional sort key from a drag reorder; null tags follow the ordered ones.
 		position: text('position'),
+		// Hidden from the public view, together with every entity carrying the tag.
+		isPrivate: boolean('is_private').notNull().default(false),
 		...lifecycle(),
 		...revisions()
 	},

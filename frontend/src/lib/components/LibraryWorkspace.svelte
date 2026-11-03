@@ -6,6 +6,8 @@
 		Check,
 		Keyboard,
 		Link2,
+		Lock,
+		Globe,
 		Trash2,
 		UserPlus
 	} from '@lucide/svelte';
@@ -636,6 +638,33 @@
 		manage = entry;
 		rename = String(entry.row.name);
 		deleteArmed = false;
+	}
+	// The tag being edited as it is now, so privacy reflects saves from here or other devices.
+	const managed = $derived.by(() => {
+		void version;
+		return manage ? (library?.get<Row>('tags', String(manage.row.id)) ?? manage.row) : null;
+	});
+	const managedPrivate = $derived(managed?.isPrivate === true);
+	let privacyBusy = $state(false);
+	// A private tag, and everything carrying it, is left out of the public page. Saved at once,
+	// independently of renaming.
+	async function togglePrivacy() {
+		if (!library || !managed || privacyBusy) return;
+		privacyBusy = true;
+		try {
+			const outcome = await library.save({
+				type: 'tag.privacy',
+				id: String(managed.id),
+				expectedRevision: String(managed.revision) as Revision,
+				isPrivate: managed.isPrivate !== true
+			});
+			if (outcome.status === 'rejected') {
+				feedback(outcome.message ?? 'Could not change this tag.');
+				cue('error');
+			}
+		} finally {
+			privacyBusy = false;
+		}
 	}
 	const contentChoices = $derived.by(() => {
 		void version;
@@ -1291,7 +1320,8 @@
 					>
 				</header>
 				<Dialog.Description class="sr-only"
-					>Rename or delete this tag. Renaming keeps every connection.</Dialog.Description
+					>Rename this tag, hide it from the public page, or delete it. Renaming keeps every
+					connection.</Dialog.Description
 				>
 				<form
 					class="name-sheet-form"
@@ -1317,6 +1347,23 @@
 								? 'Not on any bookmarks yet.'
 								: `On ${count} ${count === 1 ? 'bookmark' : 'bookmarks'}.`} Renaming keeps every connection.
 						</p>
+						<button
+							type="button"
+							class="name-sheet-privacy"
+							role="switch"
+							aria-checked={managedPrivate}
+							disabled={privacyBusy}
+							onclick={togglePrivacy}
+							>{#if managedPrivate}<Lock />{:else}<Globe />{/if}<span
+								class="name-sheet-privacy-text"
+								><strong>Hide from public page</strong><small
+									>{managedPrivate
+										? 'Hidden, along with everything tagged with it.'
+										: 'Shown on the public page.'}</small
+								></span
+							><span class="preference-switch" class:enabled={managedPrivate}><span></span></span
+							></button
+						>
 						<footer class="name-sheet-actions">
 							{#if deleteArmed}<span class="name-sheet-confirm"
 									><span>Delete #{manage.row.name}?{count ? ' Bookmarks stay.' : ''}</span><button

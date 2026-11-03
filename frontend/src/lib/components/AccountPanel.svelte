@@ -20,6 +20,7 @@
 		Upload,
 		LogOut,
 		LockKeyhole,
+		Lock,
 		Plus,
 		Search,
 		X,
@@ -160,6 +161,8 @@
 			resolving = resolving.filter((id) => id !== operationId);
 		}
 	}
+	// Private tags (hidden from the public page) are marked with a lock; edit one to change it.
+	const isPrivate = (row: Row) => row.isPrivate === true;
 	const entries = $derived(
 		tags
 			.map((row) => ({ table: 'tags' as const, row }))
@@ -495,7 +498,10 @@
 													open = false;
 													onManage(entry);
 												}}
-												><Folder class="settings-glyph" /><span class="settings-text"
+												>{#if isPrivate(entry.row)}<Lock
+														class="settings-glyph"
+														aria-label="Private"
+													/>{:else}<Folder class="settings-glyph" />{/if}<span class="settings-text"
 													><strong>{entry.row.name}</strong></span
 												><ChevronRight class="settings-glyph" /></button
 											>{:else}<p class="settings-empty">

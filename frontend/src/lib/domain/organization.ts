@@ -18,7 +18,8 @@ export type TaxonomyCommand =
 			name: string;
 	  }
 	| { type: 'tag.delete' | 'collection.delete'; id: string; expectedRevision: Revision }
-	| { type: 'tag.move'; id: string; expectedRevision: Revision; position: string };
+	| { type: 'tag.move'; id: string; expectedRevision: Revision; position: string }
+	| { type: 'tag.privacy'; id: string; expectedRevision: Revision; isPrivate: boolean };
 export type TagMembershipCommand = { type: 'tag.add' | 'tag.remove'; id: string; tagId: string };
 export type BookmarkOrganization = {
 	collectionId?: string | null;
@@ -51,6 +52,7 @@ export const ORGANIZATION_COMMAND_TYPES = [
 	'tag.rename',
 	'tag.delete',
 	'tag.move',
+	'tag.privacy',
 	'collection.create',
 	'collection.rename',
 	'collection.delete',
@@ -178,6 +180,16 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 				id,
 				expectedRevision: revision(c.expectedRevision),
 				position: parseTagPosition(c.position)
+			};
+		case 'tag.privacy':
+			keys(c, ['type', 'id', 'expectedRevision', 'isPrivate']);
+			if (typeof c.isPrivate !== 'boolean')
+				throw new ValidationError('Tag privacy must be true or false.');
+			return {
+				type: c.type,
+				id,
+				expectedRevision: revision(c.expectedRevision),
+				isPrivate: c.isPrivate
 			};
 		case 'tag.add':
 		case 'tag.remove':

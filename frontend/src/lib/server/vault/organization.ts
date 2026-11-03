@@ -20,7 +20,7 @@ export function taxonomyProjection(
 		id: row.id,
 		name: row.name,
 		normalizedName: row.normalizedName,
-		...('position' in row ? { position: row.position } : {}),
+		...('position' in row ? { position: row.position, isPrivate: row.isPrivate } : {}),
 		revision: String(row.revision) as Revision,
 		lastSeq: String(row.lastSeq) as Sequence,
 		deletedAt: row.deletedAt?.toISOString() ?? null,
@@ -53,11 +53,13 @@ export async function changeTaxonomy(
 				currentRevision: String(current.revision) as Revision
 			});
 	}
-	if (command.type === 'tag.move') {
+	if (command.type === 'tag.move' || command.type === 'tag.privacy') {
 		const [moved] = await tx
 			.update(tags)
 			.set({
-				position: command.position,
+				...(command.type === 'tag.move'
+					? { position: command.position }
+					: { isPrivate: command.isPrivate }),
 				revision: current!.revision + 1n,
 				lastSeq: seq,
 				updatedAt: now

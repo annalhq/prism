@@ -24,6 +24,7 @@ let cached: { key: string; snapshot: PublicSnapshot } | undefined;
 /**
  * A read-only copy of the owner's live library for anonymous visitors. Only presentation
  * fields leave the server: trash, purged rows, activity, drafts, revisions and sync state never do.
+ * Private tags never leave either, nor does anything carrying one (with its notes and links).
  */
 export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 	if (!publicViewEnabled()) return null;
@@ -61,7 +62,12 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 				.innerJoin(entities, and(eq(entities.vaultId, people.vaultId), eq(entities.id, people.id)))
 				.where(live);
 			const tagRows = await tx
-				.select({ id: tags.id, name: tags.name, position: tags.position })
+				.select({
+					id: tags.id,
+					name: tags.name,
+					position: tags.position,
+					isPrivate: tags.isPrivate
+				})
 				.from(tags)
 				.where(and(eq(tags.vaultId, vault.id), isNull(tags.deletedAt), isNull(tags.purgedAt)));
 			const tagLinks = await tx
@@ -89,17 +95,23 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 				.where(eq(notes.vaultId, vault.id));
 
 			const liveTags = new Set(tagRows.map((t) => t.id));
+			const privateTags = new Set(tagRows.filter((t) => t.isPrivate).map((t) => t.id));
 			const tagsOf = new Map<string, string[]>();
+			// Entities carrying any private tag are withheld entirely.
+			const hidden = new Set<string>();
 			for (const link of tagLinks) {
+				if (privateTags.has(link.tagId)) hidden.add(link.entityId);
 				if (!liveTags.has(link.tagId)) continue;
 				const list = tagsOf.get(link.entityId) ?? [];
 				list.push(link.tagId);
 				tagsOf.set(link.entityId, list);
 			}
-			const bookmarkIds = new Set(bookmarkRows.map((r) => r.bookmark.id));
-			const personIds = new Set(personRows.map((r) => r.person.id));
+			const publicBookmarks = bookmarkRows.filter((r) => !hidden.has(r.bookmark.id));
+			const publicPeople = personRows.filter((r) => !hidden.has(r.person.id));
+			const bookmarkIds = new Set(publicBookmarks.map((r) => r.bookmark.id));
+			const personIds = new Set(publicPeople.map((r) => r.person.id));
 			return {
-				bookmarks: bookmarkRows.map(({ bookmark: b, createdAt, updatedAt }) => ({
+				bookmarks: publicBookmarks.map(({ bookmark: b, createdAt, updatedAt }) => ({
 					id: b.id,
 					kind: b.kind,
 					title: b.title,
@@ -116,7 +128,7 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 					createdAt: createdAt.toISOString(),
 					updatedAt: updatedAt.toISOString()
 				})),
-				people: personRows.map(({ person: p, createdAt, updatedAt }) => ({
+				people: publicPeople.map(({ person: p, createdAt, updatedAt }) => ({
 					id: p.id,
 					kind: 'person',
 					displayName: p.displayName,
@@ -128,7 +140,7 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 					createdAt: createdAt.toISOString(),
 					updatedAt: updatedAt.toISOString()
 				})),
-				tags: sortByPosition(tagRows).map((t) => ({
+				tags: sortByPosition(tagRows.filter((t) => !t.isPrivate)).map((t) => ({
 					id: t.id,
 					name: t.name,
 					position: t.position,

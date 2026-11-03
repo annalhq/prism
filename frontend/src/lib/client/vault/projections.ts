@@ -139,6 +139,7 @@ export function overlay(records: Records, command: Command): void {
 	else if (action === 'update') Object.assign(value, c.patch ?? c);
 	else if (action === 'rename') value.name = c.name;
 	else if (action === 'move') value.position = c.position;
+	else if (action === 'privacy') value.isPrivate = c.isPrivate;
 	else if (action === 'replace')
 		Object.assign(value, {
 			entityId: c.id,

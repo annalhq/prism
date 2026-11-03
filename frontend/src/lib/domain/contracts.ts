@@ -136,6 +136,8 @@ export type TaxonomyProjection = {
 	normalizedName: string;
 	/** Tags only: fractional sort key, null until the user reorders tags. */
 	position?: string | null;
+	/** Tags only: hidden from the public view, with everything carrying the tag. */
+	isPrivate?: boolean;
 	revision: Revision;
 	lastSeq: Sequence;
 	deletedAt: string | null;

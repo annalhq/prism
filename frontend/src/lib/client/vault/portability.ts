@@ -351,6 +351,9 @@ export async function importLibrary(
 				throw new Error(`Missing or purged reference target ${kind}/${id}.`);
 			return result.idMap[id];
 		};
+		const privacyOf = new Map(
+			client.list<Row>('tags').map((row) => [str(row, 'id'), row.isPrivate === true])
+		);
 		for (const table of ['tags', 'collections'] as const) {
 			const existing = new Map(
 				client
@@ -366,12 +369,23 @@ export async function importLibrary(
 					if (match) {
 						result.idMap[old] = match;
 						skip(old, `Reused active ${table} name.`);
+						// An existing tag keeps its own privacy; say so rather than change it silently.
+						if (table === 'tags' && row.isPrivate === true && !privacyOf.get(match))
+							result.warnings.push(
+								`Tag "${name.name}" is private in the import but public here; items imported with it will be public.`
+							);
 						continue;
 					}
 					const id = crypto.randomUUID();
 					await send(createCommand(table, row, id), old, table);
 					result.idMap[old] = id;
 					existing.set(name.normalizedName, id);
+					if (table === 'tags' && row.isPrivate === true)
+						await send(
+							{ type: 'tag.privacy', id, expectedRevision: '1' as Revision, isPrivate: true },
+							old,
+							table
+						);
 				}
 		}
 		const urls = new Map(
