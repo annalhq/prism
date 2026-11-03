@@ -94,7 +94,9 @@
 		if (!search || view === 'tags') return;
 		const n = ++generation;
 		const connected = connections.get(personId ?? '') ?? new Set<string>();
-		void search.query(library, personId ? 'all' : view, query, sort).then((value) => {
+		// The published snapshot is fixed; a new one is a new reader, which is re-sent.
+		search.setSnapshot(library, 0);
+		void search.query(personId ? 'all' : view, query, sort).then((value) => {
 			if (n !== generation) return;
 			results = personId
 				? {

@@ -54,12 +54,9 @@
 	import { createSearchClient } from '#lib/client/search-client.js';
 	import { perfMark } from '#lib/client/perf.js';
 	import { emptySearch, type searchLibrary } from '#lib/client/search.js';
-	import {
-		exportLibrary,
-		previewImport,
-		importLibrary,
-		type ImportResult
-	} from '#lib/client/vault/portability.js';
+	// Import/export loads on first use, keeping it out of the initial library bundle.
+	import type { ImportResult, previewImport } from '#lib/client/vault/portability.js';
+	const portability = () => import('#lib/client/vault/portability.js');
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { VaultIdentity } from '#lib/domain/replica.js';
 	import type { Command, Revision } from '#lib/domain/contracts.js';
@@ -315,8 +312,10 @@
 		// The directory lists people by their latest connection, unless sorted by name.
 		const byActivity = view === 'people' && !feedMode && sort !== 'title' && !query;
 		const recency = lastAdded;
+		// One copy of the library per content version; view, query and sort changes reuse it.
+		search.setSnapshot(current, contentVersion);
 		pendingResults = search
-			.query(current, filterFeed && !profileSlug ? 'all' : view, query, sort)
+			.query(filterFeed && !profileSlug ? 'all' : view, query, sort)
 			.then((value) => {
 				if (n === generation)
 					results = filterFeed
@@ -662,6 +661,7 @@
 	async function exportData() {
 		if (!library) return;
 		try {
+			const { exportLibrary } = await portability();
 			download(
 				await exportLibrary(library),
 				`prism-v0-${new Date().toISOString().slice(0, 10)}.json`
@@ -678,9 +678,17 @@
 			feedback('Choose a metadata export smaller than 10 MiB.');
 			return;
 		}
+		let preview: typeof previewImport;
+		try {
+			({ previewImport: preview } = await portability());
+		} catch {
+			feedback('Import could not load. Check your connection and try again.');
+			(event.target as HTMLInputElement).value = '';
+			return;
+		}
 		try {
 			importData = JSON.parse(await file.text());
-			importPreview = previewImport(importData);
+			importPreview = preview(importData);
 			importReport = null;
 			importOpen = true;
 		} catch {
@@ -692,6 +700,7 @@
 		if (!library) return;
 		importBusy = true;
 		try {
+			const { importLibrary } = await portability();
 			importReport = await importLibrary(
 				library,
 				importData,

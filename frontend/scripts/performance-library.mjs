@@ -9,6 +9,8 @@
 //   --cold-start MS             extra delay on the first API response of a cold-backend sample
 //                               (default 1500); simulated, not a measured Neon/Vercel cold start
 //   --base URL                  use an already running server instead of starting vite preview
+//   --service-worker            let the service worker install (cold scenarios only: once it
+//                               controls a page, requests bypass this script's interception)
 //   --transport batch|per-table bootstrap transport the mocked server offers (default batch);
 //                               per-table reproduces a server without bootstrap-batch-v1
 //
@@ -47,6 +49,7 @@ const { values: options } = parseArgs({
 		scenarios: { type: 'string', default: 'cold,cold-backend,warm,search,offline' },
 		latency: { type: 'string', default: '40' },
 		transport: { type: 'string', default: 'batch' },
+		'service-worker': { type: 'boolean', default: false },
 		'cold-start': { type: 'string', default: '1500' },
 		base: { type: 'string' }
 	}
@@ -61,6 +64,8 @@ const scenarios = options.scenarios.split(',').map((name) => name.trim());
 const known = ['cold', 'cold-backend', 'warm', 'search', 'offline'];
 for (const name of scenarios)
 	if (!known.includes(name)) throw new Error(`Unknown scenario ${name}; use ${known.join(', ')}.`);
+if (options['service-worker'] && scenarios.some((name) => !name.startsWith('cold')))
+	throw new Error('--service-worker supports only the cold scenarios.');
 
 // Node strips the fixture's type-only imports natively (Node 22.18+).
 const { performanceLibrary, performanceSequence, PERFORMANCE_IDENTITY, PERFORMANCE_SIZES } =
@@ -291,7 +296,10 @@ function launchOptions() {
 /** @param {Browser} browser */
 async function newContext(browser) {
 	// Service workers would bypass request interception; precache cost is in bench (baseline.mjs).
-	return browser.newContext({ serviceWorkers: 'block', viewport: { width: 1280, height: 800 } });
+	return browser.newContext({
+		serviceWorkers: options['service-worker'] ? 'allow' : 'block',
+		viewport: { width: 1280, height: 800 }
+	});
 }
 
 /** @param {string} url */
@@ -525,7 +533,8 @@ const report = {
 		viewport: '1280x800',
 		server: options.base ?? 'vite preview of the local production build (auth/database blanked)',
 		network: `Loopback, no throttling. Mocked API responses delayed ${latency} ms; cold-backend adds ${coldStart} ms to the first API response (simulated).`,
-		bootstrapTransport: options.transport
+		bootstrapTransport: options.transport,
+		serviceWorker: options['service-worker'] ? 'installing during the sample' : 'blocked'
 	},
 	fixture: {
 		size: options.size,
@@ -557,7 +566,7 @@ const report = {
 	runs: Object.fromEntries(Object.entries(results).map(([name, value]) => [name, value.runs]))
 };
 await mkdir('artifacts', { recursive: true });
-const file = `artifacts/performance-library-${options.size}${batched ? '' : '-per-table'}.json`;
+const file = `artifacts/performance-library-${options.size}${batched ? '' : '-per-table'}${options['service-worker'] ? '-sw' : ''}.json`;
 await writeFile(file, `${JSON.stringify(report, null, 2)}\n`);
 for (const [name, summary] of Object.entries(report.scenarios)) {
 	/** @param {string} key */
