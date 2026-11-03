@@ -24,7 +24,6 @@
 		"zip:chrome": "bun run --cwd extensions/chrome zip",
 		"sign:firefox": "bun run --cwd extensions/firefox sign",
 		"build:vercel": "rm -rf .vercel/output && bun run --cwd frontend build && mkdir -p .vercel && cp -R frontend/.vercel/output .vercel/output",
-		"start": "bun run --cwd frontend start",
 		"preview": "bun run --cwd frontend preview",
 		"check": "bun run --cwd frontend check && bun run --cwd extensions/firefox check && bun run --cwd extensions/chrome check",
 		"lint": "bun run --cwd frontend lint",
@@ -38,7 +37,6 @@
 		"db:migrate": "bun run --cwd frontend db:migrate",
 		"db:inventory": "bun run --cwd frontend db:inventory",
 		"db:init-owner": "bun run --cwd frontend db:init-owner",
-		"maintenance": "bun run --cwd frontend maintenance",
 		"release": "commit-and-tag-version",
 		"release:first": "commit-and-tag-version --first-release",
 		"release:dry": "commit-and-tag-version --dry-run"

@@ -13,19 +13,21 @@ export default defineConfig({
 		{ name: 'mobile', use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium' } }
 	],
 	webServer: {
-		command: 'bun run build && node build',
+		// The production build targets Vercel, so tests serve it with Vite's preview server, which
+		// runs the built SvelteKit server output. Preview also reads .env: the empty values below
+		// override it, so tests never touch a real database, sign-in service or object storage.
+		command: 'bun run build && bun run preview --host 127.0.0.1 --port 4173 --strictPort',
 		url: 'http://127.0.0.1:4173',
 		reuseExistingServer: false,
 		timeout: 120_000,
 		env: {
 			NODE_ENV: 'production',
-			HOST: '127.0.0.1',
-			PORT: '4173',
-			ORIGIN: 'http://127.0.0.1:4173',
+			APP_ORIGIN: 'http://127.0.0.1:4173',
 			DATABASE_URL: '',
 			DATABASE_URL_DIRECT: '',
 			OWNER_SUBJECT: '',
 			NEON_AUTH_BASE_URL: '',
+			NEON_AUTH_COOKIE_SECRET: '',
 			// Tests never touch real object storage, whichever names a local .env uses.
 			NEON_STORAGE_ENDPOINT: '',
 			NEON_STORAGE_ACCESS_KEY_ID: '',

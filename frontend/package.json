@@ -14,7 +14,6 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
-		"start": "node --env-file-if-exists=.env build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -34,7 +33,6 @@
 		"db:migrate:production:avatar-sources": "bun scripts/db/migrate-production-0009.ts",
 		"db:migrate:production:text-items": "bun scripts/db/migrate-production-0010.ts",
 		"db:migrate:production:rabbit-holes": "bun scripts/db/migrate-production-0011.ts",
-		"maintenance": "node scripts/not-ready.mjs maintenance",
 		"db:inventory": "bun scripts/db/inventory.ts",
 		"db:init-owner": "bun scripts/db/init-owner.ts"
 	},
@@ -47,7 +45,6 @@
 		"@internationalized/date": "3.12.4",
 		"@lucide/svelte": "1.59.0",
 		"@neon/config": "^1.10.0",
-		"@neon/env": "^1.6.8",
 		"@neondatabase/auth": "0.6.0-beta",
 		"@paper-design/shaders": "^0.0.82",
 		"@tanstack/markdown": "1.2.0",
@@ -63,7 +60,6 @@
 	"devDependencies": {
 		"@eslint/js": "9.39.5",
 		"@playwright/test": "1.64.1",
-		"@sveltejs/adapter-node": "6.0.0",
 		"@sveltejs/adapter-vercel": "^7.0.1",
 		"@sveltejs/kit": "3.1.0",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",
