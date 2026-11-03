@@ -176,6 +176,18 @@ To install it permanently in Firefox, it must be signed:
 
 For Zen and other Firefox forks, see [`extensions/firefox/README.md`](../extensions/firefox/README.md).
 
+### Releases
+
+`bun run release && git push --follow-tags` creates a version tag; the
+[Extensions workflow](workflows/extensions.yml) then rebuilds both extensions and attaches the
+Firefox `.xpi` and the Chrome `.zip` to that tag's GitHub Release. Download the new build from
+there (Chrome: unzip, then **Load unpacked**, or replace the files in the folder you already
+loaded and press reload). The workflow can also be started from the Actions tab; those runs
+upload the packages as a workflow artifact instead.
+
+To have CI sign the Firefox build as well, add `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET` as
+repository secrets; the signed `.xpi` is attached next to the unsigned one.
+
 ## Development
 
 | Command               | Purpose                                                |

@@ -1,0 +1,63 @@
+name: Extensions
+
+# Rebuilds the Firefox and Chrome extensions for every version tag (`bun run release` then
+# `git push --follow-tags`) and attaches the packages to that tag's GitHub Release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      WEB_EXT_API_KEY: ${{ secrets.WEB_EXT_API_KEY }}
+      WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - run: bun install --frozen-lockfile
+
+      - name: Type-check
+        run: |
+          bun run --cwd extensions/firefox check
+          bun run --cwd extensions/chrome check
+
+      - name: Build and package
+        run: bun run zip:extensions
+
+      # Optional: runs only when the AMO API keys are set as repository secrets.
+      - name: Sign Firefox build (unlisted)
+        if: env.WEB_EXT_API_KEY != ''
+        run: >
+          bunx web-ext sign
+          --source-dir extensions/firefox/.output/firefox-mv3
+          --artifacts-dir extensions/firefox/.output/signed
+          --channel unlisted
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-extensions
+          path: |
+            extensions/firefox/.output/*-firefox.xpi
+            extensions/firefox/.output/signed/*.xpi
+            extensions/chrome/.output/*-chrome.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            extensions/firefox/.output/*-firefox.xpi
+            extensions/firefox/.output/signed/*.xpi
+            extensions/chrome/.output/*-chrome.zip
+          fail_on_unmatched_files: false

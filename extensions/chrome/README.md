@@ -39,3 +39,9 @@ Run `bun run zip:chrome` and upload the `.zip` in the
 [Chrome Web Store developer dashboard](https://chrome.google.com/webstore/devconsole). Bump the
 version first (`bun run release` bumps every extension package together); the store rejects a
 version it has already seen.
+
+## Releases
+
+Pushing a version tag (`bun run release && git push --follow-tags` from the repository root)
+makes GitHub Actions rebuild this extension and attach the `.zip` to the tag's GitHub Release.
+See [`.github/workflows/extensions.yml`](../../.github/workflows/extensions.yml).
