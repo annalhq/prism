@@ -1,47 +1,53 @@
-# Prism Chrome Extension
+# Prism for Chrome
 
-Chrome extension for saving the current page or an X/Twitter post to Prism. It is the same
-extension as the Firefox one: the code lives in [`../shared`](../shared), and this package holds
-only the Chrome manifest settings and entrypoints. It also works in other Chromium browsers
-(Edge, Brave, Arc, Vivaldi). Chrome 116 or newer is required.
+Save pages and X/Twitter posts to your Prism library without leaving your browser. Add tags, connect people, and queue saves when you're offline. Works with OldTwitter too.
 
-From the repository root:
+Supports Chrome 116+ and other Chromium browsers, including Edge, Brave, Arc, and Vivaldi. You'll need a running [Prism library](../../.github/README.md#self-hosting) to connect to.
 
-```sh
-bun run dev:chrome     # opens a Chrome profile with the extension loaded and live reload
-bun run build:chrome   # → extensions/chrome/.output/chrome-mv3
-bun run zip:chrome     # → extensions/chrome/.output/prism-extension-chrome-<version>-chrome.zip
-```
+## Install
 
-Connect it from Prism's Account panel by generating a pairing code and entering it in the toolbar
-popup. Chrome asks for access to your Prism site the first time; codes expire after the selected
-interval and work once. Revoke the connection from Prism at any time. The extension keeps its
-revocable bearer credential in Chrome extension storage.
+1. Open [Prism Releases](https://github.com/annalhq/prism/releases) and download the **Chrome `.zip`**.
+2. Extract the ZIP into a folder you plan to keep.
+3. Open `chrome://extensions` and turn on **Developer mode**.
+4. Click **Load unpacked** and select the extracted folder containing `manifest.json`.
 
-The suggested `Alt+Shift+P` shortcut opens the capture popup. Change it at
-`chrome://extensions/shortcuts`.
+Keep that folder in place: Chrome loads the extension from it. In other Chromium browsers, use their extensions page and the same **Load unpacked** option.
 
-## Installing
+## Connect to Prism
 
-### Load unpacked (personal use)
+1. Sign in to Prism and open **Account**.
+2. Generate a pairing code.
+3. Click the Prism icon in your browser toolbar, paste the code, and connect.
+4. Allow access to your Prism site when the browser asks.
 
-1. `bun run build:chrome`
-2. Open `chrome://extensions` and turn on **Developer mode** (top right).
-3. Click **Load unpacked** and pick `extensions/chrome/.output/chrome-mv3`.
+Pairing codes expire and can only be used once. Generate a new one if needed. You can revoke the connection from Prism's Account panel at any time.
 
-It stays installed across restarts. After rebuilding, press the reload icon on the Prism card.
-Unpacked extensions get an ID derived from the folder path, so keep loading it from the same
-folder to keep your pairing.
+## Save something
 
-### Chrome Web Store
+- **Any page:** click the Prism toolbar icon or press `Alt + Shift + P`.
+- **X/Twitter or OldTwitter:** click the Prism save button on a post.
+- **Before saving:** edit the title, add `#tags` or an `@person`, then click **Save**. You can also press `Ctrl + Enter` (`⌘ + Enter` on macOS).
 
-Run `bun run zip:chrome` and upload the `.zip` in the
-[Chrome Web Store developer dashboard](https://chrome.google.com/webstore/devconsole). Bump the
-version first (`bun run release` bumps every extension package together); the store rejects a
-version it has already seen.
+Offline saves are queued and sent when your connection returns.
 
-## Releases
+To change the popup shortcut, open `chrome://extensions/shortcuts`.
 
-Pushing a version tag (`bun run release && git push --follow-tags` from the repository root)
-makes GitHub Actions rebuild this extension and attach the `.zip` to the tag's GitHub Release.
-See [`.github/workflows/release.yml`](../../.github/workflows/release.yml).
+## Update
+
+Download the new Chrome ZIP from [Releases](https://github.com/annalhq/prism/releases), extract it, and replace the files in the folder you originally loaded. Then open `chrome://extensions` and click **Reload** on the Prism card.
+
+Use the same folder to preserve your pairing. Updates to an unpacked extension are manual.
+
+## Build from source
+
+After completing the [project setup](../../.github/README.md#self-hosting), run these commands from the repository root as needed:
+
+| Command                | What it does                                   |
+| ---------------------- | ---------------------------------------------- |
+| `bun run dev:chrome`   | Open Chrome with the extension and live reload |
+| `bun run build:chrome` | Build the extension                            |
+| `bun run zip:chrome`   | Create a ZIP package                           |
+
+To install a local build, use **Load unpacked** and select `extensions/chrome/.output/chrome-mv3`. After rebuilding, click **Reload** on the Prism card.
+
+The extension's shared source lives in [`../shared`](../shared). See also [Prism for Firefox](../firefox/README.md).
