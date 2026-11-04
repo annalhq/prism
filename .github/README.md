@@ -1,121 +1,148 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="media/logo-light.svg">
-  <img src="media/logo-dark.svg" alt="Prism" width="72">
-</picture>
+<img src="media/prism.png" alt="Prism — A quiet place for everything you keep." width="100%">
 
 # Prism
 
-**A private, keyboard-first library for the links, posts and people worth keeping.**
+**Your links, notes, and people. A library that feels like yours.**
 
-[Features](#features) · [Keyboard](#keyboard) · [Search](#search) · [Extension](#browser-extension) · [Setup](#setup)
+Save what catches your attention. Keep the context. Find it when it matters.
 
-<br>
+[![Version](https://img.shields.io/badge/version-0.2.0-e87924?style=flat-square)](https://github.com/annalhq/prism/releases/tag/v0.2.0)
+[![Firefox & Chrome](https://img.shields.io/badge/extensions-Firefox_%26_Chrome-171717?style=flat-square)](#browser-extensions)
+[![Self-hosted](https://img.shields.io/badge/self--hosted-your_library-171717?style=flat-square)](#self-hosting)
 
-<img src="media/main.png" alt="Prism library filtered by the #oicp tag" width="880">
+[Explore the features](#a-home-for-what-you-find) · [Get started](#self-hosting) · [Download extensions](https://github.com/annalhq/prism/releases) · [Changelog](../CHANGELOG.md)
 
 </div>
 
-<br>
+## Keep more than a link
 
-## Features
+An article you want to revisit. A post that changed how you think. A person whose work you follow. The notes you made while connecting it all.
 
-- **One omnibar.** Paste a link to capture it, or type to search. `#tags` and `@people` turn into chips as you type.
-- **A full query language.** Combine tags, people, sites, dates and kinds, and negate any of them (see [Search](#search)).
-- **Vim-style navigation.** `j` `k` `gg` `G` `Ctrl d` `Ctrl u` to move, then `o` `e` `y` to act, so you never have to touch the mouse.
-- **Tags.** A dedicated tags explorer, sidebar shortcuts, reordering with `Alt ↑/↓`, and automatic tags for tweets.
-- **People.** Profiles with linked identities, plus a feed of everything you've saved by or about each person.
-- **Notes and backlinks.** Attach Markdown notes to bookmarks, reference other items, and see what links back.
-- **Rich previews.** Tweet cards, auto-fetched titles and cached favicons.
-- **Read later and trash.** Queue things up, and restore anything you deleted.
-- **Light and dark themes.**
-- **Optional public view.** Publish a read-only copy of your library at `/public`.
-- **Browser extension.** Save any page, or any post on X, without leaving it.
+Prism brings them together in a quiet, private workspace. Capture from your browser, organize around the people and topics that matter to you, and follow an idea as far as it takes you. A single omnibar and familiar keyboard shortcuts keep your library close at hand.
 
-<table>
-  <tr>
-    <td width="50%"><img src="media/main-1.png" alt="People feed"></td>
-    <td width="50%"><img src="media/extension-on-website.png" alt="Capture panel from the extension"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>People feed</sub></td>
-    <td align="center"><sub>Capturing a page with the extension</sub></td>
-  </tr>
-</table>
+<div align="center">
 
-## Keyboard
+<img src="media/main.png" alt="Prism's library showing saved articles, documentation, and posts in a search for GPU resources" width="100%">
 
-Prism has modes, like Vim. In **normal mode** single keys move around and act on the focused bookmark. In **insert mode** your typing goes to the field you're in. `Esc` always takes you back to normal mode. Press `?` in the app to see this list.
+<sub>A little less searching. A little more finding.</sub>
 
-| Move around         |                                 |
-| ------------------- | ------------------------------- |
-| `j` / `k`           | Next / previous bookmark        |
-| `gg` / `G`          | First / last visible bookmark   |
-| `Ctrl d` / `Ctrl u` | Half a page down / up           |
-| `f`                 | Focus the sidebar               |
-| `Alt ↑` / `Alt ↓`   | Reorder the focused sidebar tag |
+</div>
 
-| Capture & search          |                                           |
-| ------------------------- | ----------------------------------------- |
-| `i`                       | Insert a link                             |
-| `/` · `Ctrl K` · `Ctrl F` | Search the library                        |
-| `Enter` · `Tab` · `,`     | Turn typed text into a chip               |
-| `Backspace` (empty field) | Remove the last chip                      |
-| `Ctrl ↵`                  | Save the capture                          |
-| `Esc`                     | Clear the field, or return to normal mode |
+## A home for what you find
 
-| Focused bookmark |               |
-| ---------------- | ------------- |
-| `o` / `Enter`    | Open the link |
-| `e` / `Space`    | Edit          |
-| `y`              | Copy the link |
+### Capture without losing your place
 
-| Workspace |                    |
-| --------- | ------------------ |
-| `,`       | Account & settings |
-| `?`       | Keyboard shortcuts |
+Save a page from the omnibar or send it straight from the Firefox and Chrome extensions. Prism fetches page titles and favicons, gives X/Twitter posts rich cards, and adds automatic tweet tags. Save posts directly from X or OldTwitter while you browse.
 
-On macOS, use `⌘` wherever this table says `Ctrl`.
+No connection? The extension queues your saves until you're back online.
 
-## Search
+### Give every save some context
 
-The omnibar uses one query language everywhere. Each finished filter becomes a chip, but the text query is still what gets stored, so search URLs, the back button and saved views all keep working.
+Add tags, connect people, and write Markdown notes alongside your bookmarks. Create standalone text notes when the thought itself is worth keeping. Rich previews make it easier to revisit what you wrote; references and backlinks help you move between related items.
 
-| Query                                                    | Matches                                             |
-| -------------------------------------------------------- | --------------------------------------------------- |
-| `segment tree`                                           | Those words anywhere in a bookmark                  |
-| `"exact phrase"`                                         | That exact phrase                                   |
-| `title:dp`                                               | Text in the title only                              |
-| `#dp #graphs`                                            | Bookmarks with **all** of these tags                |
-| `#dp\|graphs` · `#{dp, graphs}`                          | Bookmarks with **any** of these tags                |
-| `@simon` · `@a\|b`                                       | Bookmarks connected to a person (or any of several) |
-| `site:codeforces.com`                                    | Links from a site, including its subdomains         |
-| `is:page` · `is:social` · `is:tweet`                     | Bookmarks of that kind                              |
-| `is:later` · `is:untagged` · `is:trash`                  | Read later, untagged, or trashed bookmarks          |
-| `has:note` · `has:tags` · `has:people` · `has:backlinks` | Bookmarks that have that                            |
-| `after:7d` · `before:2026-01`                            | By save date: a span (`d` `w` `m` `y`) or a date    |
-| `!x` · `-x`                                              | Negates any term above, e.g. `-site:x.com`          |
-| `!{a, b}`                                                | Bookmarks with none of these tags                   |
+### Follow the rabbit hole
 
-`@` is a person bang. An exact handle or name wins; otherwise a unique prefix is enough, so results narrow while you type.
+One useful link often leads to another. Rabbit holes let you keep that trail as a hierarchy of linked bookmarks, with room to branch as an idea develops. Return to the path you followed, not just the last page you saved.
 
-## Browser extension
+### Remember the people behind the ideas
 
-Extensions for Firefox ([`extensions/firefox/`](../extensions/firefox)) and Chrome ([`extensions/chrome/`](../extensions/chrome)) share one codebase in [`extensions/shared/`](../extensions/shared). Both capture into the same library with the same tag and person chips.
+Build profiles with linked identities, social links, and profile pictures from multiple social avatar providers. Person timelines and the people feed bring together what you've saved by or about someone, so their work stays connected across your library.
 
-- **Any page:** press `Alt Shift P`, or click the toolbar button.
-- **Posts on X:** a folder button replaces the share icon on every post, so you can save the post in place.
-- **[OldTwitter](https://github.com/dimdenGD/OldTwitter):** a filled bookmark appears next to the favorite button.
-- **Offline:** saves made while offline are queued and sent once you're back online.
+### Find your way back
 
-In the capture panel, `Ctrl ↵` saves. The first `Esc` clears what you're typing; the next one closes the panel.
+Search titles and notes, combine `#tags` and `@people`, or narrow by site, date, and content type. Filters become chips as you type. Use the Tags explorer to browse a topic, reorder sidebar tags to suit your workflow, and keep useful queries as saved searches.
 
-**To pair it:** in Prism, open **Account** (`,`) and generate a pairing code. Paste the code into the extension popup. Codes work once and expire; you can revoke the connection from Prism at any time.
+Read Later gives unfinished reading a place of its own. Trash lets you restore deleted items or remove them permanently.
 
-## Setup
+### Make the space yours
 
-**Requirements:** [Bun](https://bun.sh) 1.4, Node 22.17+, a PostgreSQL database (built for [Neon](https://neon.tech)), and Neon Auth.
+Choose light or dark mode, turn subtle sound cues on or off, and move comfortably between desktop and mobile. The omnibar, bookmark editor, context menus, account panel, and mobile navigation have all been refined through v0.2.0.
+
+Your cached library remains available offline on a trusted device, with changes syncing when you reconnect. Import and export your library as Prism JSON, or export pending work and drafts separately.
+
+### Share on your terms
+
+Prism is built around a private, single-owner library. Enable the optional read-only view at `/public` when you want others to browse. Mark tags as private to keep those tags and the items carrying them out of the public view.
+
+## New in v0.2.0
+
+This release adds more ways to keep your thoughts connected and makes everyday browsing feel smoother.
+
+- **Chrome joins Firefox.** Capture pages and posts from either browser, with support for OldTwitter's bookmark button.
+- **Markdown text notes.** Keep standalone writing alongside your links, with rich previews.
+- **Rabbit holes.** Organize linked bookmarks into branching trails.
+- **Richer people profiles.** Use multiple social avatar providers for profile pictures.
+- **Tag visibility controls.** Change public visibility directly from the tag editor.
+- **A refreshed workspace.** Redesigned landing and sign-in screens, omnibar, bookmark editor, person pages, account panel, context menus, and mobile navigation.
+- **Smoother library updates.** Batched loading, cached search snapshots, more efficient idle syncing, and improved updates across tabs.
+- **Updated photo storage.** Neon Object Storage replaces Backblaze B2 for person photos.
+
+See the [full changelog](../CHANGELOG.md) for release details, fixes, and breaking changes.
+
+## Browser extensions
+
+Keep Prism within reach while you browse. Both extensions save into the same library, with tags and people available in the capture panel.
+
+| Browser                      | Get started                                                       |
+| ---------------------------- | ----------------------------------------------------------------- |
+| Firefox                      | [Installation and signing guide](../extensions/firefox/README.md) |
+| Chrome and Chromium browsers | [Installation guide](../extensions/chrome/README.md)              |
+
+Download packages from [GitHub Releases](https://github.com/annalhq/prism/releases), or [build them yourself](#build-the-extensions).
+
+To connect an extension, open **Account** in Prism and generate a pairing code. Enter it in the extension popup. Codes expire and work once; you can revoke a connection from Prism at any time.
+
+Use **Alt + Shift + P** to open the capture popup, or click the toolbar icon. On X and OldTwitter, use the post's Prism save button to capture it in place.
+
+## At the speed of thought
+
+Prism works with a mouse or touch, with keyboard navigation available throughout the library. Press `?` in the app for the shortcut guide.
+
+| Action                        | Shortcut            |
+| ----------------------------- | ------------------- |
+| Search your library           | `/` or `Ctrl / ⌘ F` |
+| Capture a link                | `i`                 |
+| Next / previous bookmark      | `j` / `k`           |
+| First / last visible bookmark | `gg` / `G`          |
+| Half a page down / up         | `Ctrl d` / `Ctrl u` |
+| Open the focused link         | `o` or `Enter`      |
+| Edit the focused bookmark     | `e` or `Space`      |
+| Copy the focused link         | `y`                 |
+| Focus the sidebar             | `f`                 |
+| Account and settings          | `,`                 |
+| Return to normal mode         | `Esc`               |
+
+Navigation keys work in normal mode; typing in a field stays in that field.
+
+### Search with a little more precision
+
+Start with a word or phrase, then add filters as you need them.
+
+| Try this                                    | To find                                      |
+| ------------------------------------------- | -------------------------------------------- |
+| `"distributed systems"`                     | An exact phrase                              |
+| `title:design`                              | Words in a title                             |
+| `#research #systems`                        | Items with both tags                         |
+| `#{research, systems}`                      | Items with either tag                        |
+| `@simon`                                    | Items connected to a person                  |
+| `site:github.com`                           | Links from a site                            |
+| `is:page` · `is:social` · `is:tweet`        | A particular kind of bookmark                |
+| `is:later` · `is:untagged` · `is:trash`     | Your reading queue, untagged items, or trash |
+| `has:note` · `has:people` · `has:backlinks` | Items with more context                      |
+| `after:7d` · `before:2026-01`               | Items saved within a date range              |
+| `-site:x.com` · `!#news`                    | Results excluding a site or tag              |
+
+Combine filters in one query, such as `#research has:note after:7d`.
+
+## Self-hosting
+
+Run Prism for your own library. Each deployment is configured for one owner, with PostgreSQL for persistence and Neon Auth for sign-in.
+
+### 1. Get the project
+
+You'll need **Bun 1.4**, **Node.js 22.17+**, a PostgreSQL database, and Neon Auth. The project is built for Neon; person photos optionally use Neon Object Storage.
 
 ```sh
 git clone https://github.com/annalhq/prism.git
@@ -124,99 +151,104 @@ bun install --frozen-lockfile
 cp frontend/.env.example frontend/.env
 ```
 
-Fill in `frontend/.env`:
+### 2. Configure your library
 
-| Variable                  | Purpose                                                     |
-| ------------------------- | ----------------------------------------------------------- |
-| `DATABASE_URL`            | Pooled Postgres connection used by the app                  |
-| `DATABASE_URL_DIRECT`     | Direct connection for migrations and scripts                |
-| `APP_ORIGIN`              | Public origin, e.g. `http://localhost:5173`                 |
-| `NEON_AUTH_BASE_URL`      | Neon Auth service URL                                       |
-| `NEON_AUTH_COOKIE_SECRET` | Secret used to sign the session cookie                      |
-| `OWNER_SUBJECT`           | Auth user ID of the library's owner                         |
-| `LIBRARY_PUBLIC_VIEW`     | Set to `enabled` to serve a read-only copy at `/public`     |
-| `DB_MIGRATION_TARGET`     | Set to `isolated` only when migrating a disposable database |
-| `NEON_STORAGE_*`          | Optional Neon Object Storage bucket for person photos       |
+Fill in `frontend/.env` using the [environment template](../frontend/.env.example).
 
-Then create the schema and the owner's vault, and start the app:
+| Variable                  | Purpose                                                                   |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `DATABASE_URL`            | Pooled PostgreSQL connection for the app                                  |
+| `DATABASE_URL_DIRECT`     | Direct database connection for setup and migrations                       |
+| `APP_ORIGIN`              | App origin, such as `http://localhost:5173`                               |
+| `NEON_AUTH_BASE_URL`      | Your Neon Auth service URL                                                |
+| `NEON_AUTH_COOKIE_SECRET` | Session cookie signing secret, at least 32 characters                     |
+| `OWNER_SUBJECT`           | The Neon Auth user ID of the library owner                                |
+| `LIBRARY_PUBLIC_VIEW`     | Optional: set to `enabled` to expose the read-only `/public` view         |
+| `NEON_STORAGE_*`          | Optional: object storage settings for person photos                       |
+| `DB_MIGRATION_TARGET`     | Set to `isolated` only for a confirmed disposable database or test branch |
+
+Create the owner in Neon Auth and use that user's ID for `OWNER_SUBJECT` before initializing the library.
+
+### 3. Initialize and run
+
+For a fresh, isolated database, set `DB_MIGRATION_TARGET=isolated`, then run:
 
 ```sh
-bun run db:migrate       # requires DB_MIGRATION_TARGET=isolated
+bun run db:inventory
+bun run db:migrate
 bun run db:init-owner
-bun run dev              # http://localhost:5173
+bun run dev
 ```
 
-### Building the extensions
+Open **http://localhost:5173** and sign in with the configured owner account.
 
-```sh
-bun run dev:firefox        # Firefox dev build with live reload
-bun run dev:chrome         # Chrome dev build with live reload
-bun run build:extensions   # production builds → extensions/{firefox,chrome}/.output/
-bun run zip:extensions     # packages → extensions/firefox/.output/*.xpi, extensions/chrome/.output/*.zip
-```
+The migration script requires an inventory of the same database from the past 24 hours and checks its migration history. These commands target an isolated database; existing production deployments require a reviewed migration path.
 
-Each browser also has its own `build:<browser>` and `zip:<browser>` script.
+### Deployment
 
-**Chrome:** open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick `extensions/chrome/.output/chrome-mv3`. See [`extensions/chrome/README.md`](../extensions/chrome/README.md).
-
-**Firefox:** to try a build, open `about:debugging` → **This Firefox** → **Load Temporary Add-on**, and pick `extensions/firefox/.output/firefox-mv3/manifest.json`.
-
-To install it permanently in Firefox, it must be signed:
-
-1. Bump the version (`bun run release` bumps every extension package together).
-2. Put your [AMO API keys](https://addons.mozilla.org/developers/addon/api/key/) in `extensions/firefox/.env`:
-
-   ```sh
-   WEB_EXT_API_KEY=user:...
-   WEB_EXT_API_SECRET=...
-   ```
-
-3. Run `bun run sign:firefox`.
-4. In Firefox, open `about:addons` → ⚙ → **Install Add-on From File…** and pick the `.xpi` from `extensions/firefox/.output/signed/`.
-
-For Zen and other Firefox forks, see [`extensions/firefox/README.md`](../extensions/firefox/README.md).
-
-### Releases
-
-`bun run release && git push --follow-tags` creates a version tag; the
-[Release workflow](workflows/release.yml) then rebuilds both extensions and attaches the
-Firefox `.xpi` and the Chrome `.zip` to that tag's GitHub Release. Download the new build from
-there (Chrome: unzip, then **Load unpacked**, or replace the files in the folder you already
-loaded and press reload). The workflow can also be started from the Actions tab; those runs
-upload the packages as a workflow artifact instead.
-
-Every release page shows that version's section of [`CHANGELOG.md`](../CHANGELOG.md): breaking
-changes, features, bug fixes, performance work and refactors, written by `bun run release` from the
-[Conventional Commits](https://www.conventionalcommits.org) since the previous tag. Between
-releases, the [Release Drafter workflow](workflows/release-drafter.yml) keeps an **Unreleased**
-draft on the Releases page up to date with every push to `main`. Mark breaking changes as
-`feat(scope)!: …` (the `!` goes after the scope) or with a `BREAKING CHANGE:` footer.
-
-To have CI sign the Firefox build as well, add `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET` as
-repository secrets; the signed `.xpi` is attached next to the unsigned one.
+The repository includes [Vercel configuration](../vercel.json). Deploy from the repository root and configure the environment variables above for your deployment, with `APP_ORIGIN` set to its HTTPS origin. The production build command is `bun run build:vercel`.
 
 ## Development
 
-| Command               | Purpose                                                |
-| --------------------- | ------------------------------------------------------ |
-| `bun run dev`         | Start the development server                           |
-| `bun run build`       | Build for production                                   |
-| `bun run check`       | Type-check the app and both extensions                 |
-| `bun run lint`        | Run Prettier and ESLint                                |
-| `bun run format`      | Apply formatting                                       |
-| `bun run test`        | Run unit tests                                         |
-| `bun run db:generate` | Generate SQL from the Drizzle schema                   |
-| `bun run release`     | Bump the version and update the changelog from commits |
+Prism is built with **SvelteKit and Svelte 5**, **TypeScript**, **Drizzle ORM**, **PostgreSQL**, and **Neon Auth**. The browser extensions use **WXT** and share their capture experience across browsers.
 
-```
-frontend/              SvelteKit app, Drizzle schema and database scripts
-extensions/shared/     Browser-neutral extension source, icons and fonts
-extensions/firefox/    Firefox extension (WXT)
-extensions/chrome/     Chrome extension (WXT)
+```text
+frontend/              Web app, database schema, migrations, and tests
+extensions/shared/     Shared extension source and assets
+extensions/firefox/    Firefox extension
+extensions/chrome/     Chrome extension
 ```
 
-Deploys to Vercel from the repository root using `vercel.json`.
+| Command                    | Purpose                                         |
+| -------------------------- | ----------------------------------------------- |
+| `bun run dev`              | Start the web app locally                       |
+| `bun run build`            | Build the web app for production                |
+| `bun run check`            | Type-check the app and both extensions          |
+| `bun run lint`             | Check formatting and lint the app               |
+| `bun run test`             | Run unit tests                                  |
+| `bun run test:integration` | Run integration tests                           |
+| `bun run test:e2e`         | Run browser tests                               |
+| `bun run bench:library`    | Run reproducible library performance benchmarks |
+| `bun run db:generate`      | Generate migrations from the Drizzle schema     |
 
-<br>
+### Build the extensions
 
-<div align="center"><sub>Built with SvelteKit, Drizzle, Neon and WXT.</sub></div>
+```sh
+bun run dev:firefox
+bun run dev:chrome
+bun run build:extensions
+bun run zip:extensions
+```
+
+Run the development command for your browser, or build both production packages. Outputs are written to each extension's `.output/` directory. See the [Firefox](../extensions/firefox/README.md) and [Chrome](../extensions/chrome/README.md) guides for loading, packaging, and signing instructions.
+
+### Releases
+
+The project uses Conventional Commits to maintain its [changelog](../CHANGELOG.md). Maintainers can run `bun run release` to bump workspace versions and prepare a version tag. Pushing the tag triggers the [release workflow](workflows/release.yml), which builds and packages both extensions for GitHub Releases. Firefox signing is available when the repository's signing credentials are configured.
+
+## Contributing
+
+Help make Prism a better place to keep things. Bug reports, thoughtful feature suggestions, documentation improvements, and pull requests are welcome.
+
+- [Report a bug](https://github.com/annalhq/prism/issues/new) with steps to reproduce and your browser or environment.
+- [Suggest an improvement](https://github.com/annalhq/prism/issues) or discuss a larger change before starting work.
+- For code changes, keep pull requests focused and run `bun run check`, `bun run lint`, and the tests relevant to your change.
+
+## License
+
+A project license has not yet been added to this repository.
+
+---
+
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="media/logo-light.svg">
+  <img src="media/logo-dark.svg" alt="Prism logo" width="36">
+</picture>
+
+**A quiet place for everything you keep.**
+
+[Source](https://github.com/annalhq/prism) · [Releases](https://github.com/annalhq/prism/releases) · [Issues](https://github.com/annalhq/prism/issues)
+
+</div>
