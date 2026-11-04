@@ -1,6 +1,6 @@
 # Prism for Chrome
 
-Save pages and X/Twitter posts to your Prism library without leaving your browser. Add tags, connect people, and queue saves when you're offline. Works with OldTwitter too.
+Save pages and X/Twitter posts to your Prism library without leaving your browser. Add tags, connect people, and queue saves when you're offline. Works with [OldTwitter](https://github.com/dimdenGD/OldTwitter), created by [dimden](https://github.com/dimdenGD), too.
 
 Supports Chrome 116+ and other Chromium browsers, including Edge, Brave, Arc, and Vivaldi. You'll need a running [Prism library](../../.github/README.md#self-hosting) to connect to.
 

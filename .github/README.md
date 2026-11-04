@@ -9,6 +9,7 @@
 Save what catches your attention. Keep the context. Find it when it matters.
 
 [![Version](https://img.shields.io/badge/version-0.2.0-e87924?style=flat-square)](https://github.com/annalhq/prism/releases/tag/v0.2.0)
+[![License: MIT](https://img.shields.io/badge/license-MIT-171717?style=flat-square)](../LICENSE)
 [![Firefox & Chrome](https://img.shields.io/badge/extensions-Firefox_%26_Chrome-171717?style=flat-square)](#browser-extensions)
 [![Self-hosted](https://img.shields.io/badge/self--hosted-your_library-171717?style=flat-square)](#self-hosting)
 
@@ -34,7 +35,7 @@ Prism brings them together in a quiet, private workspace. Capture from your brow
 
 ### Capture without losing your place
 
-Save a page from the omnibar or send it straight from the Firefox and Chrome extensions. Prism fetches page titles and favicons, gives X/Twitter posts rich cards, and adds automatic tweet tags. Save posts directly from X or OldTwitter while you browse.
+Save a page from the omnibar or send it straight from the Firefox and Chrome extensions. Prism fetches page titles and favicons, gives X/Twitter posts rich cards, and adds automatic tweet tags. Save posts directly from X or [OldTwitter](https://github.com/dimdenGD/OldTwitter), created by [dimden](https://github.com/dimdenGD), while you browse.
 
 No connection? The extension queues your saves until you're back online.
 
@@ -236,7 +237,9 @@ Help make Prism a better place to keep things. Bug reports, thoughtful feature s
 
 ## License
 
-A project license has not yet been added to this repository.
+Prism is licensed under the [MIT License](../LICENSE).
+
+Third-party components retain their own licenses and copyright notices, including the [ocean renderer](../frontend/src/lib/ocean/LICENSE).
 
 ---
 
