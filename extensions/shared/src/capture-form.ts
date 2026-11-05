@@ -29,7 +29,7 @@ const formCss = `${themeCss}
 .panel .site-icon img{width:14px;height:14px;border-radius:3px}
 .panel .site-host{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.panel .title{width:100%;margin:0;padding:6px 8px 12px;border:0;background:transparent;font-family:var(--display);font-size:20px;font-weight:400;line-height:1.25;letter-spacing:-0.01em;outline:none}
+.panel .title{width:100%;margin:0;padding:6px 8px 12px;border:0;background:transparent;font-size:20px;font-weight:400;line-height:1.25;letter-spacing:-0.01em;outline:none}
 .panel .title::placeholder,.panel .token-input::placeholder{color:var(--ink-3);opacity:1}
 .panel .title[aria-invalid="true"]::placeholder{color:var(--danger)}
 .panel .divider{display:none}
@@ -51,7 +51,7 @@ const formCss = `${themeCss}
 .panel .chip-remove:disabled{display:none}
 .panel .tokens.locked .chip{padding-right:9px}
 
-.panel .avatar{display:grid;flex:none;place-items:center;width:var(--size);height:var(--size);border-radius:50%;background:hsl(var(--hue) 32% 27%);box-shadow:0 0 0 1px var(--hairline);color:hsl(var(--hue) 70% 86%);font-size:calc(var(--size) * .4);font-weight:600;line-height:1;user-select:none}
+.panel .avatar{display:grid;flex:none;place-items:center;width:var(--size);height:var(--size);border-radius:50%;background:hsl(var(--hue) 32% 27%);box-shadow:0 0 0 1px var(--hairline);color:hsl(var(--hue) 70% 86%);font-size:calc(var(--size) * .4);font-weight:500;line-height:1;user-select:none}
 @media (prefers-color-scheme:light){.panel .avatar{background:hsl(var(--hue) 70% 88%);color:hsl(var(--hue) 38% 30%)}}
 
 .panel .suggest{margin-top:6px;padding:4px;border-radius:calc(var(--r-panel) - 8px);background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);transform-origin:top center;animation:prism-drop 240ms var(--spring) both}
@@ -64,7 +64,7 @@ const formCss = `${themeCss}
 .panel .option[aria-selected="true"] .option-glyph{color:var(--ink)}
 .panel .option-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .panel .option-meta{flex:none;color:var(--ink-3);font-size:11px}
-.panel .option.create .option-label b{color:var(--ink);font-weight:600}
+.panel .option.create .option-label b{color:var(--ink);font-weight:500}
 .panel .note{margin:0;padding:6px 8px 4px;color:var(--ink-3);font-size:12px}
 .panel .note:empty{display:none}
 
@@ -79,7 +79,7 @@ const formCss = `${themeCss}
 .panel .quiet:active{transform:scale(.96)}
 .panel .hint{display:flex;gap:3px;margin-left:auto;color:var(--ink-3);font-size:10.5px}
 .panel .hint kbd{display:inline-grid;place-items:center;min-width:14px;height:18px;padding:0 1px;border:0;background:none;font:inherit;line-height:18px}
-.panel .primary{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:76px;height:32px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--accent-ink);font-size:12px;font-weight:600;cursor:pointer;transition:transform 260ms var(--spring),opacity 160ms var(--ease),box-shadow 160ms var(--ease)}
+.panel .primary{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:76px;height:32px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--accent-ink);font-size:12px;font-weight:500;cursor:pointer;transition:transform 260ms var(--spring),opacity 160ms var(--ease),box-shadow 160ms var(--ease)}
 .panel .primary:active:not(:disabled){transform:scale(.96);transition-duration:100ms}
 .panel .primary:disabled{cursor:default}
 .panel .primary:disabled:not(.is-saving):not(.is-saved){opacity:.4;box-shadow:none}

@@ -5,39 +5,44 @@
  * 12 mobile navbar · 13 responsive · 14 motion
  *
  * Type scale: xs 11 · sm 12 · md 13 · base 14 · lg 16 · xl 20 · 2xl 28.
- * Weights: 400 body, 500 UI and labels, 600 headings. Icons: 16px in rows and controls.
+ * Weights: 400 body, 500 UI, labels and headings (the two cuts STK Bureau Sans ships). Icons: 16px in rows and controls.
  */
 
 /* 1. Tokens & themes ---------------------------------------------------- */
-/* Font set: Libre Franklin for the interface and titles, STK Bureau Serif only for the sidebar
-   and landing page, JetBrains Mono for data (dates, keys, codes and the ASCII ocean). */
+/* Font set: STK Bureau Sans for all text, STK Bureau Sans Semi Mono for data (dates, keys,
+   codes and the ASCII ocean), and STK Bureau Serif only for the sidebar wordmark and the landing. */
 @font-face {
-	font-family: 'STK Bureau';
+	font-family: 'STK Bureau Sans';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/stk-bureau-sans-book.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'STK Bureau Sans';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/stk-bureau-sans-medium.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'STK Bureau Sans Semi Mono';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/stk-bureau-sans-semimono-regular.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'STK Bureau Serif';
 	font-style: normal;
 	font-weight: 400;
 	font-display: swap;
 	src: url('/fonts/stk-bureau-serif-book.woff2') format('woff2');
 }
-@font-face {
-	font-family: 'Libre Franklin';
-	font-style: normal;
-	font-weight: 100 900;
-	font-display: swap;
-	src: url('@fontsource-variable/libre-franklin/files/libre-franklin-latin-wght-normal.woff2')
-		format('woff2');
-}
-@font-face {
-	font-family: 'JetBrains Mono';
-	font-style: normal;
-	font-weight: 100 800;
-	font-display: swap;
-	src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2')
-		format('woff2');
-}
 :root {
-	--font-sans: 'Libre Franklin', system-ui, sans-serif;
-	--font-display: 'STK Bureau', 'Iowan Old Style', Georgia, serif;
-	--font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+	--font-sans: 'STK Bureau Sans', system-ui, sans-serif;
+	--font-display: 'STK Bureau Serif', 'Iowan Old Style', Georgia, serif;
+	--font-mono: 'STK Bureau Sans Semi Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 	font-family: var(--font-sans);
 	font-synthesis: none;
 	color-scheme: dark;
@@ -178,7 +183,7 @@ h1,
 h2,
 h3 {
 	line-height: var(--leading-tight);
-	font-weight: 600;
+	font-weight: 500;
 }
 h1 {
 	font-size: var(--text-xl);
@@ -332,7 +337,7 @@ kbd {
 	align-items: center;
 	gap: 8px;
 	font-size: var(--text-xl);
-	font-weight: 600;
+	font-weight: 500;
 	letter-spacing: var(--tracking-tight);
 	line-height: 1;
 }
@@ -570,7 +575,7 @@ kbd {
 	border-radius: calc(var(--menu-radius) - var(--menu-pad));
 	color: var(--muted-ink);
 	font-size: var(--text-md);
-	font-weight: 450;
+	font-weight: 400;
 	outline: none;
 	cursor: default;
 	user-select: none;
@@ -725,7 +730,6 @@ kbd {
 	padding: 16px 12px 0 22px;
 }
 .name-sheet-title {
-	font-family: var(--font-display);
 	font-size: 22px;
 	font-weight: 400;
 	letter-spacing: -0.01em;
@@ -1032,7 +1036,7 @@ kbd {
 	gap: 8px;
 	padding-right: 32px;
 	font-size: var(--text-xl);
-	font-weight: 600;
+	font-weight: 500;
 	letter-spacing: var(--tracking-tight);
 	line-height: var(--leading-tight);
 }
@@ -1236,7 +1240,7 @@ kbd {
 	color: var(--secondary);
 	white-space: nowrap;
 	font-size: var(--text-md);
-	font-weight: 450;
+	font-weight: 400;
 	text-align: left;
 	transition:
 		background-color 120ms ease,
@@ -1309,7 +1313,6 @@ kbd {
 	margin-bottom: 2px;
 	padding: 0 4px 0 12px;
 	color: var(--tertiary);
-	font-family: var(--font-display);
 	font-size: var(--text-lg);
 	letter-spacing: -0.005em;
 }
@@ -1951,7 +1954,6 @@ kbd {
 	border: 0;
 	background: transparent;
 	box-shadow: none;
-	font-family: var(--font-display);
 	font-size: 22px;
 	letter-spacing: -0.01em;
 }
@@ -1979,7 +1981,6 @@ kbd {
 	-webkit-background-clip: text;
 	color: transparent;
 	-webkit-text-fill-color: transparent;
-	font-family: var(--font-display);
 	font-size: 22px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -2516,7 +2517,7 @@ kbd {
 }
 .welcome-panel h2 {
 	font-size: var(--text-base);
-	font-weight: 600;
+	font-weight: 500;
 }
 .welcome-panel > p {
 	max-width: 440px;
@@ -2560,7 +2561,7 @@ kbd {
 	background: hsl(var(--avatar-hue) 32% 27%);
 	color: hsl(var(--avatar-hue) 70% 86%);
 	font-size: calc(var(--avatar-size) * 0.38);
-	font-weight: 600;
+	font-weight: 500;
 	letter-spacing: 0.01em;
 	line-height: 1;
 	user-select: none;
@@ -2929,7 +2930,6 @@ kbd {
 }
 .person-head h2 {
 	margin-top: 14px;
-	font-family: var(--font-display);
 	font-size: 32px;
 	font-weight: 400;
 	letter-spacing: -0.02em;
@@ -3278,7 +3278,7 @@ kbd {
 	min-width: 0;
 	overflow: hidden;
 	color: var(--ink);
-	font-weight: 550;
+	font-weight: 500;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -3645,7 +3645,6 @@ a.editor-source:hover > svg {
 	border-radius: 0;
 	background: transparent;
 	box-shadow: none;
-	font-family: var(--font-display);
 	font-size: 21px;
 	font-weight: 400;
 	letter-spacing: -0.01em;
@@ -3801,7 +3800,6 @@ a.editor-source:hover > svg {
 }
 :is(.editor-note-rendered, .note-prose) :is(h1, h2, h3, h4, h5, h6) {
 	margin: 1.1em 0 0.4em;
-	font-family: var(--font-display);
 	font-weight: 400;
 	letter-spacing: -0.01em;
 	line-height: 1.2;
@@ -4329,7 +4327,6 @@ a.editor-source:hover > svg {
 .post-stash-title {
 	align-self: flex-start;
 	padding: 0 8px;
-	font-family: var(--font-display);
 	font-size: var(--text-lg);
 	font-weight: 400;
 	text-align: left;
@@ -4421,7 +4418,6 @@ a.editor-source:hover > svg {
 .editor-backlinks h3 {
 	margin: 0 0 4px;
 	color: var(--tertiary);
-	font-family: var(--font-display);
 	font-size: var(--text-lg);
 	font-weight: 400;
 	letter-spacing: -0.005em;
@@ -4697,7 +4693,7 @@ a.editor-source:hover > svg {
 	gap: 8px;
 	margin-right: auto;
 	font-size: var(--text-md);
-	font-weight: 600;
+	font-weight: 500;
 }
 .tags-head h2 span {
 	color: var(--tertiary);
@@ -4842,7 +4838,6 @@ a.editor-source:hover > svg {
 	padding: 0 4px 0 10px;
 }
 .settings-title {
-	font-family: var(--font-display);
 	font-size: 22px;
 	font-weight: 400;
 	letter-spacing: -0.01em;
@@ -4921,7 +4916,7 @@ a.editor-source:hover > svg {
 	border-radius: var(--radius-control);
 	color: var(--secondary);
 	font-size: var(--text-md);
-	font-weight: 450;
+	font-weight: 400;
 	text-align: left;
 	transition:
 		background-color 120ms ease,
@@ -4987,7 +4982,6 @@ a.editor-source:hover > svg {
 }
 .settings-pane-head h2 {
 	margin-right: auto;
-	font-family: var(--font-display);
 	font-size: 22px;
 	font-weight: 400;
 	letter-spacing: -0.01em;
@@ -5023,7 +5017,6 @@ a.editor-source:hover > svg {
 .settings-group-head h3 {
 	margin: 0 0 10px 4px;
 	color: var(--tertiary);
-	font-family: var(--font-display);
 	font-size: var(--text-lg);
 	font-weight: 400;
 	letter-spacing: -0.005em;
@@ -5770,7 +5763,6 @@ a.editor-source:hover > svg {
 	animation: auth-step-in 240ms var(--ease-out) both;
 }
 .auth-step h1 {
-	font-family: var(--font-display);
 	font-size: 34px;
 	font-weight: 400;
 	letter-spacing: -0.02em;
@@ -5808,7 +5800,7 @@ a.editor-source:hover > svg {
 	padding-left: 4px;
 	color: var(--secondary);
 	font-size: var(--text-sm);
-	font-weight: 450;
+	font-weight: 400;
 }
 .auth-input {
 	--auth-input-inset: 5px;

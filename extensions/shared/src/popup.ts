@@ -156,7 +156,7 @@ button,input,textarea{font:inherit;color:inherit}
    well that lifts when focused, and one pill to connect. */
 .shell{padding:16px 14px 12px;border-radius:var(--r-panel);background:var(--surface);box-shadow:var(--raised);animation:popup-rise 380ms var(--spring) both}
 .mark{display:grid;place-items:center;width:36px;height:36px;margin-bottom:16px;border-radius:var(--r-control);background:var(--lift);box-shadow:var(--raised);color:var(--ink);animation:popup-pop 420ms 60ms var(--spring) both}
-h1{margin:0;font-family:var(--display);font-size:22px;font-weight:400;letter-spacing:-0.015em;line-height:1.15}
+h1{margin:0;font-size:22px;font-weight:400;letter-spacing:-0.015em;line-height:1.15}
 .lede{margin:6px 0 18px;color:var(--ink-2);font-size:12px;line-height:1.5}
 .label{display:block;margin:0 0 6px 4px;color:var(--ink-2);font-size:12px;font-weight:500}
 textarea{display:block;width:100%;resize:none;padding:10px 12px;border:0;border-radius:12px;background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);font:12px/1.5 var(--mono);outline:none;transition:background-color 260ms var(--ease),box-shadow 380ms var(--spring)}
@@ -168,7 +168,7 @@ textarea:focus{background:var(--lift);box-shadow:var(--raised),0 0 0 4px var(--h
 .shell .message:not(:empty){animation:popup-fade 200ms var(--ease) both}
 .shell .error{color:var(--danger)!important}
 
-.shell .primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 16px;border:0;border-radius:var(--r-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--accent-ink);font-size:13px;font-weight:600;cursor:pointer;transition:transform 260ms var(--spring),opacity 160ms var(--ease)}
+.shell .primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 16px;border:0;border-radius:var(--r-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--accent-ink);font-size:13px;font-weight:500;cursor:pointer;transition:transform 260ms var(--spring),opacity 160ms var(--ease)}
 .shell .primary.block{width:100%}
 .shell .primary:active:not(:disabled){transform:scale(.97);transition-duration:100ms}
 .shell .primary:disabled{cursor:default}

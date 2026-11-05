@@ -83,7 +83,7 @@ class CapturePanel {
 		} catch (error) {
 			const status = document.createElement('p');
 			status.textContent = (error as Error).message;
-			status.style.cssText = `margin:0;padding:14px 16px;border:1px solid ${light ? '#26251e1a' : '#303030'};border-radius:20px;background:${light ? '#f2f1ed' : '#1a1a1a'};color:${light ? '#cf2d56' : '#f2a6a0'};font:13px/1.45 system-ui,sans-serif`;
+			status.style.cssText = `margin:0;padding:14px 16px;border:1px solid ${light ? '#26251e1a' : '#303030'};border-radius:20px;background:${light ? '#f2f1ed' : '#1a1a1a'};color:${light ? '#cf2d56' : '#f2a6a0'};font:13px/1.45 "STK Bureau Sans",system-ui,sans-serif`;
 			shadow.append(status);
 		}
 	}

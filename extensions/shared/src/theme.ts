@@ -2,12 +2,13 @@ import { browser } from 'wxt/browser';
 
 /**
  * Prism design tokens, shared by the in-page panel (shadow root) and the popup document. They
- * follow the web app: Libre Franklin for text, STK Bureau for titles, faint wells that lift into
+ * follow the web app: STK Bureau Sans for text and titles, its Semi Mono for data, faint wells that lift into
  * a raised tab when active, and one soft ease for motion.
  */
 export const themeCss = `
-@font-face{font-family:"Libre Franklin";font-style:normal;font-weight:100 900;font-display:swap;src:url("${browser.runtime.getURL('/libre-franklin-latin-wght-normal.woff2')}") format("woff2")}
-@font-face{font-family:"STK Bureau";font-style:normal;font-weight:400;font-display:swap;src:url("${browser.runtime.getURL('/stk-bureau-serif-book.woff2')}") format("woff2")}
+@font-face{font-family:"STK Bureau Sans";font-style:normal;font-weight:400;font-display:swap;src:url("${browser.runtime.getURL('/stk-bureau-sans-book.woff2')}") format("woff2")}
+@font-face{font-family:"STK Bureau Sans";font-style:normal;font-weight:500;font-display:swap;src:url("${browser.runtime.getURL('/stk-bureau-sans-medium.woff2')}") format("woff2")}
+@font-face{font-family:"STK Bureau Sans Semi Mono";font-style:normal;font-weight:400;font-display:swap;src:url("${browser.runtime.getURL('/stk-bureau-sans-semimono-regular.woff2')}") format("woff2")}
 :host,:root{
 --canvas:#121212;--surface:#1a1a1a;--field:#202020;--elevated:#242424;
 --ink:#efeeeb;--ink-2:#a3a29e;--ink-3:#7f7e7a;--line:#303030;--hairline:rgb(255 255 255 / 6%);
@@ -16,9 +17,8 @@ export const themeCss = `
 --hover:rgb(255 255 255 / 5%);--ring:rgb(255 255 255 / 16%);
 --raised:inset 0 0 0 1px var(--hairline),inset 0 1px 0 var(--highlight),0 1px 2px var(--shadow-soft);
 --lift:color-mix(in srgb,var(--ink) 6%,var(--elevated));
---font:"Libre Franklin",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
---display:"STK Bureau","Iowan Old Style",Georgia,serif;
---mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+--font:"STK Bureau Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+--mono:"STK Bureau Sans Semi Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
 --ease:cubic-bezier(0.2,0.8,0.2,1);--spring:cubic-bezier(0.32,0.72,0,1);
 --r-control:10px;--r-card:14px;--r-panel:20px;--r-pill:999px;
 color-scheme:dark}

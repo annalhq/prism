@@ -14,7 +14,11 @@ export const baseManifest = {
 	optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
 	web_accessible_resources: [
 		{
-			resources: ['libre-franklin-latin-wght-normal.woff2', 'stk-bureau-serif-book.woff2'],
+			resources: [
+				'stk-bureau-sans-book.woff2',
+				'stk-bureau-sans-medium.woff2',
+				'stk-bureau-sans-semimono-regular.woff2'
+			],
 			matches: xHosts
 		}
 	],
