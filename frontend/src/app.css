@@ -530,27 +530,36 @@ kbd {
 }
 
 /*
- * Menus (context, dropdown and select): a small frosted card that grows out of where it was
- * opened and folds back into it. The highlighted item lifts into the sidebar's raised tab and
- * its icon brightens. Radii nest: card 14 − padding 5 → items 9.
+ * Menus (context, dropdown and select), after the macOS menu: a sheet of frosted material that
+ * takes the colour of what is under it, edged by one crisp hairline and a faint top sheen, with
+ * a soft layered shadow. Rows are compact and quiet: full-ink labels with no icons, and a flat
+ * neutral wash for the highlighted row (no lifted tab, no motion inside the menu). Shortcuts sit
+ * at the far right as plain capitals. It fades in from where it was opened, barely scaling.
+ * Radii nest: sheet 12 − padding 5 → rows 7. Touch screens get the iOS form further down.
  */
 .select-content,
 .menu-content {
 	--menu-pad: 5px;
-	--menu-radius: 14px;
+	--menu-radius: 12px;
+	--menu-edge: color-mix(in srgb, var(--ink) 12%, transparent);
+	--menu-sheen: color-mix(in srgb, var(--warm-white) 9%, transparent);
+	--menu-fill: color-mix(in srgb, var(--ink) 9%, transparent);
+	--menu-rule: color-mix(in srgb, var(--ink) 10%, transparent);
 	z-index: 80;
 	max-height: min(380px, var(--bits-dropdown-menu-content-available-height, 60vh));
 	overflow-y: auto;
 	padding: var(--menu-pad);
 	border: 0;
 	border-radius: var(--menu-radius);
-	background: color-mix(in srgb, var(--elevated) 94%, transparent);
-	-webkit-backdrop-filter: blur(24px) saturate(170%);
-	backdrop-filter: blur(24px) saturate(170%);
+	background: color-mix(in srgb, var(--elevated) 92%, transparent);
+	-webkit-backdrop-filter: blur(40px) saturate(180%);
+	backdrop-filter: blur(40px) saturate(180%);
 	box-shadow:
-		var(--raised),
+		0 0 0 0.5px var(--menu-edge),
+		inset 0 0.5px 0 var(--menu-sheen),
 		0 2px 6px var(--shadow-faint),
-		0 18px 44px var(--shadow-strong);
+		0 12px 36px -6px var(--shadow-strong);
+	color: var(--ink);
 	outline: none;
 	transform-origin: var(
 		--bits-dropdown-menu-content-transform-origin,
@@ -559,6 +568,21 @@ kbd {
 			var(--bits-select-content-transform-origin, top)
 		)
 	);
+}
+:root[data-theme='light'] :is(.select-content, .menu-content) {
+	--menu-edge: color-mix(in srgb, var(--ink) 11%, transparent);
+	--menu-sheen: color-mix(in srgb, var(--warm-white) 85%, transparent);
+	--menu-fill: color-mix(in srgb, var(--ink) 7%, transparent);
+	--menu-rule: color-mix(in srgb, var(--ink) 9%, transparent);
+	background: color-mix(in srgb, var(--elevated) 88%, transparent);
+}
+/* Without backdrop blur the material would be see-through; it falls back to the solid sheet. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.select-content,
+	.menu-content,
+	:root[data-theme='light'] :is(.select-content, .menu-content) {
+		background: var(--elevated);
+	}
 }
 /* bits-ui focuses the sheet itself on open; the global focus ring would outline it in white. */
 .select-content:focus,
@@ -569,66 +593,65 @@ kbd {
 }
 .select-content[data-state='open'],
 .menu-content[data-state='open'] {
-	animation: menu-in 260ms var(--ease-spring);
+	animation: menu-in 160ms var(--ease-out);
 }
 .select-content[data-state='closed'],
 .menu-content[data-state='closed'] {
-	animation: menu-out 140ms var(--ease-out) forwards;
+	animation: menu-out 120ms ease-in forwards;
 }
 .select-content {
-	min-width: var(--bits-select-anchor-width, 170px);
+	min-width: var(--bits-select-anchor-width, 180px);
 }
 .menu-content {
-	min-width: 210px;
+	min-width: 220px;
 	max-width: min(320px, calc(100vw - 24px));
 }
 .select-item,
 .menu-item {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	min-height: 34px;
-	padding: 0 8px 0 10px;
+	gap: 9px;
+	min-height: 28px;
+	padding: 0 10px 0 9px;
 	border-radius: calc(var(--menu-radius) - var(--menu-pad));
-	color: var(--muted-ink);
+	color: var(--ink);
 	font-size: var(--text-md);
 	font-weight: 400;
+	line-height: var(--leading-row);
 	outline: none;
 	cursor: default;
 	user-select: none;
 	overflow-wrap: anywhere;
 	transition:
-		background-color 120ms ease,
-		box-shadow 120ms ease,
-		color 120ms ease;
+		background-color 80ms ease,
+		color 80ms ease;
 }
+/* With a pointer the label says it all, as in a macOS menu: no icon column. Touch keeps them. */
 .menu-item > svg:first-child {
-	width: 15px;
-	height: 15px;
-	color: var(--tertiary);
-	transition:
-		color 120ms ease,
-		scale 260ms var(--ease-spring);
+	display: none;
 }
 .menu-item > span {
 	flex: 1;
 	min-width: 0;
 }
-/* Shortcuts: just the key, quiet text beside the action, a touch brighter on its row. */
+/* Shortcuts: the bare key at the far right, in capitals like a system menu. */
 .menu-item kbd {
 	display: inline-grid;
 	place-items: center;
-	min-width: 16px;
+	min-width: 14px;
 	height: 18px;
+	margin-left: 12px;
 	padding: 0;
 	border: 0;
 	background: none;
 	box-shadow: none;
 	color: var(--tertiary);
-	font-family: var(--font-mono);
-	font-size: var(--text-xs);
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	font-weight: 400;
+	letter-spacing: 0.02em;
 	line-height: 18px;
-	transition: color 120ms ease;
+	text-transform: uppercase;
 }
 /* The Enter key drawn as an icon wherever a shortcut mentions it. */
 .kbd-icon {
@@ -641,17 +664,16 @@ kbd {
 .menu-item .menu-check {
 	width: 14px;
 	height: 14px;
+	margin-left: 12px;
 	color: var(--ink);
+	stroke-width: 2.25;
 }
 .select-item[data-highlighted],
 .menu-item[data-highlighted] {
-	background: var(--lift);
-	box-shadow: var(--raised);
-	color: var(--ink);
+	background: var(--menu-fill);
 }
 .menu-item[data-highlighted] > svg:first-child {
 	color: var(--ink);
-	scale: 1.06;
 }
 .menu-item[data-highlighted] kbd {
 	color: var(--secondary);
@@ -662,7 +684,6 @@ kbd {
 }
 .menu-item.danger-text[data-highlighted] {
 	background: color-mix(in srgb, var(--danger) 12%, transparent);
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 20%, transparent);
 }
 .select-item[data-disabled],
 .menu-item[data-disabled] {
@@ -671,26 +692,80 @@ kbd {
 }
 .menu-separator {
 	height: 1px;
-	margin: 5px 10px;
-	background: var(--hairline);
+	margin: 5px 9px;
+	background: var(--menu-rule);
 }
-/* What the menu acts on: the site's icon and name, above the actions. */
+/* What the menu acts on: the site's icon and name, a quiet caption above the actions. */
 .menu-header {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	min-width: 0;
-	padding: 6px 10px 8px;
-	margin-bottom: 4px;
-	border-bottom: 1px solid var(--hairline);
+	margin-bottom: 5px;
+	padding: 5px 9px 9px;
+	background: linear-gradient(var(--menu-rule), var(--menu-rule)) no-repeat center bottom /
+		calc(100% - 18px) 1px;
 	color: var(--tertiary);
 	font-size: var(--text-sm);
+	font-weight: 500;
+}
+.menu-header .favicon,
+.menu-header .favicon img {
+	width: 14px;
+	height: 14px;
 }
 .menu-header > span {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+/*
+ * Touch: the iOS form. A wider sheet with no inner padding, tall rows divided by hairlines, the
+ * icon at the trailing edge, and actions grouped by a thick band instead of a thin rule.
+ * Shortcut keys mean nothing without a keyboard, so they go.
+ */
+@media (pointer: coarse) {
+	.menu-content {
+		--menu-pad: 0px;
+		--menu-radius: 14px;
+		min-width: 250px;
+	}
+	.menu-item {
+		gap: 12px;
+		min-height: 44px;
+		padding: 0 16px;
+		border-radius: 0;
+		font-size: var(--text-lg);
+	}
+	.menu-content .menu-item + .menu-item {
+		box-shadow: inset 0 0.5px 0 var(--menu-rule);
+	}
+	.menu-item > svg:first-child {
+		display: block;
+		order: 2;
+		stroke-width: 1.75;
+		width: 18px;
+		height: 18px;
+		color: var(--ink);
+	}
+	.menu-item.danger-text > svg:first-child {
+		color: var(--danger);
+	}
+	.menu-item kbd {
+		display: none;
+	}
+	.menu-separator {
+		height: 8px;
+		margin: 0;
+	}
+	.menu-header {
+		margin: 0;
+		padding: 12px 16px;
+		background: linear-gradient(var(--menu-rule), var(--menu-rule)) no-repeat center bottom / 100%
+			0.5px;
+		font-size: var(--text-md);
+	}
 }
 
 .dialog-overlay {
@@ -4368,10 +4443,6 @@ a.editor-source:hover > svg {
 	font-weight: 400;
 	text-align: left;
 }
-.menu-spacer {
-	width: 15px;
-	flex-shrink: 0;
-}
 .menu-empty {
 	padding: 8px 10px;
 	color: var(--tertiary);
@@ -6776,14 +6847,12 @@ a.editor-source:hover > svg {
 @keyframes menu-in {
 	from {
 		opacity: 0;
-		scale: 0.94;
-		filter: blur(3px);
+		scale: 0.98;
 	}
 }
 @keyframes menu-out {
 	to {
 		opacity: 0;
-		scale: 0.97;
 	}
 }
 @keyframes settings-in {
