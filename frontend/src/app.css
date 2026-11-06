@@ -4,7 +4,14 @@
  * 6 list & cards · 7 people · 8 inspector · 9 tags page · 10 settings · 11 auth
  * 12 mobile navbar · 13 responsive · 14 motion
  *
- * Type scale: xs 11 · sm 12 · md 13 · base 14 · lg 16 · xl 20 · 2xl 28.
+ * Type scale: xs 11 · sm 12 · md 13 · base 14 · body 15 · lg 16 · xl 20 · title 22 · 2xl 28 · display 34.
+ * Roles, loudest first. The bookmark is the content, so it outranks the interface around it:
+ *   content  row titles, search and notes at body 15 (lg 16 on phones), ink, 400
+ *   title    sheet, dialog and pane titles at title 22, 400, tracking-title
+ *   UI       controls and menu items at md 13, 400–500
+ *   label    section labels at md 13, 500, tertiary, sentence case (never caps)
+ *   meta     site, date and counts at sm 12–md 13, tertiary; numbers in the mono with tabular figures
+ * Prose (notes, ledes) stays inside --measure. Every grey meets WCAG AA (4.5:1) on the surfaces.
  * Weights: 400 body, 500 UI, labels and headings (the two cuts STK Bureau Sans ships). Icons: 16px in rows and controls.
  */
 
@@ -61,7 +68,7 @@
 	--ink: #efeeeb;
 	--muted-ink: #c4c2ba;
 	--secondary: #a3a29e;
-	--tertiary: #7f7e7a;
+	--tertiary: #92918d;
 	--line: #303030;
 	--hairline: rgb(255 255 255 / 6%);
 	--highlight: rgb(255 255 255 / 4%);
@@ -85,14 +92,20 @@
 	--text-sm: 12px;
 	--text-md: 13px;
 	--text-base: 14px;
+	--text-body: 15px;
 	--text-lg: 16px;
 	--text-xl: 20px;
+	--text-title: 22px;
 	--text-2xl: 28px;
+	--text-display: 34px;
 	--leading-tight: 1.25;
+	--leading-row: 1.35;
 	--leading: 1.5;
 	--leading-relaxed: 1.65;
 	--tracking-tight: -0.02em;
-	--tracking-caps: 0.08em;
+	--tracking-title: -0.01em;
+	/* The longest comfortable line for prose. */
+	--measure: 68ch;
 	--radius-sm: 6px;
 	--radius-control: 10px;
 	--radius-card: 14px;
@@ -122,7 +135,8 @@
 	font-size: var(--text-base);
 	line-height: var(--leading);
 	-webkit-font-smoothing: antialiased;
-	text-rendering: optimizeLegibility;
+	/* Kerning without optimizeLegibility, which slows layout across a thousand rows. */
+	font-kerning: normal;
 }
 /* Warm paper light theme, after cursor.com's palette. */
 :root[data-theme='light'] {
@@ -138,9 +152,9 @@
 	--pressed: #e1e0db;
 	--selection: #e6e5e0;
 	--ink: #26251e;
-	--muted-ink: #3b3a33cc;
-	--secondary: #26251e99;
-	--tertiary: #26251e70;
+	--muted-ink: #3b3a33e0;
+	--secondary: #26251ec0;
+	--tertiary: #26251ea8;
 	--line: #26251e1a;
 	--hairline: #26251e0d;
 	--highlight: rgb(255 255 255 / 60%);
@@ -730,9 +744,10 @@ kbd {
 	padding: 16px 12px 0 22px;
 }
 .name-sheet-title {
-	font-size: 22px;
+	font-size: var(--text-title);
 	font-weight: 400;
-	letter-spacing: -0.01em;
+	letter-spacing: var(--tracking-title);
+	text-wrap: balance;
 }
 .name-sheet-close {
 	border-radius: 50%;
@@ -785,7 +800,7 @@ kbd {
 .name-sheet-glyph {
 	color: var(--tertiary);
 	font-family: var(--font-mono);
-	font-size: 20px;
+	font-size: var(--text-xl);
 	line-height: 1;
 	transition: color 200ms ease;
 }
@@ -799,9 +814,9 @@ kbd {
 	border-radius: 0;
 	background: transparent;
 	box-shadow: none;
-	font-size: 20px;
+	font-size: var(--text-xl);
 	font-weight: 500;
-	letter-spacing: -0.01em;
+	letter-spacing: var(--tracking-title);
 }
 .name-sheet-name input:focus,
 .name-sheet-name input:focus-visible {
@@ -860,6 +875,7 @@ kbd {
 	color: var(--tertiary);
 	font-size: var(--text-sm);
 	line-height: var(--leading);
+	text-wrap: pretty;
 }
 .name-sheet-hint.exists {
 	color: var(--warning);
@@ -1035,15 +1051,17 @@ kbd {
 	align-items: center;
 	gap: 8px;
 	padding-right: 32px;
-	font-size: var(--text-xl);
-	font-weight: 500;
-	letter-spacing: var(--tracking-tight);
+	font-size: var(--text-title);
+	font-weight: 400;
+	letter-spacing: var(--tracking-title);
 	line-height: var(--leading-tight);
+	text-wrap: balance;
 }
 .dialog-description {
 	margin: 6px 0 18px;
 	color: var(--secondary);
 	font-size: var(--text-md);
+	text-wrap: pretty;
 }
 .dialog-close {
 	position: absolute;
@@ -1083,11 +1101,9 @@ kbd {
 	margin-top: 20px;
 }
 .shortcut-guide h3 {
-	color: var(--secondary);
-	font-size: var(--text-xs);
+	color: var(--tertiary);
+	font-size: var(--text-md);
 	font-weight: 500;
-	letter-spacing: var(--tracking-caps);
-	text-transform: uppercase;
 }
 .shortcut-guide dl {
 	margin: 8px 0 0;
@@ -1163,8 +1179,8 @@ kbd {
 }
 .sidebar-brand .sidebar-label {
 	font-family: var(--font-display);
-	font-size: 22px;
-	letter-spacing: -0.01em;
+	font-size: var(--text-title);
+	letter-spacing: var(--tracking-title);
 	line-height: 1;
 }
 /* The toggle stays out of the way until the panel is pointed at. */
@@ -1313,8 +1329,8 @@ kbd {
 	margin-bottom: 2px;
 	padding: 0 4px 0 12px;
 	color: var(--tertiary);
-	font-size: var(--text-lg);
-	letter-spacing: -0.005em;
+	font-size: var(--text-md);
+	font-weight: 500;
 }
 .sidebar-heading-link {
 	color: inherit;
@@ -1811,7 +1827,7 @@ kbd {
 }
 .workspace-search .omnibar input:not([type='checkbox']) {
 	min-height: 38px;
-	font-size: 15px;
+	font-size: var(--text-body);
 }
 .workspace-search .omnibar input::placeholder {
 	color: var(--tertiary);
@@ -1954,8 +1970,8 @@ kbd {
 	border: 0;
 	background: transparent;
 	box-shadow: none;
-	font-size: 22px;
-	letter-spacing: -0.01em;
+	font-size: var(--text-title);
+	letter-spacing: var(--tracking-title);
 }
 .capture-picker input:focus-visible {
 	outline: none;
@@ -1981,7 +1997,8 @@ kbd {
 	-webkit-background-clip: text;
 	color: transparent;
 	-webkit-text-fill-color: transparent;
-	font-size: 22px;
+	font-size: var(--text-title);
+	letter-spacing: var(--tracking-title);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	pointer-events: none;
@@ -1997,7 +2014,7 @@ kbd {
 	border-radius: var(--radius-control);
 	background: transparent;
 	box-shadow: none;
-	font-size: 15px;
+	font-size: var(--text-body);
 	line-height: var(--leading-relaxed);
 	resize: none;
 }
@@ -2339,11 +2356,14 @@ kbd {
 	animation: collapsible-up 220ms var(--ease-out);
 }
 .bookmark-expansion .note-prose {
+	/* The note is content too: body-sized, near-ink, and kept to a readable line. */
+	max-width: calc(var(--measure) + var(--row-title-inset) + 16px);
 	padding: 0 16px 14px var(--row-title-inset);
-	color: var(--secondary);
-	font-size: var(--text-md);
+	color: var(--muted-ink);
+	font-size: var(--text-base);
 	line-height: var(--leading-relaxed);
 	overflow-wrap: anywhere;
+	text-wrap: pretty;
 	transition:
 		opacity 260ms var(--ease-out),
 		translate 300ms var(--ease-spring),
@@ -2455,8 +2475,9 @@ kbd {
 	min-width: 0;
 	overflow: hidden;
 	color: var(--ink);
-	font-size: var(--text-base);
+	font-size: var(--text-body);
 	font-weight: 400;
+	line-height: var(--leading-row);
 	text-align: left;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -2480,7 +2501,7 @@ kbd {
 .bookmark-date {
 	color: var(--tertiary);
 	font-family: var(--font-mono);
-	font-size: var(--text-xs);
+	font-size: var(--text-sm);
 	font-variant-numeric: tabular-nums;
 	text-align: right;
 	white-space: nowrap;
@@ -2523,6 +2544,7 @@ kbd {
 	max-width: 440px;
 	color: var(--secondary);
 	font-size: var(--text-md);
+	text-wrap: pretty;
 }
 .welcome-panel > .primary-button {
 	margin-top: 6px;
@@ -2719,7 +2741,7 @@ kbd {
 	padding: 6px 2px;
 	border-radius: var(--radius-control);
 	color: var(--secondary);
-	font-size: var(--text-xs);
+	font-size: var(--text-sm);
 	scroll-snap-align: start;
 	transition:
 		background-color 150ms ease,
@@ -2930,10 +2952,11 @@ kbd {
 }
 .person-head h2 {
 	margin-top: 14px;
-	font-size: 32px;
+	font-size: var(--text-2xl);
 	font-weight: 400;
-	letter-spacing: -0.02em;
+	letter-spacing: var(--tracking-tight);
 	line-height: 1.1;
+	text-wrap: balance;
 	overflow-wrap: anywhere;
 }
 .person-meta {
@@ -2991,6 +3014,7 @@ kbd {
 	line-height: var(--leading-relaxed);
 	white-space: pre-line;
 	overflow-wrap: anywhere;
+	text-wrap: pretty;
 }
 /* Connect a saved link: the omnibar's well. Faint at rest, lifting into the raised tab when
    focused, its icon brightening. Radius 14, like the bar. */
@@ -3039,7 +3063,7 @@ kbd {
 		0 12px 30px var(--shadow-soft);
 }
 .person-connect .token-field .token-search:not([type='checkbox']) {
-	font-size: 15px;
+	font-size: var(--text-body);
 }
 .person-connect .token-field .token-search::placeholder {
 	color: var(--tertiary);
@@ -3131,9 +3155,10 @@ kbd {
 	max-height: calc(1em * var(--leading-relaxed) * 5);
 	overflow: hidden;
 	color: var(--muted-ink);
-	font-size: var(--text-md);
+	font-size: var(--text-base);
 	line-height: var(--leading-relaxed);
 	overflow-wrap: anywhere;
+	text-wrap: pretty;
 	-webkit-mask-image: linear-gradient(to bottom, black 70%, transparent);
 	mask-image: linear-gradient(to bottom, black 70%, transparent);
 }
@@ -3155,9 +3180,9 @@ kbd {
 	display: -webkit-box;
 	overflow: hidden;
 	color: var(--ink);
-	font-size: var(--text-md);
+	font-size: var(--text-body);
 	font-weight: 500;
-	line-height: 1.4;
+	line-height: var(--leading-row);
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 	line-clamp: 2;
@@ -3328,8 +3353,8 @@ kbd {
 }
 .tweet-text {
 	color: var(--ink);
-	font-size: 15px;
-	line-height: 1.55;
+	font-size: var(--text-body);
+	line-height: var(--leading-relaxed);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
@@ -3645,9 +3670,9 @@ a.editor-source:hover > svg {
 	border-radius: 0;
 	background: transparent;
 	box-shadow: none;
-	font-size: 21px;
+	font-size: var(--text-title);
 	font-weight: 400;
-	letter-spacing: -0.01em;
+	letter-spacing: var(--tracking-title);
 	line-height: 1.25;
 	resize: none;
 }
@@ -3805,13 +3830,22 @@ a.editor-source:hover > svg {
 	line-height: 1.2;
 }
 :is(.editor-note-rendered, .note-prose) h1 {
-	font-size: 22px;
+	font-size: var(--text-title);
 }
 :is(.editor-note-rendered, .note-prose) h2 {
-	font-size: 19px;
+	font-size: var(--text-xl);
 }
 :is(.editor-note-rendered, .note-prose) :is(h3, h4, h5, h6) {
 	font-size: var(--text-lg);
+}
+/* Under a row or in a post the note is a preview: its headings stay below the bookmark's title. */
+:is(.bookmark-expansion .note-prose, .post-text) :is(h1, h2) {
+	font-size: var(--text-lg);
+	font-weight: 500;
+}
+:is(.bookmark-expansion .note-prose, .post-text) :is(h3, h4, h5, h6) {
+	font-size: var(--text-base);
+	font-weight: 500;
 }
 :is(.editor-note-rendered, .note-prose) :is(ul, ol) {
 	padding-left: 1.3em;
@@ -4736,7 +4770,7 @@ a.editor-source:hover > svg {
 	padding: 0 10px;
 	border-radius: var(--radius-control);
 	color: var(--ink);
-	font-size: var(--text-md);
+	font-size: var(--text-base);
 	text-align: left;
 	transition: background-color 120ms ease;
 }
@@ -4838,9 +4872,9 @@ a.editor-source:hover > svg {
 	padding: 0 4px 0 10px;
 }
 .settings-title {
-	font-size: 22px;
+	font-size: var(--text-title);
 	font-weight: 400;
-	letter-spacing: -0.01em;
+	letter-spacing: var(--tracking-title);
 	line-height: 1.2;
 }
 .settings-close-nav {
@@ -4982,9 +5016,9 @@ a.editor-source:hover > svg {
 }
 .settings-pane-head h2 {
 	margin-right: auto;
-	font-size: 22px;
+	font-size: var(--text-title);
 	font-weight: 400;
-	letter-spacing: -0.01em;
+	letter-spacing: var(--tracking-title);
 }
 .settings-back {
 	display: none;
@@ -5017,9 +5051,8 @@ a.editor-source:hover > svg {
 .settings-group-head h3 {
 	margin: 0 0 10px 4px;
 	color: var(--tertiary);
-	font-size: var(--text-lg);
-	font-weight: 400;
-	letter-spacing: -0.005em;
+	font-size: var(--text-md);
+	font-weight: 500;
 }
 .settings-group-head {
 	display: flex;
@@ -5052,6 +5085,7 @@ a.editor-source:hover > svg {
 	color: var(--secondary);
 	font-size: var(--text-md);
 	line-height: var(--leading-relaxed);
+	text-wrap: pretty;
 }
 /* Cards: a faint well with a hairline, rows divided by inset rules. */
 .settings-card {
@@ -5551,9 +5585,9 @@ a.editor-source:hover > svg {
 	gap: 9px;
 	color: #fff;
 	font-family: var(--font-display);
-	font-size: 22px;
+	font-size: var(--text-title);
 	font-weight: 400;
-	letter-spacing: -0.01em;
+	letter-spacing: var(--tracking-title);
 }
 .grain-brand .brand img,
 :root[data-theme='light'] .grain-brand .brand-symbol img {
@@ -5763,10 +5797,11 @@ a.editor-source:hover > svg {
 	animation: auth-step-in 240ms var(--ease-out) both;
 }
 .auth-step h1 {
-	font-size: 34px;
+	font-size: var(--text-display);
 	font-weight: 400;
-	letter-spacing: -0.02em;
+	letter-spacing: var(--tracking-tight);
 	line-height: 1.1;
+	text-wrap: balance;
 }
 .auth-intro {
 	margin-top: 8px;
@@ -5774,6 +5809,7 @@ a.editor-source:hover > svg {
 	font-size: var(--text-base);
 	line-height: var(--leading);
 	overflow-wrap: anywhere;
+	text-wrap: pretty;
 }
 .auth-intro strong {
 	color: var(--ink);
@@ -6003,7 +6039,7 @@ a.editor-source:hover > svg {
 }
 @media (max-width: 767px) {
 	.auth-step h1 {
-		font-size: 30px;
+		font-size: var(--text-2xl);
 	}
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -6346,6 +6382,9 @@ a.editor-source:hover > svg {
 		padding: 4px 8px 8px;
 		overflow: hidden;
 		clip: auto;
+		font-size: var(--text-title);
+		font-weight: 400;
+		letter-spacing: var(--tracking-title);
 		text-overflow: ellipsis;
 	}
 	/* Mobile rows: just the icon and the title. No site, no date. */
@@ -6360,8 +6399,9 @@ a.editor-source:hover > svg {
 		min-height: 50px;
 		padding: 8px 10px;
 	}
+	/* Phones read the content at 16px, the same size the fields keep to avoid zoom. */
 	.library-row .bookmark-title {
-		font-size: 15px;
+		font-size: var(--text-lg);
 	}
 	.bookmark-domain,
 	.bookmark-date {
@@ -6445,7 +6485,7 @@ a.editor-source:hover > svg {
 		padding: 0 0 0 4px;
 	}
 	.settings-title {
-		font-size: 34px;
+		font-size: var(--text-display);
 	}
 	.settings-close-nav {
 		display: inline-flex;
@@ -6534,7 +6574,8 @@ a.editor-source:hover > svg {
 		left: 50%;
 		translate: -50% 0;
 		margin: 0;
-		font-size: 19px;
+		font-size: var(--text-lg);
+		font-weight: 500;
 	}
 	.settings-back {
 		display: inline-flex;
@@ -6592,9 +6633,6 @@ a.editor-source:hover > svg {
 	}
 	.person-identity > .person-avatar {
 		margin-top: -32px;
-	}
-	.person-head h2 {
-		font-size: 28px;
 	}
 	.person-connect {
 		padding-inline: 6px;
