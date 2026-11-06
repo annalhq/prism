@@ -1,4 +1,4 @@
-# Prism Next Version — Features and System Design
+# Prism v0.3.0 — Proposed Features and System Design
 
 **Status:** Proposed roadmap. Checkboxes represent work to implement and verify, not features already delivered. No application changes or production migrations are authorized by this document alone.
 

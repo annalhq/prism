@@ -2265,6 +2265,16 @@ kbd {
 	color: var(--ink);
 	text-decoration: none;
 }
+/* The sheet header and scroll area are for phones; on desktop the card reads as before. */
+.capture-head {
+	display: none;
+}
+.capture-scroll {
+	display: contents;
+}
+.capture-error {
+	margin: 10px 10px 0;
+}
 .capture-hint {
 	color: var(--secondary);
 	font-size: var(--text-sm);
@@ -6313,51 +6323,218 @@ a.editor-source:hover > svg {
 	opacity: 1;
 	transition-delay: 160ms;
 }
-/* Capture opens as a sheet just above the bar, never over the top of the page. */
-.mobile-search .capture-picker,
+/*
+ * Saving on a phone: an iOS-style sheet, not a card squeezed above the bar. It fills the screen
+ * down to the keyboard (its top and bottom track the visible viewport, so typing never hides
+ * it), over a dimmed page. The header never scrolls: Cancel, what is being saved, and Save are
+ * always in reach; only the fields beneath it scroll. Tag suggestions open inline as tall rows.
+ */
 .mobile-search .omnibar-section > .form-error {
 	position: absolute;
 	top: auto;
 	bottom: calc(100% + 10px);
 	left: 0;
 	right: 0;
-	max-height: 65dvh;
-	/* Same inset from the shell as the bar, so the same curve. */
-	border-radius: var(--nav-radius);
-	box-shadow: 0 -8px 36px var(--shadow-strong);
-}
-.mobile-search .omnibar-section > .form-error {
 	margin: 0;
 	padding: 10px 14px;
 	border: 1px solid var(--line);
+	border-radius: var(--nav-radius);
+	background: var(--elevated);
+	box-shadow: 0 -8px 36px var(--shadow-strong);
+}
+/* A frosted parent would trap the fixed sheet inside the bar; while it is open, the bar (hidden
+   under the dimmed page anyway) drops its blur and turns solid. */
+.mobile-search:has(.capture-picker) {
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
 	background: var(--elevated);
 }
 .mobile-search .capture-picker {
-	overflow-y: auto;
+	position: fixed;
+	z-index: 1;
+	top: calc(var(--viewport-top, 0px) + max(14px, env(safe-area-inset-top)));
+	bottom: var(--keyboard-inset, 0px);
+	left: 0;
+	right: 0;
+	display: flex;
+	flex-direction: column;
+	max-height: none;
+	padding: 0;
+	overflow: hidden;
+	border: 0;
+	border-radius: var(--shell-radius) var(--shell-radius) 0 0;
+	background: var(--surface);
+	/* The spread shadow is the dimmed page behind the sheet. */
+	box-shadow:
+		0 0 0 100vmax var(--scrim),
+		0 -12px 40px var(--shadow-strong);
 	transform-origin: bottom center;
+	animation:
+		sheet-up 460ms var(--ease-spring),
+		sheet-scrim 320ms var(--ease-out);
 }
-/* In the sheet, suggestions open inline so they never spill past the screen edge. */
+@keyframes sheet-scrim {
+	from {
+		box-shadow:
+			0 0 0 100vmax transparent,
+			0 -12px 40px transparent;
+	}
+}
+.mobile-search .capture-picker > fieldset {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+}
+.mobile-search .capture-head {
+	position: relative;
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: center;
+	flex-shrink: 0;
+	min-height: 60px;
+	padding: 12px 12px 6px 6px;
+	box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.capture-grabber {
+	position: absolute;
+	top: 6px;
+	left: 50%;
+	width: 36px;
+	height: 5px;
+	border-radius: var(--radius-pill);
+	background: var(--tertiary);
+	opacity: 0.4;
+	translate: -50% 0;
+}
+.capture-head-cancel,
+.capture-head-status {
+	justify-self: start;
+	padding: 8px 10px;
+	border-radius: var(--radius-pill);
+	color: var(--secondary);
+	font-size: var(--text-lg);
+}
+.capture-head-cancel:active {
+	background: var(--highlight);
+}
+.capture-head-title {
+	color: var(--ink);
+	font-size: var(--text-lg);
+	font-weight: 500;
+	white-space: nowrap;
+}
+.capture-head-save {
+	justify-self: end;
+	height: 36px;
+	padding: 0 18px;
+	border-radius: var(--radius-pill);
+	background: var(--accent);
+	box-shadow: inset 0 1px 0 color-mix(in srgb, var(--warm-white) 22%, transparent);
+	color: var(--on-accent);
+	font-size: var(--text-md);
+	font-weight: 500;
+	transition:
+		opacity 150ms ease,
+		scale 200ms var(--ease-spring);
+}
+.capture-head-save:active:not(:disabled) {
+	scale: 0.95;
+}
+.capture-head-save.busy {
+	opacity: 0.7;
+}
+.mobile-search .capture-scroll {
+	display: block;
+	flex: 1;
+	min-height: 0;
+	padding: 10px 14px calc(28px + env(safe-area-inset-bottom));
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+}
+.mobile-search .capture-footer {
+	display: none;
+}
+/* The fields, sized for thumbs. */
+.mobile-search .capture-source {
+	min-height: 40px;
+	padding: 8px 12px;
+	border-radius: var(--radius-control);
+	background: var(--highlight);
+	font-size: var(--text-md);
+}
+.mobile-search .capture-source small {
+	opacity: 1;
+}
+.mobile-search .capture-picker .capture-title-field input:not([type='checkbox']) {
+	min-height: 56px;
+	padding-inline: 4px;
+}
+.mobile-search .title-shimmer {
+	left: 4px;
+	right: 4px;
+}
+.mobile-search .capture-picker .capture-body:not([type='checkbox']) {
+	min-height: 38dvh;
+	max-height: none;
+	padding: 6px 4px;
+	/* 16px: iOS never zooms into the note. */
+	font-size: var(--text-lg);
+	overflow-y: visible;
+}
+.mobile-search .capture-organizer {
+	margin-top: 14px;
+}
+.mobile-search .capture-tokens {
+	gap: 6px;
+	min-height: 52px;
+	padding: 8px 10px;
+	border-radius: var(--radius-card);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.mobile-search .capture-tokens:focus-within {
+	background: var(--elevated);
+	box-shadow: var(--raised);
+}
+.mobile-search .capture-token {
+	height: 32px;
+	padding-left: 10px;
+	font-size: var(--text-md);
+}
+.mobile-search .capture-token button {
+	width: 26px;
+	height: 26px;
+}
+.mobile-search .capture-picker .capture-tokens input:not([type='checkbox']) {
+	min-height: 34px;
+	padding-inline: 4px;
+}
+/* Suggestions stay in the sheet's flow as tall rows, never a popover off the screen edge. */
 .mobile-search .capture-options {
 	position: static;
 	margin-top: 8px;
 	padding: 4px;
 	border: 0;
-	border-radius: 12px;
+	border-radius: var(--radius-card);
 	background: var(--highlight);
 	box-shadow: inset 0 0 0 1px var(--hairline);
+	animation: none;
 }
 .mobile-search .capture-options li {
-	min-height: 40px;
-	border-radius: 9px;
+	gap: 12px;
+	min-height: 48px;
+	padding: 0 12px;
+	border-radius: calc(var(--radius-card) - 4px);
+	font-size: var(--text-lg);
 }
-.mobile-search .capture-tokens {
-	gap: 6px;
-	min-height: 46px;
-	padding: 6px 8px;
+.mobile-search .capture-options svg {
+	width: 16px;
+	height: 16px;
 }
-.mobile-search .capture-picker .capture-tokens input:not([type='checkbox']) {
-	min-height: 32px;
-	padding-inline: 4px;
+.mobile-search .capture-error {
+	margin: 12px 4px 0;
 }
 .mobile-search .omnibar-clear {
 	width: 40px;
@@ -6366,6 +6543,11 @@ a.editor-source:hover > svg {
 }
 .mobile-search .capture-picker ~ .form-error {
 	display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.mobile-search .capture-picker {
+		animation: sheet-scrim 200ms ease;
+	}
 }
 
 /* 13. Responsive --------------------------------------------------------- */

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Plus, Search, X, ArrowRight, Hash, CornerDownLeft, Rabbit } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { flip } from 'svelte/animate';
 	import { scale } from 'svelte/transition';
 	import { cubicOut, quintOut } from 'svelte/easing';
@@ -696,6 +697,32 @@
 		);
 		input?.focus();
 	}
+	/**
+	 * Phones: the save sheet sizes itself to the part of the screen the keyboard leaves, so its
+	 * header (and Save) stays in view while typing tags. Desktop CSS ignores the variables.
+	 */
+	const fitKeyboard: Attachment<HTMLElement> = (node) => {
+		const viewport = window.visualViewport;
+		if (!viewport) return;
+		const fit = () => {
+			const below = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+			node.style.setProperty('--viewport-top', `${viewport.offsetTop}px`);
+			node.style.setProperty('--keyboard-inset', `${below}px`);
+		};
+		fit();
+		viewport.addEventListener('resize', fit);
+		viewport.addEventListener('scroll', fit);
+		return () => {
+			viewport.removeEventListener('resize', fit);
+			viewport.removeEventListener('scroll', fit);
+		};
+	};
+	// Once the keyboard has risen, bring the tag field into the middle of the sheet.
+	function revealOnTouch(event: FocusEvent) {
+		if (!matchMedia('(pointer: coarse)').matches) return;
+		const field = event.currentTarget as HTMLElement;
+		setTimeout(() => field.scrollIntoView({ block: 'center', behavior: 'smooth' }), 320);
+	}
 	const apple = typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
 	const pop = { duration: 240, start: 0.75, easing: quintOut };
 </script>
@@ -830,129 +857,149 @@
 	{#if mode === 'insert' && (url || writing)}
 		<form
 			class="capture-picker"
-			aria-label="Save bookmark"
+			aria-label={writing ? 'New note' : 'New link'}
 			onsubmit={(e) => {
 				e.preventDefault();
 				void save();
 			}}
+			{@attach fitKeyboard}
 		>
 			<fieldset disabled={busy}>
-				{#if writing}
-					<!-- A plain Markdown field: no toolbar, just the usual shortcuts (⌘B, ⌘I, ⌘⇧X, ⌘E, ⌘K). -->
-					<label class="sr-only" for="capture-body">Note</label>
-					<textarea
-						id="capture-body"
-						class="capture-body"
-						bind:this={bodyInput}
-						bind:value={body}
-						placeholder="Write in Markdown…"
-						rows="4"
-						disabled={created}
-						spellcheck="true"
-						onkeydown={(e) => {
-							if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) {
-								e.preventDefault();
-								void save();
-							}
-						}}
-						{@attach autosize(body)}
-						{@attach markdownShortcuts}></textarea>
-				{:else}
-					<button
-						type="button"
-						class="capture-source"
-						title={created ? url : `${url} · Edit link`}
-						disabled={created}
-						onclick={editLink}
-						><Favicon {url} /><span>{host}</span>{#if !created}<small>Edit</small>{/if}</button
+				<!-- Phones only: a sheet header that never scrolls, so Save is always one tap away. -->
+				<header class="capture-head">
+					<span class="capture-grabber" aria-hidden="true"></span>
+					{#if created}<span class="capture-head-status">Saved</span>{:else}<button
+							type="button"
+							class="capture-head-cancel"
+							onclick={discardDraft}>Cancel</button
+						>{/if}
+					<h2 class="capture-head-title">{writing ? 'New note' : 'New link'}</h2>
+					<button type="submit" class={['capture-head-save', { busy }]}
+						>{busy ? 'Saving…' : created ? 'Done' : 'Save'}</button
 					>
-					<div class="capture-title-field">
-						<input
-							id="bookmark-capture-title"
-							bind:this={titleInput}
-							bind:value={title}
-							aria-label="Title"
-							oninput={() => (titleEdited = true)}
+				</header>
+				<div class="capture-scroll">
+					{#if writing}
+						<!-- A plain Markdown field: no toolbar, just the usual shortcuts (⌘B, ⌘I, ⌘⇧X, ⌘E, ⌘K). -->
+						<label class="sr-only" for="capture-body">Note</label>
+						<textarea
+							id="capture-body"
+							class="capture-body"
+							bind:this={bodyInput}
+							bind:value={body}
+							placeholder="Write in Markdown…"
+							rows="4"
+							disabled={created}
+							spellcheck="true"
 							onkeydown={(e) => {
-								if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
+								if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) {
 									e.preventDefault();
-									organizerInput?.focus();
+									void save();
 								}
 							}}
+							{@attach autosize(body)}
+							{@attach markdownShortcuts}></textarea>
+					{:else}
+						<button
+							type="button"
+							class="capture-source"
+							title={created ? url : `${url} · Edit link`}
 							disabled={created}
-							maxlength="500"
-							placeholder={titleLoading ? '' : 'Untitled'}
-							aria-busy={titleLoading}
-						/>
-						{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
-								>Fetching title…</span
-							>{/if}
-					</div>
-				{/if}
-				<div class="capture-organizer">
-					<!-- The whole token row is the field's hit area. -->
-					<label class="capture-tokens">
-						{#each selected as choice (key(choice))}<span
-								class="capture-token"
-								class:person={choice.kind === 'person'}
-								class:done={completed.includes(key(choice))}
-								animate:flip={{ duration: 180, easing: cubicOut }}
-								transition:scale={{ duration: 150, start: 0.8, easing: cubicOut }}
-								>{#if choice.kind === 'person'}<PersonAvatar
-										name={choice.name}
-										size={18}
-									/>{:else}<Hash />{/if}{choice.name}<button
-									type="button"
-									aria-label={`Remove ${choice.name}`}
-									disabled={completed.includes(key(choice))}
-									onclick={() => remove(choice)}><X /></button
-								></span
-							>{/each}
-						<input
-							id="capture-organizer"
-							bind:this={organizerInput}
-							bind:value={organizer}
-							role="combobox"
-							aria-label="Tags and people"
-							aria-expanded={suggesting}
-							aria-controls="capture-options"
-							aria-autocomplete="list"
-							aria-activedescendant={suggesting ? `capture-option-${active}` : undefined}
-							placeholder={selected.length ? '' : 'Add tags or people…'}
-							autocomplete="off"
-							spellcheck="false"
-							onfocus={() => (organizing = true)}
-							onblur={() => (organizing = false)}
-							onkeydown={organizerKey}
-						/>
-					</label>
-					{#if suggesting}<ul
-							id="capture-options"
-							class="capture-options"
-							role="listbox"
-							aria-label="Suggestions"
-							transition:scale={{ duration: 140, start: 0.97, easing: cubicOut }}
+							onclick={editLink}
+							><Favicon {url} /><span>{host}</span>{#if !created}<small>Edit</small>{/if}</button
 						>
-							{#each options as choice, index (key(choice))}<li
-									id={`capture-option-${index}`}
-									role="option"
-									aria-selected={index === active}
-									class:active={index === active}
-									onpointerenter={() => (active = index)}
-									onpointerdown={(e) => {
-										// Keep focus in the field so the list stays open for the next pick.
+						<div class="capture-title-field">
+							<input
+								id="bookmark-capture-title"
+								bind:this={titleInput}
+								bind:value={title}
+								aria-label="Title"
+								oninput={() => (titleEdited = true)}
+								onkeydown={(e) => {
+									if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
 										e.preventDefault();
-										add(choice);
-									}}
-								>
-									{#if choice.kind === 'new-tag'}<Plus /><span>Create <b>#{choice.name}</b></span
-										>{:else}{#if choice.kind === 'person'}<PersonAvatar
-												name={choice.name}
-												size={20}
-											/>{:else}<Hash />{/if}<span>{choice.name}</span>{/if}
-									{#if index === active}<CornerDownLeft class="capture-option-enter" />{/if}
-								</li>{/each}
-						</ul>{/if}
+										organizerInput?.focus();
+									}
+								}}
+								disabled={created}
+								maxlength="500"
+								placeholder={titleLoading ? '' : 'Untitled'}
+								aria-busy={titleLoading}
+							/>
+							{#if titleLoading && !title}<span class="title-shimmer" aria-hidden="true"
+									>Fetching title…</span
+								>{/if}
+						</div>
+					{/if}
+					<div class="capture-organizer">
+						<!-- The whole token row is the field's hit area. -->
+						<label class="capture-tokens">
+							{#each selected as choice (key(choice))}<span
+									class="capture-token"
+									class:person={choice.kind === 'person'}
+									class:done={completed.includes(key(choice))}
+									animate:flip={{ duration: 180, easing: cubicOut }}
+									transition:scale={{ duration: 150, start: 0.8, easing: cubicOut }}
+									>{#if choice.kind === 'person'}<PersonAvatar
+											name={choice.name}
+											size={18}
+										/>{:else}<Hash />{/if}{choice.name}<button
+										type="button"
+										aria-label={`Remove ${choice.name}`}
+										disabled={completed.includes(key(choice))}
+										onclick={() => remove(choice)}><X /></button
+									></span
+								>{/each}
+							<input
+								id="capture-organizer"
+								bind:this={organizerInput}
+								bind:value={organizer}
+								role="combobox"
+								aria-label="Tags and people"
+								aria-expanded={suggesting}
+								aria-controls="capture-options"
+								aria-autocomplete="list"
+								aria-activedescendant={suggesting ? `capture-option-${active}` : undefined}
+								placeholder={selected.length ? '' : 'Add tags or people…'}
+								autocomplete="off"
+								spellcheck="false"
+								onfocus={(e) => {
+									organizing = true;
+									revealOnTouch(e);
+								}}
+								onblur={() => (organizing = false)}
+								onkeydown={organizerKey}
+							/>
+						</label>
+						{#if suggesting}<ul
+								id="capture-options"
+								class="capture-options"
+								role="listbox"
+								aria-label="Suggestions"
+								transition:scale={{ duration: 140, start: 0.97, easing: cubicOut }}
+							>
+								{#each options as choice, index (key(choice))}<li
+										id={`capture-option-${index}`}
+										role="option"
+										aria-selected={index === active}
+										class:active={index === active}
+										onpointerenter={() => (active = index)}
+										onpointerdown={(e) => {
+											// Keep focus in the field so the list stays open for the next pick.
+											e.preventDefault();
+											add(choice);
+										}}
+									>
+										{#if choice.kind === 'new-tag'}<Plus /><span>Create <b>#{choice.name}</b></span
+											>{:else}{#if choice.kind === 'person'}<PersonAvatar
+													name={choice.name}
+													size={20}
+												/>{:else}<Hash />{/if}<span>{choice.name}</span>{/if}
+										{#if index === active}<CornerDownLeft class="capture-option-enter" />{/if}
+									</li>{/each}
+							</ul>{/if}
+					</div>
+					{#if error}<p class="form-error capture-error" role="alert">{error}</p>{/if}
 				</div>
 				<div class="capture-footer">
 					{#if created}<span class="capture-hint">Saved. Finish organizing.</span>{:else}<button
@@ -971,5 +1018,7 @@
 				</div>
 			</fieldset>
 		</form>{/if}
-	{#if error}<p class="form-error" role="alert">{error}</p>{/if}
+	{#if error && !(mode === 'insert' && (url || writing))}<p class="form-error" role="alert">
+			{error}
+		</p>{/if}
 </section>
