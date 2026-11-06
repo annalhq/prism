@@ -72,8 +72,8 @@
 	--line: #303030;
 	--hairline: rgb(255 255 255 / 6%);
 	--highlight: rgb(255 255 255 / 4%);
-	--accent: #f5f5f7;
-	--accent-hover: #ffffff;
+	--accent: #f4f2ec;
+	--accent-hover: #faf8f3;
 	--on-accent: #161618;
 	--scrim: rgb(10 11 14 / 68%);
 	--danger: #f2a6a0;
@@ -87,6 +87,8 @@
 	--switch-on-knob: #353535;
 	--cover-glow: #52514b66;
 	--cover-base: #282827;
+	/* The one white: warm, never stark. Sheens, glass edges and text on the gradient use it. */
+	--warm-white: #fffaf2;
 
 	--text-xs: 11px;
 	--text-sm: 12px;
@@ -138,41 +140,42 @@
 	/* Kerning without optimizeLegibility, which slows layout across a thousand rows. */
 	font-kerning: normal;
 }
-/* Warm paper light theme, after cursor.com's palette. */
+/* Warm cream light theme: every surface from one paper family, the raised layers a softer cream
+   rather than white, so nothing on the page reads stark. */
 :root[data-theme='light'] {
 	color-scheme: light;
-	--canvas: #f7f7f4;
-	--surface: #f2f1ed;
-	--field: #ebeae5;
-	--elevated: #fbfbf9;
-	--sheet: #f7f7f4;
-	--card: #f7f7f4;
-	--hover: #ebeae5;
-	--active: #e6e5e0;
-	--pressed: #e1e0db;
-	--selection: #e6e5e0;
+	--canvas: #f7f5ef;
+	--surface: #f2f0e9;
+	--field: #ebe8e0;
+	--elevated: #faf7ef;
+	--sheet: #f7f5ef;
+	--card: #f7f5ef;
+	--hover: #ebe8e0;
+	--active: #e6e3da;
+	--pressed: #e0ddd3;
+	--selection: #e7e4db;
 	--ink: #26251e;
 	--muted-ink: #3b3a33e0;
 	--secondary: #26251ec0;
 	--tertiary: #26251ea8;
 	--line: #26251e1a;
 	--hairline: #26251e0d;
-	--highlight: rgb(255 255 255 / 60%);
+	--highlight: color-mix(in srgb, var(--warm-white) 40%, transparent);
 	--accent: #26251e;
 	--accent-hover: #3b3a33;
-	--on-accent: #f7f7f4;
+	--on-accent: #f7f5ef;
 	--scrim: rgb(38 37 30 / 28%);
 	--danger: #cf2d56;
 	--warning: #a8641f;
 	--shadow-faint: rgb(38 37 30 / 4%);
 	--shadow-soft: rgb(38 37 30 / 8%);
 	--shadow-strong: rgb(38 37 30 / 16%);
-	--switch-off: #d7d6d0;
-	--switch-knob: #ffffff;
+	--switch-off: #d9d5cb;
+	--switch-knob: #faf7ef;
 	--switch-on: #26251e;
-	--switch-on-knob: #f7f7f4;
+	--switch-on-knob: #f7f5ef;
 	--cover-glow: #f54e0022;
-	--cover-base: #ebeae5;
+	--cover-base: #ebe8e0;
 }
 
 /* 2. Base ---------------------------------------------------------------- */
@@ -975,7 +978,7 @@ kbd {
 .name-sheet-submit {
 	background: var(--accent);
 	box-shadow:
-		inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 22%, transparent),
 		0 4px 14px var(--shadow-soft);
 	color: var(--on-accent);
 }
@@ -1853,7 +1856,7 @@ kbd {
 }
 .workspace-search .omnibar-continue {
 	box-shadow:
-		inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 22%, transparent),
 		0 4px 14px var(--shadow-soft);
 	transition:
 		background-color 160ms ease,
@@ -5272,7 +5275,7 @@ a.editor-source:hover > svg {
 .settings-action.primary {
 	background: var(--accent);
 	box-shadow:
-		inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 22%, transparent),
 		0 2px 8px var(--shadow-soft);
 	color: var(--on-accent);
 }
@@ -5534,7 +5537,7 @@ a.editor-source:hover > svg {
 	z-index: 0;
 	overflow: hidden;
 	background: #000;
-	color: #fff;
+	color: var(--warm-white);
 }
 .grain-gradient {
 	position: absolute;
@@ -5583,7 +5586,7 @@ a.editor-source:hover > svg {
 }
 .grain-brand .brand {
 	gap: 9px;
-	color: #fff;
+	color: var(--warm-white);
 	font-family: var(--font-display);
 	font-size: var(--text-title);
 	font-weight: 400;
@@ -5656,14 +5659,14 @@ a.editor-source:hover > svg {
 	padding: 0 7px 0 26px;
 	border: 0;
 	border-radius: var(--radius-pill);
-	background: rgb(255 255 255 / 9%);
+	background: color-mix(in srgb, var(--warm-white) 9%, transparent);
 	-webkit-backdrop-filter: blur(20px) saturate(170%);
 	backdrop-filter: blur(20px) saturate(170%);
 	box-shadow:
-		inset 0 0 0 1px rgb(255 255 255 / 20%),
-		inset 0 1px 0 rgb(255 255 255 / 28%),
+		inset 0 0 0 1px color-mix(in srgb, var(--warm-white) 20%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 28%, transparent),
 		0 12px 32px rgb(0 0 0 / 25%);
-	color: #fff;
+	color: var(--warm-white);
 	font-size: var(--text-lg);
 	font-weight: 500;
 	letter-spacing: -0.01em;
@@ -5673,11 +5676,11 @@ a.editor-source:hover > svg {
 }
 .grain-page .landing-cta:hover,
 .grain-page .landing-cta:active {
-	background: rgb(255 255 255 / 15%);
-	color: #fff;
+	background: color-mix(in srgb, var(--warm-white) 15%, transparent);
+	color: var(--warm-white);
 	box-shadow:
-		inset 0 0 0 1px rgb(255 255 255 / 28%),
-		inset 0 1px 0 rgb(255 255 255 / 34%),
+		inset 0 0 0 1px color-mix(in srgb, var(--warm-white) 28%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 34%, transparent),
 		0 12px 32px rgb(0 0 0 / 25%);
 }
 
@@ -5687,7 +5690,7 @@ a.editor-source:hover > svg {
 	width: 44px;
 	height: 44px;
 	border-radius: 50%;
-	background: #fff;
+	background: var(--warm-white);
 	color: #0b0b0b;
 	box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
 	transition: translate 320ms var(--ease-spring);
@@ -5704,30 +5707,32 @@ a.editor-source:hover > svg {
 }
 .landing-offline {
 	padding: 4px 0 2px;
-	color: rgb(255 255 255 / 80%);
+	color: color-mix(in srgb, var(--warm-white) 80%, transparent);
 	font-size: var(--text-sm);
 }
 /* Sign-in: the form in smoky glass, the same glass as the landing's way in, in both themes. The
    card sets its own palette, so every field, label and button in it takes the glass look: clear
    wells that brighten (never turn white) when focused, white text, one solid white pill. */
 .grain-page:not(.grain-landing) .grain-card {
-	--ink: #fff;
-	--muted-ink: rgb(255 255 255 / 82%);
-	--secondary: rgb(255 255 255 / 72%);
-	--tertiary: rgb(255 255 255 / 52%);
-	--line: rgb(255 255 255 / 24%);
-	--hairline: rgb(255 255 255 / 14%);
-	--highlight: rgb(255 255 255 / 7%);
-	--hover: rgb(255 255 255 / 10%);
-	--field: rgb(255 255 255 / 8%);
-	--elevated: rgb(255 255 255 / 13%);
-	--lift: rgb(255 255 255 / 13%);
-	--selection: rgb(255 255 255 / 12%);
-	--accent: #fff;
-	--accent-hover: rgb(255 255 255 / 88%);
+	--ink: var(--warm-white);
+	--muted-ink: color-mix(in srgb, var(--warm-white) 82%, transparent);
+	--secondary: color-mix(in srgb, var(--warm-white) 72%, transparent);
+	--tertiary: color-mix(in srgb, var(--warm-white) 52%, transparent);
+	--line: color-mix(in srgb, var(--warm-white) 24%, transparent);
+	--hairline: color-mix(in srgb, var(--warm-white) 14%, transparent);
+	--highlight: color-mix(in srgb, var(--warm-white) 7%, transparent);
+	--hover: color-mix(in srgb, var(--warm-white) 10%, transparent);
+	--field: color-mix(in srgb, var(--warm-white) 8%, transparent);
+	--elevated: color-mix(in srgb, var(--warm-white) 13%, transparent);
+	--lift: color-mix(in srgb, var(--warm-white) 13%, transparent);
+	--selection: color-mix(in srgb, var(--warm-white) 12%, transparent);
+	--accent: var(--warm-white);
+	--accent-hover: color-mix(in srgb, var(--warm-white) 88%, transparent);
 	--on-accent: #0b0b0b;
 	--danger: #ffb3a7;
-	--raised: inset 0 0 0 1px rgb(255 255 255 / 22%), inset 0 1px 0 rgb(255 255 255 / 18%);
+	--raised:
+		inset 0 0 0 1px color-mix(in srgb, var(--warm-white) 22%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 18%, transparent);
 	color-scheme: dark;
 	padding: 20px 20px 22px;
 	background: rgb(14 14 14 / 46%);
@@ -5735,8 +5740,8 @@ a.editor-source:hover > svg {
 	-webkit-backdrop-filter: blur(30px) saturate(160%);
 	backdrop-filter: blur(30px) saturate(160%);
 	box-shadow:
-		inset 0 0 0 1px rgb(255 255 255 / 14%),
-		inset 0 1px 0 rgb(255 255 255 / 20%),
+		inset 0 0 0 1px color-mix(in srgb, var(--warm-white) 14%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 20%, transparent),
 		0 24px 60px rgb(0 0 0 / 40%);
 }
 .grain-page:not(.grain-landing) .grain-card-body {
@@ -5753,13 +5758,13 @@ a.editor-source:hover > svg {
 }
 .grain-card .auth-input:focus-within {
 	box-shadow:
-		inset 0 0 0 1px rgb(255 255 255 / 34%),
+		inset 0 0 0 1px color-mix(in srgb, var(--warm-white) 34%, transparent),
 		0 0 0 4px rgb(252 120 25 / 22%);
 }
 .grain-card .auth-input input:-webkit-autofill {
 	-webkit-box-shadow: 0 0 0 100px rgb(44 44 44) inset;
-	-webkit-text-fill-color: #fff;
-	caret-color: #fff;
+	-webkit-text-fill-color: var(--warm-white);
+	caret-color: var(--warm-white);
 }
 /* Sign-in's way back, at the top of the card. */
 .auth-back {
@@ -5936,7 +5941,7 @@ a.editor-source:hover > svg {
 	min-height: 50px;
 	border-radius: var(--radius-card);
 	box-shadow:
-		inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 22%, transparent),
 		0 10px 28px var(--shadow-soft);
 	font-size: var(--text-base);
 	font-weight: 500;
@@ -5954,7 +5959,7 @@ a.editor-source:hover > svg {
 .auth-submit:hover:not(:disabled) {
 	background: var(--accent-hover);
 	box-shadow:
-		inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 22%, transparent),
 		0 14px 36px var(--shadow-strong);
 }
 .auth-submit:hover:not(:disabled) svg {
@@ -6082,7 +6087,7 @@ a.editor-source:hover > svg {
 	-webkit-backdrop-filter: blur(32px) saturate(180%);
 	backdrop-filter: blur(32px) saturate(180%);
 	box-shadow:
-		inset 0 1px 0 color-mix(in srgb, white 9%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 9%, transparent),
 		0 1px 2px var(--shadow-soft),
 		0 14px 40px var(--shadow-strong);
 }
@@ -6090,7 +6095,7 @@ a.editor-source:hover > svg {
 :root[data-theme='light'] .mobile-search {
 	background: color-mix(in srgb, var(--elevated) 84%, transparent);
 	box-shadow:
-		inset 0 1px 0 rgb(255 255 255 / 80%),
+		inset 0 1px 0 color-mix(in srgb, var(--warm-white) 80%, transparent),
 		0 1px 2px var(--shadow-soft),
 		0 14px 40px var(--shadow-strong);
 }

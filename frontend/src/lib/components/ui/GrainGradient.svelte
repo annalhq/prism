@@ -29,7 +29,7 @@
 				});
 			if (stopped) return;
 			const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-			const colors = ['#FFFFFF', '#FC7819', '#FC7819', '#FFFFFF'];
+			const colors = ['#FFFAF2', '#FC7819', '#FC7819', '#FFFAF2'];
 			mount = new paper.ShaderMount(
 				element,
 				paper.grainGradientFragmentShader,
