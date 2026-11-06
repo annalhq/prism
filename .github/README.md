@@ -239,8 +239,6 @@ Help make Prism a better place to keep things. Bug reports, thoughtful feature s
 
 Prism is licensed under the [MIT License](../LICENSE).
 
-Third-party components retain their own licenses and copyright notices, including the [ocean renderer](../frontend/src/lib/ocean/LICENSE).
-
 ---
 
 <div align="center">

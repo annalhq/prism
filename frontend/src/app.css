@@ -9,8 +9,8 @@
  */
 
 /* 1. Tokens & themes ---------------------------------------------------- */
-/* Font set: STK Bureau Sans for all text, STK Bureau Sans Semi Mono for data (dates, keys,
-   codes and the ASCII ocean), and STK Bureau Serif only for the sidebar wordmark and the landing. */
+/* Font set: STK Bureau Sans for all text, STK Bureau Sans Semi Mono for data (dates, keys and
+   codes), and STK Bureau Serif only for the sidebar wordmark and the landing. */
 @font-face {
 	font-family: 'STK Bureau Sans';
 	font-style: normal;
@@ -2811,8 +2811,8 @@ kbd {
 }
 
 /*
- * Profile: a cover tinted with the person's own avatar colour (a faint dot grid over it echoes
- * the ASCII ocean), the avatar resting on its lower edge, then the name in the serif, their
+ * Profile: a cover tinted with the person's own avatar colour (a faint dot grid over it), the
+ * avatar resting on its lower edge, then the name, their
  * count and links as pills, and the bio. It shares the feed's centred column below.
  */
 .person-head {
