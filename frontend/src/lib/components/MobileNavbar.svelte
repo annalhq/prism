@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Bookmark, Folder, Cog } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
+	import { keyboardInset } from '#lib/client/attachments.js';
 	let {
 		view,
 		searching = $bindable(false),
@@ -23,7 +24,12 @@
 </script>
 
 <!-- The search circle grows into the omnibar itself; its search icon becomes the field's leading icon. -->
-<nav class="mobile-navbar" class:searching aria-label="Mobile navigation">
+<!-- The bar rides on top of the on-screen keyboard, so the field and its popover stay in view. -->
+<nav
+	class={['mobile-navbar', { searching }]}
+	aria-label="Mobile navigation"
+	{@attach keyboardInset}
+>
 	<div
 		class="mobile-nav-pill"
 		inert={searching}
@@ -31,15 +37,13 @@
 	>
 		<span class="mobile-nav-indicator" aria-hidden="true"></span>
 		<button
-			class="mobile-nav-item"
-			class:active={view === 'all'}
+			class={['mobile-nav-item', { active: view === 'all' }]}
 			aria-label="All bookmarks"
 			aria-current={view === 'all' ? 'page' : undefined}
 			onclick={() => onSelect('all')}><Bookmark /></button
 		>
 		<button
-			class="mobile-nav-item"
-			class:active={browsing}
+			class={['mobile-nav-item', { active: browsing }]}
 			aria-label="Tags and shelves"
 			aria-current={view === 'tags' ? 'page' : undefined}
 			onclick={() => onSelect('tags')}><Folder /></button
