@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.2.1](https://github.com/annalhq/prism/compare/v0.2.0...v0.2.1) (2026-11-12)
+
+### Features
+
+* **bookmarks:** add browser bookmark import and HTML export ([7150453](https://github.com/annalhq/prism/commit/7150453f4b75dda82cb37eda330cf1770115d890))
+* **omnibar:** redesign mobile save form as full-height sheet ([e6c9c02](https://github.com/annalhq/prism/commit/e6c9c02ac953b4c66e91a8f780ce26f7eb6f2ad3))
+* **ui:** redesign the context menu ([dbc84c7](https://github.com/annalhq/prism/commit/dbc84c77e9852a4063e0152acb09569b38166fe6))
+* **ui:** simplify the ux for mobile Omnibar ([718be84](https://github.com/annalhq/prism/commit/718be841192e707f9f35eb92dd0b770f4b93be28))
+
+### Bug Fixes
+
+* **ci:** include hidden extension artifacts in release upload ([385ebba](https://github.com/annalhq/prism/commit/385ebba27a2f5abc50f0a9879b8c8682af381a45))
+* **favicon:** improve provider fallback and caching ([3c8f64d](https://github.com/annalhq/prism/commit/3c8f64d5c198e2106477d7d35c2599a11ac61194))
+* **ui:** add more appropiate consistent light mode theming ([46e5162](https://github.com/annalhq/prism/commit/46e516225b86585920a3e93aa7562b44d705bdd4))
+
+### Refactoring
+
+* **fonts:** standardize typography across frontend and extensions ([663c966](https://github.com/annalhq/prism/commit/663c9660d3a1d8c196316a0d372e71b79a4d6616))
+
+### Styling
+
+* **typography:** unify type scale across application views ([0c85f0c](https://github.com/annalhq/prism/commit/0c85f0c66d459bd08a176d11bbd3afafb79810b7))
+
 ## [0.2.0](https://github.com/annalhq/prism/compare/v0.1.0...v0.2.0) (2026-11-03)
 
 ### ⚠ BREAKING CHANGES
