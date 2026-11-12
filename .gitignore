@@ -13,7 +13,8 @@ extensions/*/dist
 plan.md
 ARCHITECTURE.md
 AGENT.md
-todo.md
+TODO.*
+*.md
 
 .env
 .env.*
@@ -37,3 +38,4 @@ test-results/
 playwright-report/
 .superpowers/
 .env*
+
