@@ -7,6 +7,7 @@ import { extractReferences, parseReference, validateNoteBody } from '#lib/domain
 import { parseMarkdown } from '#lib/domain/markdown.js';
 import { parseSearchFilter } from '#lib/domain/search.js';
 import { parseCommand, object, uuid } from '#lib/domain/validation.js';
+import { looksLikeNetscape } from '#lib/domain/netscape.js';
 import type { LibraryClient } from './library.js';
 
 type Row = Record<string, unknown>;
@@ -49,6 +50,25 @@ const str = (row: Row, key: string) => {
 };
 const emptyTables = () =>
 	Object.fromEntries(REPLICA_TABLES.map((table) => [table, [] as Row[]])) as Tables;
+
+export type ImportFormat = 'prism-json' | 'browser-html';
+/** Decides from the file's contents, not its extension or MIME type, which importer applies. */
+export function detectImportFormat(text: string): ImportFormat {
+	const head = text.replace(/^\uFEFF/, '').trimStart();
+	if (head.startsWith('{')) {
+		try {
+			const value = JSON.parse(text);
+			if (value && typeof value === 'object' && value.format === 'prism-v0') return 'prism-json';
+		} catch {
+			throw new Error('This file looks like JSON but could not be read.');
+		}
+		throw new Error('This JSON file is not a Prism export.');
+	}
+	if (looksLikeNetscape(head)) return 'browser-html';
+	throw new Error(
+		'Choose a Prism JSON export or a browser bookmarks HTML file (Chrome, Firefox, Safari or Edge).'
+	);
+}
 
 /** A device metadata package; pending work is separate and is never auto-replayed by import. */
 export async function exportLibrary(client: LibraryClient): Promise<LibraryExport> {

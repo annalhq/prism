@@ -59,6 +59,9 @@
 	// Import/export loads on first use, keeping it out of the initial library bundle.
 	import type { ImportResult, previewImport } from '#lib/client/vault/portability.js';
 	const portability = () => import('#lib/client/vault/portability.js');
+	const browserBookmarks = () => import('#lib/client/vault/browser-bookmarks.js');
+	import type { BrowserImportPlan } from '#lib/client/vault/browser-bookmarks.js';
+	import BrowserImportDialog from './BrowserImportDialog.svelte';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { VaultIdentity } from '#lib/domain/replica.js';
 	import type { Command, Revision } from '#lib/domain/contracts.js';
@@ -98,7 +101,9 @@
 		importOpen = $state(false),
 		importReport = $state<ImportResult | null>(null),
 		importProgress = $state(''),
-		importPreview = $state<ReturnType<typeof previewImport> | null>(null);
+		importPreview = $state<ReturnType<typeof previewImport> | null>(null),
+		browserPlan = $state.raw<BrowserImportPlan | null>(null),
+		browserImportOpen = $state(false);
 	let settings = $state(false),
 		purgeOpen = $state(false),
 		purgeTarget = $state<Row | null>(null),
@@ -700,30 +705,63 @@
 			feedback((e as Error).message);
 		}
 	}
+	async function exportBrowserData() {
+		if (!library) return;
+		try {
+			const { exportBrowserBookmarks } = await browserBookmarks();
+			const result = exportBrowserBookmarks(library);
+			downloadFile(
+				result.html,
+				`prism-bookmarks-${new Date().toISOString().slice(0, 10)}.html`,
+				'text/html'
+			);
+			const notes = [
+				result.withoutUrl &&
+					`${result.withoutUrl} notes and rabbit holes without a link stay in the Prism JSON export`,
+				result.privateTagsOmitted && 'private tag names were left out'
+			].filter(Boolean);
+			feedback(
+				`Exported ${result.exported.toLocaleString()} bookmarks${notes.length ? `; ${notes.join('; ')}` : ''}.`
+			);
+		} catch (e) {
+			feedback((e as Error).message);
+		}
+	}
 	async function pickImport(event: Event) {
-		const file = (event.target as HTMLInputElement).files?.[0];
-		if (!file) return;
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file || !library) return;
 		if (file.size > 10 * 1024 * 1024) {
-			feedback('Choose a metadata export smaller than 10 MiB.');
+			feedback('Choose an import file smaller than 10 MiB.');
 			return;
 		}
-		let preview: typeof previewImport;
+		let modules: [
+			Awaited<ReturnType<typeof portability>>,
+			Awaited<ReturnType<typeof browserBookmarks>>
+		];
 		try {
-			({ previewImport: preview } = await portability());
+			modules = await Promise.all([portability(), browserBookmarks()]);
 		} catch {
 			feedback('Import could not load. Check your connection and try again.');
-			(event.target as HTMLInputElement).value = '';
 			return;
 		}
+		const [{ detectImportFormat, previewImport: preview }, { planBrowserImport }] = modules;
 		try {
-			importData = JSON.parse(await file.text());
+			const text = await file.text();
+			// The contents decide the importer; a renamed file or a wrong MIME type doesn't matter.
+			if (detectImportFormat(text) === 'browser-html') {
+				browserPlan = await planBrowserImport(library, text, file.name);
+				browserImportOpen = true;
+				return;
+			}
+			importData = JSON.parse(text);
 			importPreview = preview(importData);
 			importReport = null;
 			importOpen = true;
-		} catch {
-			feedback('This file is not valid Prism JSON.');
+		} catch (e) {
+			feedback((e as Error).message);
 		}
-		(event.target as HTMLInputElement).value = '';
 	}
 	async function runImport() {
 		if (!library) return;
@@ -1244,6 +1282,7 @@
 	onCreate={create}
 	onManage={openManage}
 	onExport={exportData}
+	onExportBrowser={exportBrowserData}
 	onImport={pickImport}
 	onExportPending={async () => {
 		if (library) download(await library.exportPending(), 'prism-pending-work.json');
@@ -1263,6 +1302,15 @@
 		></Dialog.Portal
 	></Dialog.Root
 >
+{#if browserPlan}{#key browserPlan}<BrowserImportDialog
+			bind:open={browserImportOpen}
+			plan={browserPlan}
+			{library}
+			online={!!status?.online}
+			pending={status?.pending ?? 0}
+			{feedback}
+			{download}
+		/>{/key}{/if}
 <Dialog.Root bind:open={importOpen}
 	><Dialog.Portal
 		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content class="dialog-content v0-dialog"

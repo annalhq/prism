@@ -23,6 +23,8 @@ export type BookmarkCommand =
 			title: string;
 			description?: string;
 			url?: string | null;
+			// Original save time from an import; the server records its own time otherwise.
+			createdAt?: string;
 	  }
 	| {
 			type: 'bookmark.update';

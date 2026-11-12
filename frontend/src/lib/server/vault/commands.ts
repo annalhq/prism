@@ -105,13 +105,15 @@ async function applyBookmark(
 			? normalizeUrl(command.url)
 			: { url: null, canonicalUrl: null, domain: null };
 		await ensureUniqueUrl(tx, vaultId, id, normalized.canonicalUrl, true);
+		// Imports carry the original save time so they sort among existing bookmarks by age.
+		const createdAt = command.createdAt ? new Date(command.createdAt) : now;
 		await tx.insert(entities).values({
 			vaultId,
 			id,
 			kind: 'bookmark',
 			urlHash: hashUrl(normalized.canonicalUrl),
 			lastSeq: seq,
-			createdAt: now,
+			createdAt,
 			updatedAt: now
 		});
 		await tx.insert(bookmarks).values({
@@ -121,7 +123,7 @@ async function applyBookmark(
 			title: command.title,
 			description: command.description ?? '',
 			...normalized,
-			createdAt: now
+			createdAt
 		});
 		return { type: 'bookmark.upsert', bookmark: await bookmarkProjection(tx, vaultId, id) };
 	}

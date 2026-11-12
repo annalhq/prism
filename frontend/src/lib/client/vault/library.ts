@@ -736,11 +736,18 @@ export function createLibraryClient(notify: () => void) {
 		},
 		async save(
 			command: Command,
-			{ waitForSync = false }: { waitForSync?: boolean } = {}
+			{
+				waitForSync = false,
+				operationId = crypto.randomUUID()
+			}: {
+				waitForSync?: boolean;
+				// Callers that may retry the same work (imports) pass a stable ID so the server's
+				// receipt answers a repeat instead of applying it twice.
+				operationId?: string;
+			} = {}
 		): Promise<SaveOutcome> {
 			if (!database || !state.identity)
 				return { status: 'rejected', message: 'Sign in and load this vault before saving.' };
-			const operationId = crypto.randomUUID();
 			const envelope = {
 				protocolVersion: 1 as const,
 				operationId,

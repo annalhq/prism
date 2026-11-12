@@ -30,11 +30,20 @@ function url(value: unknown): string | null {
 	}
 	return input;
 }
+// An imported save date: a canonical ISO instant between 1990 and now (with clock-skew slack).
+function pastTime(value: unknown): string {
+	if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(value))
+		throw new ValidationError('Expected an ISO 8601 UTC time.');
+	const ms = Date.parse(value);
+	if (!Number.isFinite(ms) || ms < Date.UTC(1990, 0, 1) || ms > Date.now() + 86_400_000)
+		throw new ValidationError('The saved time must be between 1990 and now.');
+	return new Date(ms).toISOString();
+}
 function bookmark(value: unknown): BookmarkCommand {
 	const c = object(value);
 	const id = uuid(c.id);
 	if (c.type === 'bookmark.create') {
-		keys(c, ['type', 'id', 'kind', 'title', 'description', 'url']);
+		keys(c, ['type', 'id', 'kind', 'title', 'description', 'url', 'createdAt']);
 		if (
 			typeof c.kind !== 'string' ||
 			!['page', 'social', 'image', 'text', 'stash'].includes(c.kind)
@@ -49,7 +58,8 @@ function bookmark(value: unknown): BookmarkCommand {
 			kind: c.kind as 'page' | 'social' | 'image' | 'text' | 'stash',
 			title: text(c.title, 500, true),
 			description: c.description === undefined ? '' : text(c.description, 10000),
-			url: inputUrl
+			url: inputUrl,
+			...(c.createdAt === undefined ? {} : { createdAt: pastTime(c.createdAt) })
 		};
 	}
 	const expectedRevision = revision(c.expectedRevision);

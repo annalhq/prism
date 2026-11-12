@@ -52,6 +52,7 @@
 		onCreate,
 		onManage,
 		onExport,
+		onExportBrowser,
 		onImport,
 		onExportPending,
 		onMaintenance
@@ -65,6 +66,7 @@
 		onCreate: (type: string) => void;
 		onManage: (entry: Entry) => void;
 		onExport: () => void;
+		onExportBrowser: () => void;
 		onImport: (event: Event) => void;
 		onExportPending: () => void;
 		onMaintenance: () => void;
@@ -518,17 +520,27 @@
 										<button class="settings-row" onclick={onExport} disabled={!status?.ready}
 											><Download class="settings-glyph" /><span class="settings-text"
 												><strong>Export library</strong><small
-													>Bookmarks, notes and connections as JSON</small
+													>Prism JSON with notes, people and connections</small
+												></span
+											></button
+										><button
+											class="settings-row"
+											onclick={onExportBrowser}
+											disabled={!status?.ready}
+											><Download class="settings-glyph" /><span class="settings-text"
+												><strong>Export browser bookmarks</strong><small
+													>HTML file for Chrome, Firefox, Safari or Edge</small
 												></span
 											></button
 										><label class="settings-row import-row"
 											><Upload class="settings-glyph" /><span class="settings-text"
-												><strong>Import library</strong><small>From a Prism JSON export</small
+												><strong>Import bookmarks</strong><small
+													>Browser bookmarks HTML or a Prism JSON export</small
 												></span
 											><input
 												type="file"
-												accept="application/json,.json"
-												aria-label="Import library"
+												accept="application/json,.json,text/html,.html,.htm"
+												aria-label="Import bookmarks"
 												onchange={(event) => {
 													open = false;
 													onImport(event);
@@ -556,8 +568,10 @@
 										>
 									</div>
 									<p class="settings-footnote">
-										Exports hold metadata, not media files. The cached library on this device is not
-										end-to-end encrypted.
+										Neither export is a full backup: media files and note history are not included.
+										Browser HTML holds links, descriptions, dates, collections and public tags;
+										Prism JSON also keeps notes, people and connections. The cached library on this
+										device is not end-to-end encrypted.
 									</p>
 								</section>
 							{:else}
