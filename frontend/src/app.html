@@ -10,6 +10,8 @@
 					document.documentElement.dataset.theme = 'light';
 					document.querySelector('meta[name="theme-color"]').content = '#f7f5ef';
 				}
+				if (localStorage.getItem('prism:corners') === 'square')
+					document.documentElement.dataset.corners = 'square';
 			} catch {}
 		</script>
 		%sveltekit.head%

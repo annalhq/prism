@@ -666,7 +666,7 @@
 				? 'clear'
 				: dismissible
 					? 'close'
-					: 'shortcut'
+					: 'none'
 			: capturing
 				? dismissible
 					? 'save'
@@ -822,12 +822,6 @@
 						title={trailing === 'close' ? 'Close · Esc' : 'Clear · Esc'}
 						onclick={clearOrClose}
 						in:scale={pop}><X /></button
-					>{:else if trailing === 'shortcut'}<span
-						class="omnibar-shortcut"
-						aria-hidden="true"
-						in:scale={pop}
-						><kbd>/</kbd><span>search</span>{#if !readonly}<i></i><kbd>i</kbd><span>add</span
-							>{/if}</span
 					>{:else if trailing === 'save'}<button
 						type="button"
 						class={['omnibar-save', { busy }]}

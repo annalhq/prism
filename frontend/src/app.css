@@ -838,11 +838,19 @@ kbd {
 		min-height: 40px;
 	}
 }
-/* Visual mode: the marked run reads as one block of selection, a hairline on its leading edge. */
+/* Visual mode, as in Neovim: the marked lines themselves take the Visual tint, edge to edge,
+   so a run reads as one solid block. No border; the cursor row keeps its own focus ring. */
 .library-row.marked,
 .post.marked {
-	background: var(--selection);
-	box-shadow: inset 2px 0 0 var(--ink);
+	--visual: color-mix(in srgb, var(--ink) 14%, transparent);
+	border-radius: 0;
+	background: var(--visual);
+	box-shadow: none;
+}
+@media (hover: hover) {
+	.library-row.marked:hover {
+		background: var(--visual);
+	}
 }
 /*
  * Touch: the iOS form. A wider sheet with no inner padding, tall rows divided by hairlines, the
@@ -1740,7 +1748,6 @@ kbd {
 		color 150ms ease;
 }
 .omnibar-leading:hover:not(:disabled) {
-	background: var(--selection);
 	color: var(--ink);
 }
 .omnibar-leading.insert {
@@ -1861,33 +1868,6 @@ kbd {
 .omnibar input:focus-visible {
 	outline: none;
 }
-/* The resting hint: which keys reach the bar, and what each does. */
-.omnibar-shortcut {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	margin-right: 8px;
-	color: var(--tertiary);
-	font-size: var(--text-sm);
-	white-space: nowrap;
-	transition: opacity 220ms var(--ease-out);
-}
-.omnibar-shortcut kbd {
-	min-width: 22px;
-	border: 0;
-	background: var(--field);
-	box-shadow: var(--raised);
-	color: var(--secondary);
-}
-.omnibar-shortcut i {
-	width: 3px;
-	height: 3px;
-	margin-inline: 4px;
-	border-radius: 50%;
-	background: var(--tertiary);
-	opacity: 0.6;
-}
-
 .omnibar-continue,
 .omnibar-clear {
 	display: inline-flex;
@@ -2014,8 +1994,6 @@ kbd {
 	color: var(--ink);
 }
 .workspace-search .omnibar-leading:hover:not(:disabled) {
-	background: var(--lift);
-	box-shadow: var(--raised);
 	color: var(--ink);
 }
 .workspace-search .omnibar-leading:active:not(:disabled),
@@ -2067,9 +2045,6 @@ kbd {
 }
 .workspace-search .omnibar-continue:hover:not(:disabled) svg {
 	translate: 2px 0;
-}
-.workspace-search .omnibar:focus-within .omnibar-shortcut {
-	opacity: 0.55;
 }
 /* The capture card hangs from the bar as its continuation: same lift, a deeper shadow, and
    radii nested inside it (card 20 − padding 10 → fields 10). */
@@ -6480,9 +6455,6 @@ a.editor-source:hover > svg {
 	opacity: 0;
 	transition: opacity 120ms ease;
 }
-.mobile-search .omnibar-shortcut {
-	display: none;
-}
 .mobile-navbar.searching .mobile-nav-pill {
 	opacity: 0;
 	scale: 0.9;
@@ -7292,4 +7264,22 @@ a.editor-source:hover > svg {
 		transition-delay: 0ms !important;
 		scroll-behavior: auto !important;
 	}
+}
+
+/*
+ * Square corners (Settings → Appearance): every curve flattened for a strict, minimal look.
+ * One override instead of a second set of radii, so new components follow without extra work.
+ */
+:root[data-corners='square'] {
+	--radius-sm: 0px;
+	--radius-control: 0px;
+	--radius-card: 0px;
+	--radius-panel: 0px;
+	--radius-pill: 0px;
+	--shell-radius: 0px;
+}
+:root[data-corners='square'] *,
+:root[data-corners='square'] *::before,
+:root[data-corners='square'] *::after {
+	border-radius: 0 !important;
 }

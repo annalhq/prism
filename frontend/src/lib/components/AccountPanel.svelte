@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { Collapsible, Dialog, Select } from 'bits-ui';
 	import { soundPreference, setSounds, cue } from '#lib/client/sounds.svelte.js';
-	import { themePreference, setTheme } from '#lib/client/theme.svelte.js';
+	import {
+		cornersPreference,
+		setSquareCorners,
+		setTheme,
+		themePreference
+	} from '#lib/client/theme.svelte.js';
 	import { resolve } from '$app/paths';
 	import {
 		Volume2,
@@ -10,6 +15,9 @@
 		Moon,
 		ChevronLeft,
 		SlidersHorizontal,
+		Palette,
+		Square,
+		Squircle,
 		Library,
 		RefreshCw,
 		Cloud,
@@ -71,7 +79,7 @@
 		onExportPending: () => void;
 		onMaintenance: () => void;
 	} = $props();
-	type Section = 'general' | 'extension' | 'library' | 'account';
+	type Section = 'general' | 'appearance' | 'extension' | 'library' | 'account';
 	// On a phone the sections are a list you drill into; `drilled` is whether one is open.
 	// On wider screens the rail and the open section sit side by side.
 	let section = $state<Section>('general'),
@@ -198,6 +206,12 @@
 	const sections = $derived([
 		{ id: 'general', label: 'General', icon: SlidersHorizontal, hint: '' },
 		{
+			id: 'appearance',
+			label: 'Appearance',
+			icon: Palette,
+			hint: cornersPreference.square ? 'Square corners' : ''
+		},
+		{
 			id: 'extension',
 			label: 'Browser extension',
 			icon: Puzzle,
@@ -288,41 +302,6 @@
 					{#key section}<div class="settings-scroll">
 							{#if section === 'general'}
 								<section class="settings-group">
-									<h3>Appearance</h3>
-									<div class="settings-card">
-										<div class="settings-row">
-											<span class="settings-text"><strong>Theme</strong></span>
-											<div class="settings-theme" role="radiogroup" aria-label="Theme">
-												<span class="settings-theme-thumb" aria-hidden="true"></span>
-												{#each themes as option (option.value)}<button
-														role="radio"
-														aria-checked={themePreference.value === option.value}
-														onclick={() => setTheme(option.value)}
-														>{#if option.value === 'light'}<Sun />{:else}<Moon
-															/>{/if}{option.label}</button
-													>{/each}
-											</div>
-										</div>
-										<button
-											class="settings-row"
-											role="switch"
-											aria-checked={soundPreference.enabled}
-											onclick={() => {
-												setSounds(!soundPreference.enabled);
-												if (soundPreference.enabled) cue('success');
-											}}
-											><span class="settings-text"
-												><strong>Sounds</strong><small>Quiet cues for saves and errors</small></span
-											>{#if soundPreference.enabled}<Volume2
-													class="settings-glyph"
-												/>{:else}<VolumeX class="settings-glyph" />{/if}<span
-												class="preference-switch"
-												class:enabled={soundPreference.enabled}><span></span></span
-											></button
-										>
-									</div>
-								</section>
-								<section class="settings-group">
 									<h3>Sync</h3>
 									<div class="settings-card">
 										<div class="settings-row">
@@ -390,6 +369,58 @@
 														</p>{/if}
 												</Collapsible.Content>
 											</Collapsible.Root>{/if}
+									</div>
+								</section>
+							{:else if section === 'appearance'}
+								<section class="settings-group">
+									<h3>Look and feel</h3>
+									<div class="settings-card">
+										<div class="settings-row">
+											<span class="settings-text"><strong>Theme</strong></span>
+											<div class="settings-theme" role="radiogroup" aria-label="Theme">
+												<span class="settings-theme-thumb" aria-hidden="true"></span>
+												{#each themes as option (option.value)}<button
+														role="radio"
+														aria-checked={themePreference.value === option.value}
+														onclick={() => setTheme(option.value)}
+														>{#if option.value === 'light'}<Sun />{:else}<Moon
+															/>{/if}{option.label}</button
+													>{/each}
+											</div>
+										</div>
+										<button
+											class="settings-row"
+											role="switch"
+											aria-checked={cornersPreference.square}
+											onclick={() => setSquareCorners(!cornersPreference.square)}
+											><span class="settings-text"
+												><strong>Square corners</strong><small
+													>A flat, squared look instead of rounded edges</small
+												></span
+											>{#if cornersPreference.square}<Square
+													class="settings-glyph"
+												/>{:else}<Squircle class="settings-glyph" />{/if}<span
+												class="preference-switch"
+												class:enabled={cornersPreference.square}><span></span></span
+											></button
+										>
+										<button
+											class="settings-row"
+											role="switch"
+											aria-checked={soundPreference.enabled}
+											onclick={() => {
+												setSounds(!soundPreference.enabled);
+												if (soundPreference.enabled) cue('success');
+											}}
+											><span class="settings-text"
+												><strong>Sounds</strong><small>Quiet cues for saves and errors</small></span
+											>{#if soundPreference.enabled}<Volume2
+													class="settings-glyph"
+												/>{:else}<VolumeX class="settings-glyph" />{/if}<span
+												class="preference-switch"
+												class:enabled={soundPreference.enabled}><span></span></span
+											></button
+										>
 									</div>
 								</section>
 							{:else if section === 'extension'}
