@@ -197,7 +197,7 @@
 		><ContextMenu.Trigger
 			>{#snippet child({ props })}{@render post(props)}{/snippet}</ContextMenu.Trigger
 		><ContextMenu.Portal
-			><ContextMenu.Content class="menu-content">
+			><ContextMenu.Content class="menu-content" collisionPadding={12}>
 				<div class="menu-header" aria-hidden="true">
 					<Favicon url={source} /><span>{domain || item.title}</span>
 				</div>

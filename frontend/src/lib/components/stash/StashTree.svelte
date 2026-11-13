@@ -303,7 +303,7 @@
 					{@render tree()}
 				</div>{/snippet}</ContextMenu.Trigger
 		><ContextMenu.Portal
-			><ContextMenu.Content class="menu-content">
+			><ContextMenu.Content class="menu-content" collisionPadding={12}>
 				{#if menuNode}
 					<div class="menu-header" aria-hidden="true">
 						<Favicon url={menuNode.url} /><span>{domain(menuNode.url)}</span>

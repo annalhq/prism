@@ -140,7 +140,7 @@
 		completed = [];
 		captureId = '';
 		error = '';
-		void tick().then(() => input?.focus());
+		void tick().then(() => input?.focus({ preventScroll: true }));
 	}
 	function cancelTitleFetch() {
 		titleRequestedFor = '';
@@ -199,18 +199,18 @@
 		}
 		url = '';
 		await tick();
-		input?.focus();
+		input?.focus({ preventScroll: true });
 		input?.select();
 	}
 	function add(choice: Choice) {
 		if (!selected.some((c) => key(c) === key(choice))) selected = [...selected, choice];
 		organizer = '';
-		organizerInput?.focus();
+		organizerInput?.focus({ preventScroll: true });
 	}
 	function remove(choice: Choice) {
 		if (completed.includes(key(choice))) return;
 		selected = selected.filter((c) => key(c) !== key(choice));
-		organizerInput?.focus();
+		organizerInput?.focus({ preventScroll: true });
 	}
 	// Text still in the organizer is a tag or person the user meant to add, e.g. typing
 	// "cyber" and pressing Ctrl+Enter. Prefer an exact match; otherwise create the tag.
@@ -373,25 +373,25 @@
 			void loadTitle(url);
 			await focusCard();
 		} else if (next === 'insert' && writing) await focusCard();
-		else input?.focus();
+		else input?.focus({ preventScroll: true });
 	}
 	async function focusCard() {
 		await tick();
-		if (created) organizerInput?.focus();
+		if (created) organizerInput?.focus({ preventScroll: true });
 		else if (writing) {
-			bodyInput?.focus();
+			bodyInput?.focus({ preventScroll: true });
 			bodyInput?.setSelectionRange(body.length, body.length);
-		} else titleInput?.focus();
+		} else titleInput?.focus({ preventScroll: true });
 	}
 	// One trailing control, whose job follows the bar's state: clear what was typed,
 	// otherwise close the bar where it can be closed.
 	function clearOrClose() {
 		if (mode === 'search' && query) {
 			query = '';
-			input?.focus();
+			input?.focus({ preventScroll: true });
 		} else if (mode === 'insert' && draft) {
 			draft = '';
-			input?.focus();
+			input?.focus({ preventScroll: true });
 		} else {
 			mode = 'search';
 			onDismiss?.();
@@ -701,7 +701,7 @@
 			search.chips.filter((_, i) => i !== index),
 			search.rest
 		);
-		input?.focus();
+		input?.focus({ preventScroll: true });
 	}
 	const apple = typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
 	const pop = { duration: 240, start: 0.75, easing: quintOut };
@@ -903,7 +903,7 @@
 							onkeydown={(e) => {
 								if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
 									e.preventDefault();
-									organizerInput?.focus();
+									organizerInput?.focus({ preventScroll: true });
 								}
 							}}
 							disabled={created}

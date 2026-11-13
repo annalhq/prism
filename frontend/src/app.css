@@ -546,7 +546,14 @@ kbd {
 	--menu-fill: color-mix(in srgb, var(--ink) 9%, transparent);
 	--menu-rule: color-mix(in srgb, var(--ink) 10%, transparent);
 	z-index: 80;
-	max-height: min(380px, var(--bits-dropdown-menu-content-available-height, 60vh));
+	/* Never taller than the room bits-ui measured between the anchor and the screen edge. */
+	max-height: min(
+		380px,
+		var(
+			--bits-dropdown-menu-content-available-height,
+			var(--bits-context-menu-content-available-height, 60vh)
+		)
+	);
 	overflow-y: auto;
 	padding: var(--menu-pad);
 	border: 0;
@@ -604,7 +611,7 @@ kbd {
 }
 .menu-content {
 	min-width: 220px;
-	max-width: min(320px, calc(100vw - 24px));
+	max-width: min(320px, calc(100vw - 32px));
 }
 .select-item,
 .menu-item {
@@ -729,14 +736,15 @@ kbd {
 	.menu-content {
 		--menu-pad: 0px;
 		--menu-radius: 14px;
-		min-width: 250px;
+		min-width: 200px;
+		max-width: min(260px, calc(100vw - 32px));
 	}
 	.menu-item {
 		gap: 12px;
-		min-height: 44px;
-		padding: 0 16px;
+		min-height: 40px;
+		padding: 0 14px;
 		border-radius: 0;
-		font-size: var(--text-lg);
+		font-size: var(--text-md);
 	}
 	.menu-content .menu-item + .menu-item {
 		box-shadow: inset 0 0.5px 0 var(--menu-rule);
@@ -745,8 +753,8 @@ kbd {
 		display: block;
 		order: 2;
 		stroke-width: 1.75;
-		width: 18px;
-		height: 18px;
+		width: 16px;
+		height: 16px;
 		color: var(--ink);
 	}
 	.menu-item.danger-text > svg:first-child {
@@ -756,12 +764,12 @@ kbd {
 		display: none;
 	}
 	.menu-separator {
-		height: 8px;
+		height: 6px;
 		margin: 0;
 	}
 	.menu-header {
 		margin: 0;
-		padding: 12px 16px;
+		padding: 10px 14px;
 		background: linear-gradient(var(--menu-rule), var(--menu-rule)) no-repeat center bottom / 100%
 			0.5px;
 		font-size: var(--text-md);
@@ -6177,9 +6185,12 @@ a.editor-source:hover > svg {
 	right: calc(var(--shell-margin) + var(--nav-gap));
 	bottom: max(calc(var(--shell-margin) + var(--nav-gap)), env(safe-area-inset-bottom));
 	height: 56px;
-	/* Lifted by the keyboard's height (set by the keyboardInset attachment), like a chat input. */
+	/* Lifted by the keyboard's height (set by the keyboardInset attachment), like a chat input.
+	   The viewport only reports the keyboard once it is up, so the bar glides on the keyboard's
+	   own curve instead of snapping. */
 	translate: 0 calc(-1 * var(--keyboard-inset, 0px));
-	transition: translate 260ms var(--ease-out);
+	transition: translate 340ms var(--ease-spring);
+	will-change: translate;
 	/* The frozen glass, once, for the tabs, the search bar and the save popover. */
 	--glass-fill: color-mix(in srgb, var(--elevated) 80%, transparent);
 	--glass-blur: blur(32px) saturate(180%);

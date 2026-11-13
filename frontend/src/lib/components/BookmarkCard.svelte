@@ -273,7 +273,7 @@
 				>
 					{@render row()}
 				</ContextMenu.Trigger><ContextMenu.Portal
-					><ContextMenu.Content class="menu-content">
+					><ContextMenu.Content class="menu-content" collisionPadding={12}>
 						<div class="menu-header" aria-hidden="true">
 							<Favicon url={source} /><span>{bookmarkDomain(item, source) || item.title}</span>
 						</div>
