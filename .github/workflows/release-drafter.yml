@@ -1,11 +1,6 @@
 name: Release Drafter
 
-# Keeps a draft release named "Unreleased" up to date with every push to main, so the next
-# release's features, fixes and breaking changes are always visible on the Releases page. The
-# Release workflow replaces it with the real release when a version tag is pushed.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
