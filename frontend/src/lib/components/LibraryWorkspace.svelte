@@ -1437,7 +1437,6 @@
 	bind:open={moveOpen}
 	count={moving.length}
 	{tags}
-	counts={shelfStats.counts}
 	sourceId={moveSource}
 	onPick={(id) => void moveTo(id)}
 	onCreate={(name) => void createAndMove(name)}

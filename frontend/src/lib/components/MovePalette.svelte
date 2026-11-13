@@ -6,7 +6,6 @@
 		open = $bindable(false),
 		count,
 		tags,
-		counts = {},
 		sourceId = null,
 		onPick,
 		onCreate
@@ -14,7 +13,6 @@
 		open?: boolean;
 		count: number;
 		tags: Row[];
-		counts?: Record<string, number>;
 		// The tag page the bookmarks are cut from; moving takes it off, so it is not a destination.
 		sourceId?: string | null;
 		onPick: (tagId: string) => void;
@@ -78,63 +76,55 @@
 
 <Dialog.Root bind:open
 	><Dialog.Portal
-		><Dialog.Overlay class="dialog-overlay move-overlay" /><Dialog.Content
-			class="menu-content move-palette"
-		>
-			<Dialog.Title class="menu-header move-palette-title">{verb} {noun} to…</Dialog.Title>
+		><Dialog.Overlay class="move-overlay" /><Dialog.Content class="move-palette">
+			<Dialog.Title class="sr-only">{verb} {noun} to a tag</Dialog.Title>
 			<Dialog.Description class="sr-only"
 				>Type to find a tag, or a new name to create one. Enter chooses, Escape cancels.</Dialog.Description
 			>
-			<label class="move-palette-field">
-				<span class="move-hash" aria-hidden="true">#</span>
-				<input
-					bind:value={query}
-					onkeydown={keydown}
-					placeholder="Find or create a tag"
-					autocomplete="off"
-					spellcheck="false"
-					role="combobox"
-					aria-expanded="true"
-					aria-controls="move-palette-options"
-					aria-activedescendant={total ? `move-option-${active}` : undefined}
-				/>
-			</label>
-			<div class="move-palette-list" id="move-palette-options" role="listbox" bind:this={list}>
-				{#each matches as tag, i (tag.id)}
-					<div
-						id={`move-option-${i}`}
-						role="option"
-						tabindex="-1"
-						aria-selected={i === active}
-						class="menu-item"
-						data-highlighted={i === active ? '' : undefined}
-						onpointermove={() => (active = i)}
-						onclick={() => choose(i)}
-						onkeydown={() => {}}
-					>
-						<span class="move-hash" aria-hidden="true">#</span><span>{tag.name}</span
-						>{#if counts[String(tag.id)]}<kbd>{counts[String(tag.id)]}</kbd>{/if}
-					</div>
-				{/each}
-				{#if creatable}<div
-						id={`move-option-${matches.length}`}
-						role="option"
-						tabindex="-1"
-						aria-selected={active === matches.length}
-						class="menu-item move-create"
-						data-highlighted={active === matches.length ? '' : undefined}
-						onpointermove={() => (active = matches.length)}
-						onclick={() => choose(matches.length)}
-						onkeydown={() => {}}
-					>
-						<span class="move-hash" aria-hidden="true">+</span><span
-							>Create <strong>#{query.trim().replace(/^#/, '')}</strong></span
+			<input
+				class="move-input"
+				bind:value={query}
+				onkeydown={keydown}
+				placeholder={`${verb} ${noun} to…`}
+				autocomplete="off"
+				spellcheck="false"
+				role="combobox"
+				aria-expanded="true"
+				aria-controls="move-palette-options"
+				aria-activedescendant={total ? `move-option-${active}` : undefined}
+			/>
+			{#if total || tags.length}<div
+					class="move-list"
+					id="move-palette-options"
+					role="listbox"
+					bind:this={list}
+				>
+					{#each matches as tag, i (tag.id)}<div
+							id={`move-option-${i}`}
+							role="option"
+							tabindex="-1"
+							aria-selected={i === active}
+							class="move-option"
+							onpointermove={() => (active = i)}
+							onclick={() => choose(i)}
+							onkeydown={() => {}}
 						>
-					</div>{/if}
-				{#if !total}<p class="move-palette-empty">
-						{tags.length ? 'No tag matches.' : 'No tags yet. Type a name to create one.'}
-					</p>{/if}
-			</div>
+							{tag.name}
+						</div>{/each}
+					{#if creatable}<div
+							id={`move-option-${matches.length}`}
+							role="option"
+							tabindex="-1"
+							aria-selected={active === matches.length}
+							class="move-option"
+							onpointermove={() => (active = matches.length)}
+							onclick={() => choose(matches.length)}
+							onkeydown={() => {}}
+						>
+							<span>{query.trim().replace(/^#/, '')}</span><small>New tag</small>
+						</div>{/if}
+					{#if !total}<p class="move-empty">No matching tag</p>{/if}
+				</div>{/if}
 		</Dialog.Content></Dialog.Portal
 	></Dialog.Root
 >

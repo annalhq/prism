@@ -728,77 +728,115 @@ kbd {
 	white-space: nowrap;
 }
 /*
- * Move palette (`x`): the menu's frosted sheet, lifted to the upper third like a command bar.
- * A caption says what is moving, a bare field filters, and tags list as menu rows with the
- * same # glyph the tag sheet uses. The scrim stays faint so the marked rows still show.
+ * Move palette (`x`): one quiet field in the upper third, the tags under it as plain names.
+ * The menu's frosted material, nothing else: no caption, no glyphs, no counts. The page stays
+ * unscrimmed so the marked rows remain in view.
  */
 .move-overlay {
-	background: color-mix(in srgb, var(--scrim) 45%, transparent);
-	backdrop-filter: none;
-}
-.menu-content.move-palette {
 	position: fixed;
-	top: max(14vh, 24px);
+	inset: 0;
+	z-index: 79;
+}
+.move-palette {
+	--move-fill: color-mix(in srgb, var(--ink) 8%, transparent);
+	position: fixed;
+	z-index: 80;
+	top: max(16vh, 24px);
 	left: 50%;
 	display: flex;
 	flex-direction: column;
-	width: min(360px, calc(100vw - 32px));
-	min-width: 0;
-	max-width: none;
-	max-height: min(420px, 70dvh);
-	overflow: hidden;
+	width: min(380px, calc(100vw - 32px));
+	max-height: min(360px, 60dvh);
+	padding: 6px;
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--elevated) 92%, transparent);
+	-webkit-backdrop-filter: blur(40px) saturate(180%);
+	backdrop-filter: blur(40px) saturate(180%);
+	box-shadow:
+		0 0 0 0.5px color-mix(in srgb, var(--ink) 12%, transparent),
+		0 2px 6px var(--shadow-faint),
+		0 16px 44px -8px var(--shadow-strong);
+	color: var(--ink);
+	outline: none;
 	translate: -50% 0;
 	transform-origin: top center;
+	animation: menu-in 160ms var(--ease-out);
 }
-.move-palette-title {
-	margin-bottom: 0;
+:root[data-theme='light'] .move-palette {
+	--move-fill: color-mix(in srgb, var(--ink) 6%, transparent);
+	background: color-mix(in srgb, var(--elevated) 88%, transparent);
 }
-.move-palette-field {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	min-height: 40px;
-	padding: 0 10px 0 9px;
-	background: linear-gradient(var(--menu-rule), var(--menu-rule)) no-repeat center bottom /
-		calc(100% - 18px) 1px;
-	cursor: text;
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.move-palette,
+	:root[data-theme='light'] .move-palette {
+		background: var(--elevated);
+	}
 }
-.move-palette-field input:not([type='checkbox']) {
-	flex: 1;
-	min-width: 0;
-	min-height: 38px;
-	padding: 0;
+.move-palette .move-input {
+	flex: none;
+	width: 100%;
+	min-height: 36px;
+	padding: 0 10px;
 	border: 0;
-	border-radius: 0;
+	/* Nested radii: sheet 14 − padding 6 → 8, the same curve as the rows below. */
+	border-radius: 8px;
 	background: transparent;
 	box-shadow: none;
 	color: var(--ink);
 	font-size: var(--text-md);
 	outline: none;
 }
-.move-hash {
-	width: 12px;
-	color: var(--tertiary);
-	font-family: var(--font-mono);
-	text-align: center;
+/* The global field ring would draw a box inside the sheet; the caret is focus enough here. */
+.move-palette .move-input:is(:focus, :focus-visible) {
+	outline: none;
+	box-shadow: none;
 }
-.move-palette-list {
+.move-input::placeholder {
+	color: var(--tertiary);
+}
+.move-list {
 	min-height: 0;
-	margin-top: 5px;
+	margin-top: 4px;
+	padding-top: 4px;
+	border-top: 0.5px solid color-mix(in srgb, var(--ink) 10%, transparent);
 	overflow-y: auto;
 	overscroll-behavior: contain;
 }
-.move-palette-list .menu-item {
+.move-option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 32px;
+	padding: 0 10px;
+	border-radius: 8px;
+	font-size: var(--text-md);
 	cursor: pointer;
+	user-select: none;
+	overflow-wrap: anywhere;
 }
-.move-create strong {
-	font-weight: 500;
+.move-option[aria-selected='true'] {
+	background: var(--move-fill);
 }
-.move-palette-empty {
-	margin: 0;
-	padding: 10px 9px 6px;
+.move-option small {
+	flex: none;
 	color: var(--tertiary);
 	font-size: var(--text-sm);
+}
+.move-empty {
+	margin: 0;
+	padding: 8px 10px;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+@media (pointer: coarse) {
+	.move-palette .move-input {
+		min-height: 44px;
+		font-size: 16px; /* below 16px iOS zooms the page on focus */
+	}
+	.move-option {
+		min-height: 40px;
+	}
 }
 /* Visual mode: the marked run reads as one block of selection, a hairline on its leading edge. */
 .library-row.marked,
