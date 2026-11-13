@@ -48,6 +48,8 @@
 		personSlug,
 		personIdFromSlug,
 		syncPersonLinks,
+		tagIdFromSlug,
+		tagSlug,
 		xHandle
 	} from '#lib/client/workflows.js';
 	import { sortByPosition } from '#lib/domain/organization.js';
@@ -148,7 +150,17 @@
 	const contentVersion = $derived(status?.contentVersion ?? 0);
 	const libraryReady = $derived(status?.ready ?? false);
 	const personId = $derived(personIdFromSlug(profileSlug));
-	const requestedView = $derived(page.url.searchParams.get('view') ?? 'all');
+	const tags = $derived.by(() => {
+		void version;
+		return sortByPosition(library?.list<Row>('tags').filter((r) => !r.deletedAt) ?? []);
+	});
+	// Tag pages live at `?tag=<name>`; `view=tag:<id>` is the old form, still accepted.
+	const requestedTag = $derived(page.url.searchParams.get('tag'));
+	const requestedView = $derived(
+		requestedTag
+			? `tag:${tagIdFromSlug(requestedTag, tags) ?? requestedTag}`
+			: (page.url.searchParams.get('view') ?? 'all')
+	);
 	const view = $derived(
 		profileSlug
 			? 'person'
@@ -179,10 +191,6 @@
 		const id = page.url.searchParams.get('item'),
 			kind = page.url.searchParams.get('kind');
 		return id && kind === 'bookmark' ? ({ id, kind } as EntityRef) : null;
-	});
-	const tags = $derived.by(() => {
-		void version;
-		return sortByPosition(library?.list<Row>('tags').filter((r) => !r.deletedAt) ?? []);
 	});
 	const title = $derived(
 		(view === 'person' ? (person?.displayName ?? 'Person') : undefined) ??
@@ -414,7 +422,18 @@
 		// The tags page filters its own list; a leftover library search would send it back to all.
 		if (nextView === 'tags') query = '';
 		if (nextView) {
-			url.searchParams.set('view', nextView);
+			// Read live rows, not `tags`: a rename has to reach the address straight away.
+			const live = library?.list<Row>('tags').filter((r) => !r.deletedAt) ?? tags;
+			const tag = nextView.startsWith('tag:')
+				? live.find((t) => t.id === nextView.slice(4))
+				: undefined;
+			if (tag) {
+				url.searchParams.set('tag', tagSlug(tag, live));
+				url.searchParams.delete('view');
+			} else {
+				url.searchParams.set('view', nextView);
+				url.searchParams.delete('tag');
+			}
 			url.searchParams.delete('item');
 			url.searchParams.delete('kind');
 			limit = 100;
@@ -820,6 +839,7 @@
 							throw new Error(result.message ?? 'Could not remove this tag from every item.');
 					}
 			}
+			const viewing = view === `tag:${id}`;
 			const current = library.get<Row>('tags', id) ?? entry.row;
 			const command: Command = remove
 				? {
@@ -842,7 +862,8 @@
 			if (remove) feedback('Tag deleted.');
 			cue(remove ? 'warning' : 'success');
 			manage = null;
-			if (remove && view === `tag:${id}`) await navigate(null, 'tags');
+			// The address carries the tag's name, so a rename moves it along.
+			if (viewing) await navigate(null, remove ? 'tags' : `tag:${id}`);
 		} catch (e) {
 			cue('error');
 			feedback((e as Error).message);

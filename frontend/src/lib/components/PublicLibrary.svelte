@@ -13,7 +13,7 @@
 	import { notePreview } from '#lib/client/reference-edits.js';
 	import { createSearchClient } from '#lib/client/search-client.js';
 	import { emptySearch, type searchLibrary } from '#lib/client/search.js';
-	import { isReadLater } from '#lib/client/workflows.js';
+	import { isReadLater, tagIdFromSlug, tagSlug } from '#lib/client/workflows.js';
 	import { normalizeUrl } from '#lib/domain/urls.js';
 	import { snapshotLibrary, type PublicSnapshot } from '#lib/domain/public-view.js';
 	import BookmarkCard from './BookmarkCard.svelte';
@@ -44,7 +44,13 @@
 	let generation = 0;
 	const tags = $derived(sortByPosition(library.list<Row>('tags')));
 	const people = $derived(library.list<Row>('people'));
-	const requestedView = $derived(page.url.searchParams.get('view') ?? 'all');
+	// Tag pages live at `?tag=<name>`; `view=tag:<id>` is the old form, still accepted.
+	const requestedTag = $derived(page.url.searchParams.get('tag'));
+	const requestedView = $derived(
+		requestedTag
+			? `tag:${tagIdFromSlug(requestedTag, tags) ?? 'unknown'}`
+			: (page.url.searchParams.get('view') ?? 'all')
+	);
 	const view = $derived(
 		['all', 'later', 'people', 'tags'].includes(requestedView) ||
 			/^(tag|person):[\w-]+$/.test(requestedView)
@@ -124,7 +130,16 @@
 		const url = new SvelteURL(page.url.href);
 		url.pathname = resolve('/public');
 		if (nextView === 'tags') query = '';
-		url.searchParams.set('view', nextView);
+		const tag = nextView.startsWith('tag:')
+			? tags.find((t) => t.id === nextView.slice(4))
+			: undefined;
+		if (tag) {
+			url.searchParams.set('tag', tagSlug(tag, tags));
+			url.searchParams.delete('view');
+		} else {
+			url.searchParams.set('view', nextView);
+			url.searchParams.delete('tag');
+		}
 		limit = 100;
 		if (query) url.searchParams.set('q', query);
 		else url.searchParams.delete('q');

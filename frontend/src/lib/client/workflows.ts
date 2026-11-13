@@ -50,6 +50,30 @@ export function personIdFromSlug(slug: string): string | null {
 			.toLowerCase() ?? null
 	);
 }
+const nameSlug = (name: unknown, fallback: string) =>
+	String(name ?? '')
+		.normalize('NFKD')
+		.replace(/\p{M}/gu, '')
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]+/gu, '-')
+		.replace(/^-|-$/g, '')
+		.slice(0, 60) || fallback;
+/**
+ * A tag's address in `?tag=`: its name as a slug, or `name--id` when another tag shares the
+ * slug (e.g. "C++" and "C#"), so the link always resolves to exactly one tag.
+ */
+export function tagSlug(tag: Row, tags: Row[]): string {
+	const slug = nameSlug(tag.name, 'tag');
+	const shared = tags.some((t) => t.id !== tag.id && nameSlug(t.name, 'tag') === slug);
+	return shared ? `${slug}--${tag.id}` : slug;
+}
+export function tagIdFromSlug(slug: string, tags: Row[]): string | null {
+	const byId = personIdFromSlug(slug);
+	if (byId) return byId;
+	const wanted = slug.toLowerCase();
+	const matches = tags.filter((t) => nameSlug(t.name, 'tag') === wanted);
+	return matches.length === 1 ? String(matches[0].id) : null;
+}
 /**
  * Moves one tag to `toIndex` of `ordered` (the list as shown, already sorted). Usually one
  * command; the first reorder of never-ordered tags gives every tag a position.

@@ -4,7 +4,9 @@ import {
 	isReadLater,
 	personIdFromSlug,
 	personSlug,
-	tagNames
+	tagIdFromSlug,
+	tagNames,
+	tagSlug
 } from '../../src/lib/client/workflows.js';
 import {
 	removeNoteReference,
@@ -90,5 +92,30 @@ describe('plain notes with separate linked items', () => {
 			id +
 			')\n\n<!-- /prism:links:v1 -->';
 		expect(splitLinkedNote(text)).toEqual({ text, links: [] });
+	});
+});
+
+describe('tag slugs', () => {
+	const a = '6f539c29-50c3-4d48-9c2b-e7ccf34b54d9';
+	const b = '7a539c29-50c3-4d48-9c2b-e7ccf34b54d9';
+	const c = '8b539c29-50c3-4d48-9c2b-e7ccf34b54d9';
+	const tags = [
+		{ id: a, name: 'Machine Learning' },
+		{ id: b, name: 'C++' },
+		{ id: c, name: 'C#' }
+	];
+	it('uses the name alone when it is unique', () => {
+		expect(tagSlug(tags[0], tags)).toBe('machine-learning');
+		expect(tagIdFromSlug('machine-learning', tags)).toBe(a);
+		expect(tagIdFromSlug('Machine-Learning', tags)).toBe(a);
+	});
+	it('adds the id when names collide', () => {
+		expect(tagSlug(tags[1], tags)).toBe(`c--${b}`);
+		expect(tagIdFromSlug(`c--${b}`, tags)).toBe(b);
+		expect(tagIdFromSlug('c', tags)).toBeNull();
+	});
+	it('accepts a bare id and rejects unknown names', () => {
+		expect(tagIdFromSlug(a, tags)).toBe(a);
+		expect(tagIdFromSlug('nope', tags)).toBeNull();
 	});
 });
