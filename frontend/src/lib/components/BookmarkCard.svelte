@@ -13,6 +13,7 @@
 		Trash2 as Trash2Icon,
 		RotateCcw as RotateCcwIcon,
 		Unlink as UnlinkIcon,
+		FolderInput as FolderInputIcon,
 		ChevronRight as ChevronRightIcon,
 		NotebookText as NoteIcon,
 		Rabbit as RabbitIcon
@@ -36,22 +37,27 @@
 		item,
 		note = '',
 		selected = false,
+		marked = false,
 		readonly = false,
 		onEdit,
 		onAction,
 		onOpen,
 		onDisconnect,
+		onMove,
 		feedback = () => {}
 	}: {
 		item: Row;
 		note?: string;
 		selected?: boolean;
+		// Part of a visual-mode run.
+		marked?: boolean;
 		// Public visitors only read: no context menu, swipes or edit affordances.
 		readonly?: boolean;
 		onEdit: () => void;
 		onAction: (action: 'later' | 'trash' | 'restore' | 'purge') => void;
 		onOpen: () => void;
 		onDisconnect?: () => void;
+		onMove?: () => void;
 		feedback?: (message: string) => void;
 	} = $props();
 	let offset = $state(0),
@@ -267,7 +273,7 @@
 			</div>
 		{:else}<ContextMenu.Root bind:open={menuOpen}
 				><ContextMenu.Trigger
-					class={`library-row ${selected ? 'selected' : ''}`}
+					class={`library-row ${selected ? 'selected' : ''} ${marked ? 'marked' : ''}`}
 					style={`transform:translateX(${offset}px)`}
 					onclick={toggleFromRow}
 				>
@@ -300,6 +306,9 @@
 									>{isReadLater(item) ? 'Remove from Read later' : 'Read later'}</span
 								></ContextMenu.Item
 							>
+							{#if onMove}<ContextMenu.Item class="menu-item" onSelect={onMove}
+									><FolderInputIcon /><span>Move to…</span><kbd>x</kbd></ContextMenu.Item
+								>{/if}
 							{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
 									><UnlinkIcon /><span>Disconnect</span></ContextMenu.Item
 								>{/if}<ContextMenu.Separator class="menu-separator" />

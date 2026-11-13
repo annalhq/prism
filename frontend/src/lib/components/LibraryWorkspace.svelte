@@ -17,6 +17,7 @@
 	import { downloadFile } from '#lib/client/download.js';
 	import AccountPanel from './AccountPanel.svelte';
 	import KeyboardHelp from './KeyboardHelp.svelte';
+	import MovePalette from './MovePalette.svelte';
 	import { libraryKeyboard } from '#lib/client/keyboard-navigation.js';
 	import { MediaQuery, SvelteURL } from 'svelte/reactivity';
 	import { normalizeUrl } from '#lib/domain/urls.js';
@@ -42,8 +43,11 @@
 	import { personPhoto } from '#lib/client/avatars.js';
 	import {
 		bookmarkSource,
+		chunked,
+		copyLink,
 		isReadLater,
 		moveTag,
+		planMove,
 		personLinksIndex,
 		personSlug,
 		personIdFromSlug,
@@ -66,7 +70,12 @@
 	import BrowserImportDialog from './BrowserImportDialog.svelte';
 	import type { EntityRef } from '#lib/domain/entities.js';
 	import type { VaultIdentity } from '#lib/domain/replica.js';
-	import type { Command, Revision } from '#lib/domain/contracts.js';
+	import {
+		MAX_BULK_BOOKMARKS,
+		type BulkBookmarkCommand,
+		type Command,
+		type Revision
+	} from '#lib/domain/contracts.js';
 	import LibraryInspector from './LibraryInspector.svelte';
 	import TagsExplorer from './TagsExplorer.svelte';
 	let {
@@ -116,6 +125,14 @@
 	let sidebar: LibrarySidebar | undefined = $state();
 	let tagsExplorer: TagsExplorer | undefined = $state();
 	let helpOpen = $state(false);
+	// Visual mode's marked run, and the bookmarks `x` cut, waiting for a destination.
+	let marked = $state<string[]>([]),
+		moving = $state<string[]>([]),
+		moveOpen = $state(false);
+	const markedSet = $derived(new Set(marked));
+	$effect(() => {
+		if (!moveOpen) marked = [];
+	});
 	let lastRow: HTMLElement | null = null;
 	let noticeId = 0;
 	const toast = $derived(notice?.message ?? '');
@@ -376,7 +393,11 @@
 			insert: () => void openOmnibar('insert'),
 			filter: () => void (mobile ? openTags() : sidebar?.focusNavigation()),
 			account: () => (settings = true),
-			help: () => (helpOpen = true)
+			help: () => (helpOpen = true),
+			mark: (ids) => (marked = ids),
+			cut: (ids) => openMove(ids),
+			remove: (ids) => trashMany(ids),
+			copy: (ids) => void copyMany(ids)
 		});
 		const remember = (event: FocusEvent) => {
 			const target = event.target as HTMLElement;
@@ -553,6 +574,104 @@
 			cue('error');
 		} finally {
 			formBusy = false;
+		}
+	}
+	// A new list is a new set of rows; a marked run from the old one means nothing here.
+	$effect(() => {
+		void view;
+		void query;
+		marked = [];
+	});
+	// One command for one bookmark, otherwise bulk commands of at most MAX_BULK_BOOKMARKS each.
+	async function saveMany(commands: BulkBookmarkCommand[]) {
+		if (!library || !commands.length) return;
+		for (const chunk of chunked(commands, MAX_BULK_BOOKMARKS)) {
+			const result = await library.save(
+				chunk.length === 1 ? chunk[0] : { type: 'bookmark.bulk', commands: chunk }
+			);
+			if (result.status === 'rejected') throw new Error(result.message ?? 'Could not save.');
+		}
+	}
+	const plural = (n: number) => (n === 1 ? 'bookmark' : `${n} bookmarks`);
+	function openMove(ids: string[]) {
+		if (view === 'trash') {
+			feedback('Restore bookmarks before moving them.');
+			cue('error');
+			return;
+		}
+		moving = ids;
+		marked = ids;
+		moveOpen = true;
+	}
+	// The tag page being cut from, if any: moving takes this tag off.
+	const moveSource = $derived(view.startsWith('tag:') ? view.slice(4) : null);
+	async function moveTo(tagId: string) {
+		if (!library) return;
+		const rows = moving
+			.map((id) => library!.get<Row>('bookmarks', id))
+			.filter((row): row is Row => !!row);
+		const { adds, removes } = planMove(rows, tagId, moveSource);
+		const name = tags.find((t) => t.id === tagId)?.name ?? 'tag';
+		try {
+			await saveMany(adds);
+			await saveMany(removes);
+			cue('success');
+			feedback(`${moveSource ? 'Moved' : 'Added'} ${plural(rows.length)} to #${name}.`);
+		} catch (error) {
+			cue('error');
+			feedback((error as Error).message);
+		} finally {
+			moving = [];
+		}
+	}
+	async function createAndMove(name: string) {
+		if (!library) return;
+		const id = crypto.randomUUID();
+		const result = await library.save({ type: 'tag.create', id, name });
+		if (result.status === 'rejected') {
+			cue('error');
+			feedback(result.message ?? 'Could not create this tag.');
+			moving = [];
+			return;
+		}
+		await moveTo(id);
+	}
+	async function trashMany(ids: string[]) {
+		if (!library) return;
+		if (view === 'trash') {
+			feedback('Already in trash. Delete permanently from the menu.');
+			return;
+		}
+		const rows = ids
+			.map((id) => library!.get<Row>('bookmarks', id))
+			.filter((row): row is Row => !!row && !row.deletedAt);
+		try {
+			await saveMany(
+				rows.map((row) => ({
+					type: 'bookmark.trash',
+					id: String(row.id),
+					expectedRevision: String(row.revision) as Revision
+				}))
+			);
+			cue('warning');
+			feedback(`Moved ${plural(rows.length)} to trash.`);
+		} catch (error) {
+			cue('error');
+			feedback((error as Error).message);
+		}
+	}
+	async function copyMany(ids: string[]) {
+		const links = ids
+			.map((id) => library?.get<Row>('bookmarks', id))
+			.map((row) => (row ? bookmarkSource(row) : null))
+			.filter((url): url is string => !!url);
+		if (!links.length) return;
+		if (links.length === 1) return copyLink(links[0], feedback);
+		try {
+			await navigator.clipboard.writeText(links.join('\n'));
+			feedback(`Copied ${links.length} links.`);
+		} catch {
+			feedback('Could not copy the links.');
 		}
 	}
 	async function bookmarkAction(item: Row, action: 'later' | 'trash' | 'restore' | 'purge') {
@@ -1084,6 +1203,8 @@
 												void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
 										: undefined}
 									selected={selected?.id === item.id}
+									marked={markedSet.has(String(item.id))}
+									onMove={() => openMove([String(item.id)])}
 									onPerson={(id) => void navigate({ kind: 'person', id })}
 									onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
 									onAction={(action) => void bookmarkAction(item, action)}
@@ -1094,6 +1215,8 @@
 									{feedback}
 									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
 									selected={selected?.id === item.id}
+									marked={markedSet.has(String(item.id))}
+									onMove={() => openMove([String(item.id)])}
 									onEdit={() => void navigate({ kind: 'bookmark', id: String(item.id) })}
 									onAction={(action) => void bookmarkAction(item, action)}
 									onOpen={() => void library?.save({ type: 'activity.open', id: String(item.id) })}
@@ -1309,6 +1432,15 @@
 		if (library) download(await library.exportPending(), 'prism-pending-work.json');
 	}}
 	onMaintenance={runMaintenance}
+/>
+<MovePalette
+	bind:open={moveOpen}
+	count={moving.length}
+	{tags}
+	counts={shelfStats.counts}
+	sourceId={moveSource}
+	onPick={(id) => void moveTo(id)}
+	onCreate={(name) => void createAndMove(name)}
 />
 <Dialog.Root bind:open={helpOpen}
 	><Dialog.Portal

@@ -4,6 +4,7 @@ import {
 	isReadLater,
 	personIdFromSlug,
 	personSlug,
+	planMove,
 	tagIdFromSlug,
 	tagNames,
 	tagSlug
@@ -117,5 +118,26 @@ describe('tag slugs', () => {
 	it('accepts a bare id and rejects unknown names', () => {
 		expect(tagIdFromSlug(a, tags)).toBe(a);
 		expect(tagIdFromSlug('nope', tags)).toBeNull();
+	});
+});
+
+describe('planMove', () => {
+	const rows = [
+		{ id: 'a', tagIds: ['src'] },
+		{ id: 'b', tagIds: ['src', 'dst'] },
+		{ id: 'c', tagIds: [], deletedAt: '2026-01-01' }
+	];
+	it('cuts from the tag page: adds the target first, then takes the source off', () => {
+		expect(planMove(rows, 'dst', 'src')).toEqual({
+			adds: [{ type: 'tag.add', id: 'a', tagId: 'dst' }],
+			removes: [
+				{ type: 'tag.remove', id: 'a', tagId: 'src' },
+				{ type: 'tag.remove', id: 'b', tagId: 'src' }
+			]
+		});
+	});
+	it('only adds outside a tag page, and never to the source itself', () => {
+		expect(planMove(rows, 'dst', null).removes).toEqual([]);
+		expect(planMove(rows, 'src', 'src')).toEqual({ adds: [], removes: [] });
 	});
 });

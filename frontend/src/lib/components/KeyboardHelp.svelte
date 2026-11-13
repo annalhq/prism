@@ -32,7 +32,20 @@
 			rows: [
 				['o / Enter', 'Open the link'],
 				['e / Space', 'Edit bookmark'],
-				['y', 'Copy the link']
+				['y', 'Copy the link'],
+				['x', 'Move to a tag'],
+				['dd', 'Move to trash']
+			]
+		},
+		{
+			title: 'Visual mode',
+			rows: [
+				['v', 'Start marking from the focused bookmark'],
+				['j / k · gg / G', 'Extend the marked run'],
+				['x', 'Move the run to a tag'],
+				['d', 'Move the run to trash'],
+				['y', 'Copy every link in the run'],
+				['Esc', 'Stop marking']
 			]
 		},
 		{

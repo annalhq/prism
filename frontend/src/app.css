@@ -728,6 +728,85 @@ kbd {
 	white-space: nowrap;
 }
 /*
+ * Move palette (`x`): the menu's frosted sheet, lifted to the upper third like a command bar.
+ * A caption says what is moving, a bare field filters, and tags list as menu rows with the
+ * same # glyph the tag sheet uses. The scrim stays faint so the marked rows still show.
+ */
+.move-overlay {
+	background: color-mix(in srgb, var(--scrim) 45%, transparent);
+	backdrop-filter: none;
+}
+.menu-content.move-palette {
+	position: fixed;
+	top: max(14vh, 24px);
+	left: 50%;
+	display: flex;
+	flex-direction: column;
+	width: min(360px, calc(100vw - 32px));
+	min-width: 0;
+	max-width: none;
+	max-height: min(420px, 70dvh);
+	overflow: hidden;
+	translate: -50% 0;
+	transform-origin: top center;
+}
+.move-palette-title {
+	margin-bottom: 0;
+}
+.move-palette-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 40px;
+	padding: 0 10px 0 9px;
+	background: linear-gradient(var(--menu-rule), var(--menu-rule)) no-repeat center bottom /
+		calc(100% - 18px) 1px;
+	cursor: text;
+}
+.move-palette-field input:not([type='checkbox']) {
+	flex: 1;
+	min-width: 0;
+	min-height: 38px;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+	color: var(--ink);
+	font-size: var(--text-md);
+	outline: none;
+}
+.move-hash {
+	width: 12px;
+	color: var(--tertiary);
+	font-family: var(--font-mono);
+	text-align: center;
+}
+.move-palette-list {
+	min-height: 0;
+	margin-top: 5px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+.move-palette-list .menu-item {
+	cursor: pointer;
+}
+.move-create strong {
+	font-weight: 500;
+}
+.move-palette-empty {
+	margin: 0;
+	padding: 10px 9px 6px;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+/* Visual mode: the marked run reads as one block of selection, a hairline on its leading edge. */
+.library-row.marked,
+.post.marked {
+	background: var(--selection);
+	box-shadow: inset 2px 0 0 var(--ink);
+}
+/*
  * Touch: the iOS form. A wider sheet with no inner padding, tall rows divided by hairlines, the
  * icon at the trailing edge, and actions grouped by a thick band instead of a thin rule.
  * Shortcut keys mean nothing without a keyboard, so they go.

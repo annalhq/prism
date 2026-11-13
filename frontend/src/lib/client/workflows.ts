@@ -75,6 +75,29 @@ export function tagIdFromSlug(slug: string, tags: Row[]): string | null {
 	return matches.length === 1 ? String(matches[0].id) : null;
 }
 /**
+ * The tag edits for moving bookmarks to `targetId`. Inside a tag's page the move is a cut:
+ * the target is added and that page's tag (`sourceId`) taken off. Anywhere else there is no
+ * folder to leave, so it only adds. Adds and removes come apart because a bulk command may
+ * name each bookmark once; adds go first so a half-finished move never drops a bookmark.
+ */
+export function planMove(bookmarks: Row[], targetId: string, sourceId: string | null) {
+	const has = (row: Row, id: string) => ((row.tagIds as string[] | undefined) ?? []).includes(id);
+	const live = bookmarks.filter((row) => !row.deletedAt && !row.purgedAt);
+	const membership = (type: 'tag.add' | 'tag.remove', id: string) =>
+		live
+			.filter((row) => (type === 'tag.add' ? !has(row, id) : has(row, id)))
+			.map((row) => ({ type, id: String(row.id), tagId: id }));
+	return {
+		adds: membership('tag.add', targetId),
+		removes: sourceId && sourceId !== targetId ? membership('tag.remove', sourceId) : []
+	};
+}
+export function chunked<T>(items: T[], size: number): T[][] {
+	const out: T[][] = [];
+	for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+	return out;
+}
+/**
  * Moves one tag to `toIndex` of `ordered` (the list as shown, already sorted). Usually one
  * command; the first reorder of never-ordered tags gives every tag a position.
  */

@@ -11,7 +11,8 @@
 		Copy as CopyIcon,
 		Pencil as PencilIcon,
 		Trash2 as Trash2Icon,
-		Unlink as UnlinkIcon
+		Unlink as UnlinkIcon,
+		FolderInput as FolderInputIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Posts open validated external HTTP source URLs. */
 	import { ContextMenu } from 'bits-ui';
@@ -42,12 +43,14 @@
 		people = [],
 		note = '',
 		selected = false,
+		marked = false,
 		readonly = false,
 		onEdit,
 		onAction,
 		onOpen,
 		onPerson,
 		onDisconnect,
+		onMove,
 		feedback = () => {}
 	}: {
 		item: Row;
@@ -55,12 +58,15 @@
 		people?: PostPerson[];
 		note?: string;
 		selected?: boolean;
+		// Part of a visual-mode run.
+		marked?: boolean;
 		readonly?: boolean;
 		onEdit: () => void;
 		onAction: (action: 'later' | 'trash') => void;
 		onOpen: () => void;
 		onPerson: (id: string) => void;
 		onDisconnect?: () => void;
+		onMove?: () => void;
 		feedback?: (message: string) => void;
 	} = $props();
 	const lead = $derived(people[0]);
@@ -110,7 +116,7 @@
 {#snippet post(props: Record<string, unknown> = {})}
 	<article
 		{...props}
-		class={['post', 'bookmark-gesture', selected && 'selected']}
+		class={['post', 'bookmark-gesture', selected && 'selected', marked && 'marked']}
 		data-bookmark-id={String(item.id)}
 		aria-label={lead ? `${lead.name}: ${item.title}` : String(item.title)}
 	>
@@ -210,7 +216,9 @@
 					>{/if}<ContextMenu.Item class="menu-item" onSelect={() => onAction('later')}
 					><Clock3Icon /><span>{isReadLater(item) ? 'Remove from Read later' : 'Read later'}</span
 					></ContextMenu.Item
-				>{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
+				>{#if onMove}<ContextMenu.Item class="menu-item" onSelect={onMove}
+						><FolderInputIcon /><span>Move to…</span><kbd>x</kbd></ContextMenu.Item
+					>{/if}{#if onDisconnect}<ContextMenu.Item class="menu-item" onSelect={onDisconnect}
 						><UnlinkIcon /><span>Disconnect</span></ContextMenu.Item
 					>{/if}<ContextMenu.Separator class="menu-separator" /><ContextMenu.Item
 					class="menu-item danger-text"
