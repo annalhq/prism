@@ -1257,6 +1257,152 @@ kbd {
 	padding-inline: 12px;
 }
 
+/* A folder glyph sits where a tag's # does, at the same optical size. */
+.name-sheet-glyph .folder-glyph {
+	font-size: 20px;
+	vertical-align: -3px;
+}
+.name-sheet-hint kbd {
+	padding: 0 5px;
+	border-radius: 5px;
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	color: var(--secondary);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+}
+.name-sheet-hint strong {
+	color: var(--ink);
+	font-weight: 500;
+}
+/* Folder picking: soft chips, the chosen ones lifted like the current sidebar row. */
+.name-sheet-folder {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px 14px 12px 16px;
+	border-radius: var(--radius-card);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.name-sheet-folder > span {
+	font-size: var(--text-sm);
+	font-weight: 500;
+}
+.folder-sheet-tags {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px 12px 14px 14px;
+	border-radius: var(--radius-card);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.folder-sheet-tags-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 26px;
+	font-size: var(--text-sm);
+	font-weight: 500;
+}
+.folder-sheet-tags-head small {
+	color: var(--tertiary);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	font-weight: 400;
+}
+.folder-sheet-filter {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 130px;
+	min-height: 26px;
+	margin-left: auto;
+	padding: 0 10px;
+	border-radius: var(--radius-pill);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	color: var(--tertiary);
+}
+.folder-sheet-filter svg {
+	width: 12px;
+	height: 12px;
+	flex-shrink: 0;
+}
+.folder-sheet-filter input:not([type='checkbox']) {
+	min-height: 24px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	font-size: var(--text-sm);
+}
+.folder-sheet-filter input:focus-visible {
+	outline: none;
+}
+.folder-sheet-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	max-height: 200px;
+	overflow-y: auto;
+}
+.folder-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 30px;
+	max-width: 100%;
+	padding: 0 12px 0 10px;
+	border-radius: var(--radius-pill);
+	box-shadow: inset 0 0 0 1px var(--line);
+	color: var(--secondary);
+	font-size: var(--text-sm);
+	white-space: nowrap;
+	transition:
+		background-color 140ms ease,
+		box-shadow 180ms var(--ease-out),
+		color 120ms ease,
+		scale 220ms var(--ease-spring);
+}
+.folder-chip > span {
+	color: var(--tertiary);
+	font-family: var(--font-mono);
+}
+.folder-chip > svg {
+	width: 13px;
+	height: 13px;
+	flex-shrink: 0;
+}
+.folder-chip .folder-glyph {
+	font-size: 13px;
+}
+.folder-chip small {
+	margin-left: 2px;
+	color: var(--tertiary);
+	font-size: var(--text-xs);
+}
+@media (hover: hover) {
+	.folder-chip:hover:not(:disabled) {
+		background: var(--highlight);
+		color: var(--ink);
+	}
+}
+.folder-chip:is([aria-pressed='true'], [aria-checked='true']) {
+	background: var(--surface);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.folder-chip:active:not(:disabled) {
+	scale: 0.96;
+}
+.folder-chip:disabled {
+	opacity: 0.6;
+}
+.folder-sheet-none {
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+
 .dialog-title {
 	display: flex;
 	align-items: center;
@@ -1621,6 +1767,141 @@ kbd {
 }
 .collapsed .sidebar-toggle {
 	right: 4px;
+}
+
+/* Folder glyph: the shut and open folders are stacked in one box and cross-faded, so opening
+   reads as the flap lifting rather than an icon swap. Sized by its container's font size. */
+.folder-glyph {
+	display: inline-grid;
+	flex-shrink: 0;
+	width: 1em;
+	height: 1em;
+	color: inherit;
+}
+.folder-glyph > svg {
+	grid-area: 1 / 1;
+	width: 100%;
+	height: 100%;
+	transition:
+		opacity 160ms ease,
+		scale 260ms var(--ease-spring),
+		translate 260ms var(--ease-spring);
+}
+.folder-glyph-open {
+	opacity: 0;
+	scale: 0.9;
+	translate: 0 1px;
+}
+.folder-glyph.open .folder-glyph-shut {
+	opacity: 0;
+	scale: 0.9;
+}
+.folder-glyph.open .folder-glyph-open {
+	opacity: 1;
+	scale: 1;
+	translate: 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+	.folder-glyph > svg {
+		transition: opacity 120ms ease;
+	}
+}
+
+/* Sidebar folders: a header row that folds its tags away, with the tags indented on a hairline. */
+.sidebar-heading-actions {
+	display: flex;
+	align-items: center;
+}
+.sidebar-tag-slot {
+	min-width: 0;
+}
+.sidebar-folder {
+	transition: opacity 160ms var(--ease-out);
+}
+.sidebar-folder.dragging {
+	opacity: 0.5;
+}
+.sidebar-folder-head {
+	border-radius: var(--radius-control);
+	transition:
+		background-color 140ms ease,
+		box-shadow 140ms ease;
+}
+.sidebar-folder-toggle .folder-glyph {
+	font-size: 14px;
+	margin-inline: 1px;
+	color: var(--tertiary);
+	transition: color 120ms ease;
+}
+.sidebar-folder-toggle[aria-expanded='true'] .folder-glyph,
+.sidebar-folder-toggle:hover .folder-glyph {
+	color: var(--secondary);
+}
+/* A tag dragged over a folder (or the take-out strip) marks where it would land. */
+.sidebar-folder-head.drop-target,
+.sidebar-unfile.drop-target {
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--line);
+}
+.sidebar-folder-head.drop-target .folder-glyph {
+	color: var(--ink);
+}
+.sidebar-folder-tags {
+	display: grid;
+	grid-template-rows: 1fr;
+	transition: grid-template-rows 220ms var(--ease-out);
+}
+.sidebar-folder-tags[data-open='false'] {
+	grid-template-rows: 0fr;
+}
+.sidebar-folder-tags > div {
+	position: relative;
+	min-height: 0;
+	overflow: hidden;
+	padding-left: 12px;
+	transition: opacity 180ms ease;
+}
+.sidebar-folder-tags[data-open='false'] > div {
+	opacity: 0;
+}
+.sidebar-folder-tags > div::before {
+	content: '';
+	position: absolute;
+	top: 2px;
+	bottom: 6px;
+	left: 18px;
+	border-left: 1px solid var(--hairline);
+}
+.sidebar-folder-tags .sidebar-link {
+	padding-left: 17px;
+}
+.sidebar-folder-empty {
+	padding: 6px 12px 8px 17px;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+.sidebar-unfile {
+	margin: 4px 0 6px;
+	padding: 8px 12px;
+	border: 1px dashed var(--line);
+	border-radius: var(--radius-control);
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+	text-align: center;
+	animation: fade-in 140ms ease;
+	transition:
+		background-color 140ms ease,
+		color 140ms ease;
+}
+.sidebar-unfile.drop-target {
+	border-color: transparent;
+	color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+	.sidebar-folder-tags,
+	.sidebar-folder-tags > div {
+		transition: none;
+	}
 }
 
 /* The view title is announced on desktop, where the sidebar shows it; mobile shows it in place. */
@@ -4954,6 +5235,91 @@ a.editor-source:hover > svg {
 	background: var(--hover);
 	color: var(--ink);
 }
+/* Tags page folders: a quiet header per folder, its tags folding beneath it. */
+.tag-folders {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+.tag-folder-head {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	border-radius: var(--radius-control);
+	transition: background-color 120ms ease;
+}
+@media (hover: hover) {
+	.tag-folder-head:hover {
+		background: var(--highlight);
+	}
+}
+.tag-folder-toggle {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	min-height: 40px;
+	padding: 0 10px;
+	color: var(--ink);
+	font-size: var(--text-base);
+	font-weight: 500;
+	text-align: left;
+}
+.tag-folder-toggle .folder-glyph {
+	font-size: 15px;
+	color: var(--secondary);
+}
+.tag-folder-toggle > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tag-folder-toggle small {
+	color: var(--tertiary);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	font-weight: 400;
+}
+.tag-folder-body {
+	display: grid;
+	grid-template-rows: 1fr;
+	transition: grid-template-rows 240ms var(--ease-out);
+}
+.tag-folder-body[data-open='false'] {
+	grid-template-rows: 0fr;
+}
+.tag-folder-body > div {
+	min-height: 0;
+	overflow: hidden;
+	padding-left: 18px;
+	transition: opacity 180ms ease;
+}
+.tag-folder-body[data-open='false'] > div {
+	opacity: 0;
+}
+.tag-folder-empty {
+	padding: 4px 10px 10px;
+}
+.tag-folders + .tag-list {
+	margin-top: 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--hairline);
+}
+.tag-row-folder {
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+	font-style: normal;
+	white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+	.tag-folder-body,
+	.tag-folder-body > div {
+		transition: none;
+	}
+}
+
 /* One grouped list; it flows into columns where there is room for them. */
 .tag-list {
 	display: grid;

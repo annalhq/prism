@@ -10,6 +10,7 @@ import {
 	entityTags,
 	notes,
 	people,
+	tagFolders,
 	tags,
 	vaults
 } from '../db/schema.js';
@@ -66,10 +67,15 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 					id: tags.id,
 					name: tags.name,
 					position: tags.position,
-					isPrivate: tags.isPrivate
+					isPrivate: tags.isPrivate,
+					folderId: tags.folderId
 				})
 				.from(tags)
 				.where(and(eq(tags.vaultId, vault.id), isNull(tags.deletedAt), isNull(tags.purgedAt)));
+			const folderRows = await tx
+				.select({ id: tagFolders.id, name: tagFolders.name, position: tagFolders.position })
+				.from(tagFolders)
+				.where(and(eq(tagFolders.vaultId, vault.id), isNull(tagFolders.deletedAt)));
 			const tagLinks = await tx
 				.select({ entityId: entityTags.entityId, tagId: entityTags.tagId })
 				.from(entityTags)
@@ -109,6 +115,8 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 			const publicBookmarks = bookmarkRows.filter((r) => !hidden.has(r.bookmark.id));
 			const publicPeople = personRows.filter((r) => !hidden.has(r.person.id));
 			const bookmarkIds = new Set(publicBookmarks.map((r) => r.bookmark.id));
+			const publicTags = sortByPosition(tagRows.filter((t) => !t.isPrivate));
+			const publicFolders = new Set(publicTags.map((t) => t.folderId));
 			const personIds = new Set(publicPeople.map((r) => r.person.id));
 			return {
 				bookmarks: publicBookmarks.map(({ bookmark: b, createdAt, updatedAt }) => ({
@@ -140,10 +148,18 @@ export async function publicSnapshot(): Promise<PublicSnapshot | null> {
 					createdAt: createdAt.toISOString(),
 					updatedAt: updatedAt.toISOString()
 				})),
-				tags: sortByPosition(tagRows.filter((t) => !t.isPrivate)).map((t) => ({
+				tags: publicTags.map((t) => ({
 					id: t.id,
 					name: t.name,
 					position: t.position,
+					folderId: t.folderId,
+					deletedAt: null
+				})),
+				// Only folders holding a public tag: an empty or all-private folder stays unseen.
+				folders: sortByPosition(folderRows.filter((f) => publicFolders.has(f.id))).map((f) => ({
+					id: f.id,
+					name: f.name,
+					position: f.position,
 					deletedAt: null
 				})),
 				relationships: relationRows

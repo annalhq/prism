@@ -98,14 +98,16 @@ export function chunked<T>(items: T[], size: number): T[][] {
 	return out;
 }
 /**
- * Moves one tag to `toIndex` of `ordered` (the list as shown, already sorted). Usually one
- * command; the first reorder of never-ordered tags gives every tag a position.
+ * Moves one tag (or folder) to `toIndex` of `ordered` (the list as shown, already sorted, without
+ * the moved row). Usually one command; the first reorder of never-ordered rows gives every row a
+ * position.
  */
 export async function moveTag(
 	library: LibraryClient,
 	ordered: Row[],
 	id: string,
-	toIndex: number
+	toIndex: number,
+	table: 'tags' | 'folders' = 'tags'
 ): Promise<void> {
 	const from = ordered.findIndex((t) => t.id === id);
 	if (from < 0) return;
@@ -125,14 +127,51 @@ export async function moveTag(
 						.map((row, i): [Row, string] => [row, keys[i]])
 						.filter(([row, key]) => row.position !== key))(spreadPositions(next.length));
 	for (const [row, key] of updates) {
-		const current = library.get<Row>('tags', String(row.id)) ?? row;
+		const current = library.get<Row>(table, String(row.id)) ?? row;
 		const result = await library.save({
-			type: 'tag.move',
+			type: table === 'tags' ? 'tag.move' : 'folder.move',
 			id: String(row.id),
 			expectedRevision: String(current.revision) as Revision,
 			position: key
 		});
-		if (result.status === 'rejected') throw new Error(result.message ?? 'Could not reorder tags.');
+		if (result.status === 'rejected') throw new Error(result.message ?? 'Could not reorder.');
+	}
+}
+/**
+ * The new-tag field reads like a file tree: `name` is a tag, `folder/` a folder, and
+ * `folder/name` a tag inside that folder. Folders hold tags only, so one slash at most.
+ */
+export function parseTagPath(
+	input: string
+): { folder: string | null; tag: string | null } | { error: string } {
+	const value = input.trim().replace(/^#/, '');
+	const slash = value.indexOf('/');
+	if (slash === -1) return { folder: null, tag: value || null };
+	const folder = value.slice(0, slash).trim();
+	const tag = value
+		.slice(slash + 1)
+		.trim()
+		.replace(/^#/, '');
+	if (!folder) return { error: 'Name the folder before the slash.' };
+	if (tag.includes('/')) return { error: 'Folders hold tags, not other folders.' };
+	return { folder, tag: tag || null };
+}
+/** Files tags into a folder, or takes them out of any folder with null. Skips tags already there. */
+export async function fileTags(
+	library: LibraryClient,
+	tagIds: string[],
+	folderId: string | null
+): Promise<void> {
+	for (const id of tagIds) {
+		const current = library.get<Row>('tags', id);
+		if (!current || (current.folderId ?? null) === folderId) continue;
+		const result = await library.save({
+			type: 'tag.folder',
+			id,
+			expectedRevision: String(current.revision) as Revision,
+			folderId
+		});
+		if (result.status === 'rejected') throw new Error(result.message ?? 'Could not file this tag.');
 	}
 }
 export function tagNames(input: string): string[] {
@@ -238,4 +277,28 @@ export function postTime(value: unknown, now = Date.now()): string {
 		day: 'numeric',
 		...(date.getFullYear() !== new Date(now).getFullYear() ? { year: 'numeric' } : {})
 	});
+}
+
+export type FolderGroup = { folder: Row; tags: Row[] };
+/**
+ * Tags under their folders, each list keeping the tags' own order, then the loose ones. A tag
+ * whose folder is gone (deleted here, or not yet synced) counts as loose.
+ */
+export function groupTags(tags: Row[], folders: Row[]): { groups: FolderGroup[]; loose: Row[] } {
+	const groups = new Map(folders.map((folder) => [String(folder.id), [] as Row[]]));
+	const loose: Row[] = [];
+	for (const tag of tags) {
+		const list = typeof tag.folderId === 'string' ? groups.get(tag.folderId) : undefined;
+		(list ?? loose).push(tag);
+	}
+	return {
+		groups: folders.map((folder) => ({ folder, tags: groups.get(String(folder.id))! })),
+		loose
+	};
+}
+/** The folder a tag sits in, or '' when it is loose. */
+export function folderOf(tag: Row, folders: Row[]): string {
+	return typeof tag.folderId === 'string' && folders.some((f) => f.id === tag.folderId)
+		? tag.folderId
+		: '';
 }

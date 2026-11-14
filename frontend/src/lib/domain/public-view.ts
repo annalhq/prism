@@ -6,6 +6,8 @@ export type PublicSnapshot = {
 	bookmarks: Row[];
 	people: Row[];
 	tags: Row[];
+	/** Tag folders holding at least one public tag; absent from older cached snapshots. */
+	folders?: Row[];
 	relationships: Row[];
 	notes: Row[];
 };

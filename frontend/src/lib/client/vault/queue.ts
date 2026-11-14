@@ -19,6 +19,7 @@ function revisionKey(command: ReturnType<typeof children>[number]): string | und
 		note: 'notes',
 		tag: 'tags',
 		collection: 'collections',
+		folder: 'folders',
 		'saved-search': 'savedSearches',
 		'person-identity': 'identities',
 		'related-link': 'entities'

@@ -34,6 +34,7 @@
 		"db:migrate:production:text-items": "bun scripts/db/migrate-production-0010.ts",
 		"db:migrate:production:rabbit-holes": "bun scripts/db/migrate-production-0011.ts",
 		"db:migrate:production:private-tags": "bun scripts/db/migrate-production-0012.ts",
+		"db:migrate:production:tag-folders": "bun scripts/db/migrate-production-0013.ts",
 		"db:inventory": "bun scripts/db/inventory.ts",
 		"db:init-owner": "bun scripts/db/init-owner.ts"
 	},

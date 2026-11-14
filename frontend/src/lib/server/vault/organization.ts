@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne } from 'drizzle-orm';
+import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import {
 	MAX_ENTITY_TAGS,
 	normalizeOrganizationName,
@@ -8,19 +8,20 @@ import {
 } from '#lib/domain/organization.js';
 import type { Change, Revision, Sequence, TaxonomyProjection } from '#lib/domain/contracts.js';
 import type { Transaction } from '../db/connection.js';
-import { bookmarks, collections, entities, entityTags, tags } from '../db/schema.js';
+import { bookmarks, collections, entities, entityTags, tagFolders, tags } from '../db/schema.js';
 import { requireEntity } from './entities.js';
 import { entityMetadataChange } from './projections.js';
 import { reject } from './rejections.js';
 
 export function taxonomyProjection(
-	row: typeof tags.$inferSelect | typeof collections.$inferSelect
+	row: typeof tags.$inferSelect | typeof collections.$inferSelect | typeof tagFolders.$inferSelect
 ): TaxonomyProjection {
 	return {
 		id: row.id,
 		name: row.name,
 		normalizedName: row.normalizedName,
-		...('position' in row ? { position: row.position, isPrivate: row.isPrivate } : {}),
+		...('position' in row ? { position: row.position } : {}),
+		...('isPrivate' in row ? { isPrivate: row.isPrivate, folderId: row.folderId } : {}),
 		revision: String(row.revision) as Revision,
 		lastSeq: String(row.lastSeq) as Sequence,
 		deletedAt: row.deletedAt?.toISOString() ?? null,
@@ -35,11 +36,12 @@ export async function changeTaxonomy(
 	seq: bigint,
 	now: Date
 ): Promise<Change[]> {
-	const isTag = command.type.startsWith('tag.');
-	const table = isTag ? tags : collections;
+	const kind = command.type.split('.')[0] as 'tag' | 'collection' | 'folder';
+	const isTag = kind === 'tag';
+	const table = isTag ? tags : kind === 'folder' ? tagFolders : collections;
 	const identity = and(eq(table.vaultId, vaultId), eq(table.id, command.id));
 	const [current] = await tx.select().from(table).where(identity);
-	const create = command.type === 'tag.create' || command.type === 'collection.create';
+	const create = command.type.endsWith('.create');
 	if (create) {
 		if (current)
 			reject('id_exists', 'This organization ID is already reserved.', { id: command.id });
@@ -53,13 +55,27 @@ export async function changeTaxonomy(
 				currentRevision: String(current.revision) as Revision
 			});
 	}
-	if (command.type === 'tag.move' || command.type === 'tag.privacy') {
+	if (command.type === 'tag.folder' && command.folderId !== null) {
+		const [folder] = await tx
+			.select({ deletedAt: tagFolders.deletedAt })
+			.from(tagFolders)
+			.where(and(eq(tagFolders.vaultId, vaultId), eq(tagFolders.id, command.folderId)));
+		if (!folder || folder.deletedAt)
+			reject('not_found', 'This folder was not found.', { id: command.folderId });
+	}
+	if (
+		command.type === 'tag.move' ||
+		command.type === 'tag.privacy' ||
+		command.type === 'tag.folder'
+	) {
 		const [moved] = await tx
 			.update(tags)
 			.set({
-				...(command.type === 'tag.move'
-					? { position: command.position }
-					: { isPrivate: command.isPrivate }),
+				...(command.type === 'tag.privacy'
+					? { isPrivate: command.isPrivate }
+					: command.type === 'tag.folder'
+						? { folderId: command.folderId }
+						: { position: command.position }),
 				revision: current!.revision + 1n,
 				lastSeq: seq,
 				updatedAt: now
@@ -68,8 +84,35 @@ export async function changeTaxonomy(
 			.returning();
 		return [{ type: 'tag.upsert', tag: taxonomyProjection(moved) }];
 	}
-	const deleting = command.type === 'tag.delete' || command.type === 'collection.delete';
-	if (deleting) {
+	if (command.type === 'folder.move') {
+		const [moved] = await tx
+			.update(tagFolders)
+			.set({
+				position: command.position,
+				revision: current!.revision + 1n,
+				lastSeq: seq,
+				updatedAt: now
+			})
+			.where(and(eq(tagFolders.vaultId, vaultId), eq(tagFolders.id, command.id)))
+			.returning();
+		return [{ type: 'folder.upsert', folder: taxonomyProjection(moved) }];
+	}
+	const deleting = command.type.endsWith('.delete');
+	// A folder is only a shell: deleting it releases its tags, which keep every bookmark.
+	const released =
+		command.type === 'folder.delete'
+			? await tx
+					.update(tags)
+					.set({
+						folderId: null,
+						revision: sql`${tags.revision} + 1`,
+						lastSeq: seq,
+						updatedAt: now
+					})
+					.where(and(eq(tags.vaultId, vaultId), eq(tags.folderId, command.id)))
+					.returning()
+			: [];
+	if (deleting && kind !== 'folder') {
 		const used = isTag
 			? await tx
 					.select({ id: entityTags.entityId })
@@ -134,9 +177,12 @@ export async function changeTaxonomy(
 				.returning();
 	const projection = taxonomyProjection(saved);
 	return [
+		...released.map((tag): Change => ({ type: 'tag.upsert', tag: taxonomyProjection(tag) })),
 		isTag
 			? { type: 'tag.upsert', tag: projection }
-			: { type: 'collection.upsert', collection: projection }
+			: kind === 'folder'
+				? { type: 'folder.upsert', folder: projection }
+				: { type: 'collection.upsert', collection: projection }
 	];
 }
 

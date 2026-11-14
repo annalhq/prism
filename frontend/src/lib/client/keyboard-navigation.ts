@@ -1,6 +1,16 @@
-// Normal-mode shortcuts never intercept text entry, IME composition, or an overlay.
-// Visual mode (`v`) marks a run of bookmarks from an anchor to the focused row, as in Vim;
-// `x` cuts it to a destination, `d` trashes it, `y` copies its links and Escape lets go.
+import { createModal, keyOf, type Handler, type Mode } from './vim.js';
+
+/**
+ * The library's Vim keys: a normal and a visual keymap run by the modal engine in `vim.ts`.
+ *
+ * Normal mode moves a cursor (the focused row) and acts on it. `v` enters visual mode with an
+ * anchor on that row; motions then mark the run between anchor and cursor, `o` swaps the two
+ * ends, an operator (`x`, `d`, `y`) acts on the run and returns to normal, and `<Esc>` or `v`
+ * returns without acting. Counts work as in Vim: `3j`, `5G`, `2dd`.
+ *
+ * Text entry, IME composition and overlays are never intercepted; reaching one returns the
+ * machine to normal mode.
+ */
 export function libraryKeyboard(actions: {
 	insert: () => void;
 	filter: () => void;
@@ -12,47 +22,162 @@ export function libraryKeyboard(actions: {
 	remove?: (ids: string[]) => void | Promise<void>;
 	copy?: (ids: string[]) => void;
 }) {
-	let lastG = 0,
-		lastD = 0,
-		anchor: string | null = null;
+	let anchor: string | null = null;
+
 	const rows = () => [...document.querySelectorAll<HTMLElement>('.bookmark-title, .person-card')];
 	const idOf = (element: Element | null | undefined) =>
 		element?.closest<HTMLElement>('[data-bookmark-id]')?.dataset.bookmarkId ?? null;
+	const active = () => document.activeElement as HTMLElement | null;
+	const cursor = (items = rows()) => items.indexOf(active() as HTMLElement);
+	const rowOf = () => active()?.closest('.bookmark-gesture') ?? null;
 	const focus = (items: HTMLElement[], index: number) => {
 		const item = items[Math.max(0, Math.min(items.length - 1, index))];
 		item?.focus({ preventScroll: true });
 		item?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
 	};
-	// The marked run, from the anchor to the focused row in either direction.
+	// The run between anchor and cursor, in list order.
 	const range = () => {
 		const items = rows();
 		const from = items.findIndex((item) => idOf(item) === anchor);
-		const to = items.indexOf(document.activeElement as HTMLElement);
 		if (from < 0) return [];
+		const to = cursor(items);
 		const [start, end] = to < 0 ? [from, from] : [Math.min(from, to), Math.max(from, to)];
 		return items
 			.slice(start, end + 1)
 			.map(idOf)
 			.filter((id): id is string => !!id);
 	};
-	const leaveVisual = () => {
-		if (anchor === null) return;
-		anchor = null;
-		actions.mark?.([]);
+
+	// --- Motions: the same in both modes; in visual mode the marked run follows the cursor.
+	const motion =
+		(to: (current: number, items: HTMLElement[], count: number | null) => number): Handler =>
+		(count) => {
+			const items = rows();
+			focus(items, to(cursor(items), items, count));
+			if (machine.mode() === 'visual') actions.mark?.(range());
+		};
+	const halfPage = (count: number | null) =>
+		(count ?? 1) *
+		Math.max(
+			1,
+			Math.floor(
+				(document.querySelector('.library-content')?.clientHeight || innerHeight) /
+					2 /
+					(rowOf()?.getBoundingClientRect().height || 52)
+			)
+		);
+	const down = motion((current, _, count) => current + (count ?? 1));
+	const up = motion((current, items, count) =>
+		current < 0 ? items.length - 1 : current - (count ?? 1)
+	);
+	const motions: Record<string, Handler> = {
+		j: down,
+		'<Down>': down,
+		k: up,
+		'<Up>': up,
+		// `gg` and `G` take a count as a line number, as in Vim.
+		gg: motion((_, __, count) => (count ?? 1) - 1),
+		G: motion((_, items, count) => (count ? count - 1 : items.length - 1)),
+		'<C-d>': motion((current, _, count) => Math.max(0, current) + halfPage(count)),
+		'<C-u>': motion((current, _, count) => Math.max(0, current) - halfPage(count))
 	};
-	// After a motion the run follows the cursor; a list that lost the anchor ends the mode.
-	const extend = () => {
-		if (anchor === null) return;
-		const ids = range();
-		if (ids.length) actions.mark?.(ids);
-		else leaveVisual();
-	};
+
+	// --- Operators on a set of bookmarks.
 	// Trashed rows leave the list; the cursor lands on whatever took the first one's place.
-	const removeAndRefocus = async (ids: string[], index: number) => {
+	const trash = async (ids: string[], index: number) => {
 		await actions.remove?.(ids);
 		requestAnimationFrame(() => focus(rows(), index));
 	};
-	return (event: KeyboardEvent) => {
+	// Visual operators act on the run and end the mode (which clears the marks) first, so the
+	// action can mark what it is working on itself.
+	const onRun =
+		(act: (ids: string[], first: number) => void): Handler =>
+		() => {
+			const ids = range();
+			const first = rows().findIndex((item) => ids.includes(idOf(item) ?? ''));
+			machine.set('normal');
+			if (ids.length) act(ids, first);
+		};
+	const clickInRow = (selector: string) => {
+		const button = rowOf()?.querySelector<HTMLButtonElement>(selector);
+		if (!button) return false;
+		button.click();
+	};
+
+	const normal: Record<string, Handler> = {
+		...motions,
+		v: () => {
+			const id = idOf(active());
+			if (!id || !actions.mark) return false;
+			anchor = id;
+			return 'visual';
+		},
+		x: () => {
+			const id = idOf(active());
+			if (!id || !actions.cut) return false;
+			actions.cut([id]);
+		},
+		dd: (count) => {
+			if (!actions.remove) return false;
+			const items = rows();
+			const start = Math.max(0, cursor(items));
+			const ids = items
+				.slice(start, start + (count ?? 1))
+				.map(idOf)
+				.filter((id): id is string => !!id);
+			if (ids.length) void trash(ids, start);
+		},
+		y: () => clickInRow('.bookmark-copy'),
+		e: () => clickInRow('.bookmark-edit'),
+		// Space edits only from a title; elsewhere it keeps scrolling the page.
+		'<Space>': () => (active()?.matches('.bookmark-title') ? clickInRow('.bookmark-edit') : false),
+		o: () => {
+			const open = rowOf()?.querySelector<HTMLButtonElement>('.bookmark-open');
+			if (open) open.click();
+			else active()?.click();
+		},
+		i: () => actions.insert(),
+		f: () => actions.filter(),
+		',': () => actions.account(),
+		'?': () => actions.help()
+	};
+	normal.V = normal.v;
+
+	const visual: Record<string, Handler> = {
+		...motions,
+		v: () => 'normal',
+		V: () => 'normal',
+		// Swap the ends: the cursor jumps to the anchor and the anchor stays where the cursor was.
+		o: () => {
+			const items = rows();
+			const from = items.findIndex((item) => idOf(item) === anchor);
+			const here = idOf(active());
+			if (from < 0 || !here) return;
+			anchor = here;
+			focus(items, from);
+			actions.mark?.(range());
+		},
+		x: onRun((ids) => actions.cut?.(ids)),
+		d: onRun((ids, first) => void trash(ids, first)),
+		y: onRun((ids) => actions.copy?.(ids)),
+		'?': () => actions.help()
+	};
+
+	// Handlers read `machine` only when a key runs them, so it can be made after the keymaps.
+	const machine = createModal(
+		{ normal, visual },
+		{
+			onMode(next) {
+				if (next === 'visual') actions.mark?.(range());
+				else {
+					anchor = null;
+					actions.mark?.([]);
+				}
+			}
+		}
+	);
+
+	function keydown(event: KeyboardEvent) {
 		const target = event.target as HTMLElement;
 		if (
 			event.defaultPrevented ||
@@ -63,148 +188,19 @@ export function libraryKeyboard(actions: {
 				'[role="dialog"][aria-modal="true"],[role="alertdialog"],[role="menu"],[role="listbox"]'
 			)
 		) {
-			lastG = lastD = 0;
+			machine.reset();
 			return;
 		}
-		if (event.metaKey || event.altKey || (event.ctrlKey && !['d', 'u'].includes(event.key))) return;
-		const items = rows();
-		const current = items.indexOf(document.activeElement as HTMLElement);
-		const row = target.closest('.bookmark-gesture');
-		if (anchor !== null && !range().length) leaveVisual();
-		if (event.ctrlKey) {
-			event.preventDefault();
-			const step = Math.max(
-				1,
-				Math.floor(
-					(document.querySelector('.library-content')?.clientHeight || innerHeight) /
-						2 /
-						(row?.getBoundingClientRect().height || 52)
-				)
-			);
-			focus(items, Math.max(0, current) + (event.key === 'd' ? step : -step));
-			extend();
-			return;
-		}
-		if (event.key === 'g') {
-			event.preventDefault();
-			lastD = 0;
-			if (performance.now() - lastG < 650 && lastG) {
-				focus(items, 0);
-				extend();
-				lastG = 0;
-			} else lastG = performance.now();
-			return;
-		}
-		lastG = 0;
-		if (event.key !== 'd') lastD = 0;
-		switch (event.key) {
-			case 'j':
-			case 'ArrowDown':
-				event.preventDefault();
-				focus(items, current + 1);
-				extend();
-				break;
-			case 'k':
-			case 'ArrowUp':
-				event.preventDefault();
-				focus(items, current < 0 ? items.length - 1 : current - 1);
-				extend();
-				break;
-			case 'G':
-				event.preventDefault();
-				focus(items, items.length - 1);
-				extend();
-				break;
-			case 'v':
-			case 'V': {
-				event.preventDefault();
-				if (anchor !== null) {
-					leaveVisual();
-					break;
-				}
-				const id = idOf(target);
-				if (!id || !actions.mark) break;
-				anchor = id;
-				actions.mark([id]);
-				break;
-			}
-			case 'Escape':
-				if (anchor !== null) {
-					event.preventDefault();
-					leaveVisual();
-				}
-				break;
-			case 'x': {
-				const ids = anchor !== null ? range() : [idOf(target)].filter((id) => id !== null);
-				if (!ids.length || !actions.cut) break;
-				event.preventDefault();
-				leaveVisual();
-				actions.cut(ids);
-				break;
-			}
-			case 'd': {
-				// Visual `d` trashes the run; in normal mode it takes `dd`, so one stray key is harmless.
-				const start = Math.max(0, current);
-				if (anchor !== null) {
-					event.preventDefault();
-					const ids = range();
-					const first = items.findIndex((item) => ids.includes(idOf(item) ?? ''));
-					leaveVisual();
-					void removeAndRefocus(ids, first < 0 ? start : first);
-					break;
-				}
-				const id = idOf(target);
-				if (!id || !actions.remove) break;
-				event.preventDefault();
-				if (lastD && performance.now() - lastD < 650) {
-					lastD = 0;
-					void removeAndRefocus([id], start);
-				} else lastD = performance.now();
-				break;
-			}
-			case 'i':
-				event.preventDefault();
-				leaveVisual();
-				actions.insert();
-				break;
-			case 'f':
-				event.preventDefault();
-				leaveVisual();
-				actions.filter();
-				break;
-			case ',':
-				event.preventDefault();
-				leaveVisual();
-				actions.account();
-				break;
-			case '?':
-				event.preventDefault();
-				actions.help();
-				break;
-			case 'o': {
-				event.preventDefault();
-				const open = row?.querySelector<HTMLButtonElement>('.bookmark-open');
-				if (open) open.click();
-				else items[current]?.click();
-				break;
-			}
-			case 'e':
-			case ' ':
-				if (row && (event.key === 'e' || target.matches('.bookmark-title'))) {
-					event.preventDefault();
-					row.querySelector<HTMLButtonElement>('.bookmark-edit')?.click();
-				}
-				break;
-			case 'y':
-				if (anchor !== null) {
-					event.preventDefault();
-					actions.copy?.(range());
-					leaveVisual();
-				} else if (row) {
-					event.preventDefault();
-					row.querySelector<HTMLButtonElement>('.bookmark-copy')?.click();
-				}
-				break;
-		}
+		if (event.metaKey || event.altKey) return;
+		// A list that no longer holds the anchor (a new view, a search) ends visual mode.
+		if (machine.mode() === 'visual' && !range().length) machine.reset();
+		const key = keyOf(event);
+		if (key && machine.feed(key)) event.preventDefault();
+	}
+	return {
+		keydown,
+		/** Back to normal mode with nothing marked, e.g. when the view changes. */
+		reset: () => machine.reset(),
+		mode: (): Mode => machine.mode()
 	};
 }

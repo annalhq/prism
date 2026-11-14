@@ -45,7 +45,8 @@ const sources: Record<
 		secondOwner: 'member_id'
 	},
 	savedSearches: { name: 'saved_searches', key: 't.id::text' },
-	activity: { name: 'bookmark_activity', key: 't.bookmark_id::text', owner: 'bookmark_id' }
+	activity: { name: 'bookmark_activity', key: 't.bookmark_id::text', owner: 'bookmark_id' },
+	folders: { name: 'tag_folders', key: 't.id::text' }
 };
 export async function startBootstrap(owner: OwnerContext): Promise<BootstrapStart> {
 	return inTransaction(async (tx) => {
@@ -187,6 +188,7 @@ function project(
 		table === 'relationships' ||
 		table === 'tags' ||
 		table === 'collections' ||
+		table === 'folders' ||
 		table === 'savedSearches'
 	)
 		delete value.purgedAt;
@@ -326,7 +328,8 @@ const keyColumns: Record<ReplicaTable, readonly { column: string; type: string }
 		{ column: 'member_id', type: 'uuid' }
 	],
 	savedSearches: [{ column: 'id', type: 'uuid' }],
-	activity: [{ column: 'bookmark_id', type: 'uuid' }]
+	activity: [{ column: 'bookmark_id', type: 'uuid' }],
+	folders: [{ column: 'id', type: 'uuid' }]
 };
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const keyFormats: Record<ReplicaTable, RegExp> = Object.fromEntries(

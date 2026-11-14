@@ -45,7 +45,9 @@
 		bookmarkSource,
 		chunked,
 		copyLink,
+		fileTags,
 		isReadLater,
+		parseTagPath,
 		moveTag,
 		planMove,
 		personLinksIndex,
@@ -78,6 +80,9 @@
 	} from '#lib/domain/contracts.js';
 	import LibraryInspector from './LibraryInspector.svelte';
 	import TagsExplorer from './TagsExplorer.svelte';
+	import FolderSheet from './FolderSheet.svelte';
+	import FolderGlyph from './ui/FolderGlyph.svelte';
+	import { folderOf, setFolderOpen } from '#lib/client/folders.svelte.js';
 	let {
 		openOffline = false,
 		identity = null,
@@ -125,6 +130,7 @@
 	let sidebar: LibrarySidebar | undefined = $state();
 	let tagsExplorer: TagsExplorer | undefined = $state();
 	let helpOpen = $state(false);
+	let keys: ReturnType<typeof libraryKeyboard> | undefined;
 	// Visual mode's marked run, and the bookmarks `x` cut, waiting for a destination.
 	let marked = $state<string[]>([]),
 		moving = $state<string[]>([]),
@@ -171,6 +177,31 @@
 		void version;
 		return sortByPosition(library?.list<Row>('tags').filter((r) => !r.deletedAt) ?? []);
 	});
+	const folders = $derived.by(() => {
+		void version;
+		return sortByPosition(library?.list<Row>('folders').filter((r) => !r.deletedAt) ?? []);
+	});
+	// The folder sheet edits one folder; new folders come from the new-tag popup (`name/`).
+	let folderSheet = $state(false),
+		folderEditing = $state<Row | null>(null),
+		folderDelete = $state(false);
+	function editFolder(folder: Row, intent?: 'delete') {
+		folderEditing = folder;
+		folderDelete = intent === 'delete';
+		folderSheet = true;
+	}
+	async function fileTag(tagId: string, folderId: string | null) {
+		if (!library) return;
+		try {
+			await fileTags(library, [tagId], folderId);
+			const tag = tags.find((t) => t.id === tagId)?.name ?? 'tag';
+			const folder = folders.find((f) => f.id === folderId)?.name;
+			feedback(folder ? `#${tag} filed in ${folder}.` : `#${tag} taken out of its folder.`);
+		} catch (e) {
+			cue('error');
+			feedback((e as Error).message);
+		}
+	}
 	// Tag pages live at `?tag=<name>`; `view=tag:<id>` is the old form, still accepted.
 	const requestedTag = $derived(page.url.searchParams.get('tag'));
 	const requestedView = $derived(
@@ -389,7 +420,7 @@
 		void client.start(identity ?? undefined).then(() => {
 			if (openOffline) return client.openCached().catch((error: Error) => feedback(error.message));
 		});
-		const key = libraryKeyboard({
+		keys = libraryKeyboard({
 			insert: () => void openOmnibar('insert'),
 			filter: () => void (mobile ? openTags() : sidebar?.focusNavigation()),
 			account: () => (settings = true),
@@ -403,10 +434,13 @@
 			const target = event.target as HTMLElement;
 			if (target.matches('.bookmark-title, .person-card')) lastRow = target;
 		};
-		window.addEventListener('keydown', key);
+		// Capture phase: the mode machine sees a key before the omnibar's own window listener,
+		// so Escape leaves visual mode instead of being taken as "back to the library".
+		const keydown = keys.keydown;
+		window.addEventListener('keydown', keydown, true);
 		window.addEventListener('focusin', remember);
 		return () => {
-			window.removeEventListener('keydown', key);
+			window.removeEventListener('keydown', keydown, true);
 			window.removeEventListener('focusin', remember);
 			client.stop();
 			searcher?.stop();
@@ -474,6 +508,9 @@
 	const shelfStats = $derived.by(() => {
 		void version;
 		const counts: Record<string, number> = {};
+		// Bookmarks inside each folder: every bookmark carrying any of its tags, counted once.
+		const folderCounts: Record<string, number> = {};
+		const folderOfTag = new Map(tags.map((t) => [String(t.id), folderOf(t, folders)]));
 		// Counted on every view now: the sidebar shows them too. One pass over the bookmarks.
 		const shelves = { all: 0, later: 0, people: people.length, trash: 0 };
 		for (const row of library?.list<Row>('bookmarks') ?? []) {
@@ -484,9 +521,16 @@
 			}
 			shelves.all++;
 			if (isReadLater(row)) shelves.later++;
-			for (const id of (row.tagIds as string[]) ?? []) counts[id] = (counts[id] ?? 0) + 1;
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Scratch set for one row.
+			const inFolders = new Set<string>();
+			for (const id of (row.tagIds as string[]) ?? []) {
+				counts[id] = (counts[id] ?? 0) + 1;
+				const folder = folderOfTag.get(id);
+				if (folder) inFolders.add(folder);
+			}
+			for (const folder of inFolders) folderCounts[folder] = (folderCounts[folder] ?? 0) + 1;
 		}
-		return { counts, shelves };
+		return { counts, folders: folderCounts, shelves };
 	});
 	// The tags page has no bookmark list, so a library search moves back to all bookmarks.
 	$effect(() => {
@@ -530,6 +574,10 @@
 		formError = '';
 		const id = editingPerson ? String(editingPerson.id) : captureId;
 		try {
+			if (newType === 'tag') {
+				await createTagPath();
+				return;
+			}
 			// `@username, site.com, github.com/name`: the first plain site is the website, the
 			// rest become profile links. Parse first so a typo saves nothing.
 			const links = newType === 'person' ? parsePersonLinks(personUrl) : null;
@@ -580,6 +628,7 @@
 	$effect(() => {
 		void view;
 		void query;
+		keys?.reset();
 		marked = [];
 	});
 	// One command for one bookmark, otherwise bulk commands of at most MAX_BULK_BOOKMARKS each.
@@ -769,11 +818,57 @@
 		];
 	});
 	// Typing the name of a tag that already exists offers that tag instead of an error.
-	const existingTag = $derived.by(() => {
-		if (newType !== 'tag' || !newTitle.trim()) return undefined;
-		const name = newTitle.trim().replace(/^#/, '').toLocaleLowerCase();
-		return tags.find((t) => String(t.name).toLocaleLowerCase() === name);
+	// What the new-tag field would make: `name`, `folder/` or `folder/name`, with whichever of
+	// the folder and tag already exist.
+	const tagPlan = $derived.by(() => {
+		if (newType !== 'tag' || !newTitle.trim()) return null;
+		const path = parseTagPath(newTitle);
+		if ('error' in path) return path;
+		const named = (rows: Row[], name: string | null) =>
+			name
+				? rows.find((r) => String(r.name).toLocaleLowerCase() === name.toLocaleLowerCase())
+				: undefined;
+		const folderRow = named(folders, path.folder);
+		const tagRow = named(tags, path.tag);
+		return {
+			...path,
+			folderRow,
+			tagRow,
+			// Nothing to do: the folder, or the tag in that very place, is already there.
+			done: path.tag
+				? !!tagRow && !!folderRow && folderOf(tagRow, folders) === String(folderRow.id)
+				: !!folderRow
+		};
 	});
+	const existingTag = $derived(
+		tagPlan && !('error' in tagPlan) && !tagPlan.folder ? tagPlan.tagRow : undefined
+	);
+	async function createTagPath() {
+		const plan = tagPlan;
+		if (!library || !plan || 'error' in plan || plan.done) return;
+		let folderId = plan.folderRow ? String(plan.folderRow.id) : null;
+		if (plan.folder && !folderId) {
+			folderId = crypto.randomUUID();
+			const made = await library.save({ type: 'folder.create', id: folderId, name: plan.folder });
+			if (made.status === 'rejected') throw new Error(made.message ?? 'Could not make the folder.');
+		}
+		if (folderId) setFolderOpen(folderId, true);
+		if (!plan.tag) {
+			creating = false;
+			cue('success');
+			feedback(`Folder ${plan.folder} created. Add tags to it with ${plan.folder}/name.`);
+			return;
+		}
+		const tagId = plan.tagRow ? String(plan.tagRow.id) : captureId;
+		if (!plan.tagRow) {
+			const made = await library.save({ type: 'tag.create', id: tagId, name: plan.tag });
+			if (made.status === 'rejected') throw new Error(made.message ?? 'Could not save.');
+		}
+		if (folderId) await fileTags(library, [tagId], folderId);
+		creating = false;
+		cue('success');
+		await navigate(null, `tag:${tagId}`);
+	}
 	const renamed = $derived(
 		!!manage && !!rename.trim() && rename.trim() !== String(manage.row.name)
 	);
@@ -788,6 +883,17 @@
 		return manage ? (library?.get<Row>('tags', String(manage.row.id)) ?? manage.row) : null;
 	});
 	const managedPrivate = $derived(managed?.isPrivate === true);
+	const managedFolder = $derived(managed ? folderOf(managed, folders) : '');
+	let filing = $state(false);
+	async function fileManaged(folderId: string | null) {
+		if (!managed || filing || (folderId ?? '') === managedFolder) return;
+		filing = true;
+		try {
+			await fileTag(String(managed.id), folderId);
+		} finally {
+			filing = false;
+		}
+	}
 	let privacyBusy = $state(false);
 	// A private tag, and everything carrying it, is left out of the public page. Saved at once,
 	// independently of renaming.
@@ -1020,6 +1126,7 @@
 		bind:this={sidebar}
 		view={profileSlug ? 'people' : view}
 		{tags}
+		{folders}
 		counts={status?.ready ? shelfStats : undefined}
 		bind:collapsed={sidebarCollapsed}
 		onSelect={(value) => void navigate(null, value)}
@@ -1034,6 +1141,18 @@
 				feedback((e as Error).message);
 			}
 		}}
+		onReorderFolder={async (id, toIndex) => {
+			if (!library) return;
+			try {
+				await moveTag(library, folders, id, toIndex, 'folders');
+			} catch (e) {
+				cue('error');
+				feedback((e as Error).message);
+			}
+		}}
+		onFile={fileTag}
+		onEditFolder={editFolder}
+		onCreateIn={(folder) => create('tag', `${folder.name}/`)}
 	/>
 	<main id="library-main" class="library-main" tabindex="-1">
 		<h1 class="view-title" class:inline-heading={!!profileSlug || view === 'tags'}>{title}</h1>
@@ -1138,10 +1257,12 @@
 				<TagsExplorer
 					bind:this={tagsExplorer}
 					{tags}
+					{folders}
 					counts={shelfStats.counts}
 					shelves={shelfStats.shelves}
 					onSelect={(value) => void navigate(null, value)}
 					onCreate={(name) => create('tag', name)}
+					onEditFolder={editFolder}
 				/>
 			{:else}
 				{#if !feedMode && view !== 'people'}<div class="list-toolbar">
@@ -1339,25 +1460,51 @@
 			<Dialog.Description class="sr-only"
 				>{newType === 'person'
 					? 'A name, their links and a little context.'
-					: 'Name a tag to group related links.'}</Dialog.Description
+					: 'Name a tag to group related links. End with a slash to make a folder, or write folder/name to make the tag inside one.'}</Dialog.Description
 			>
 			<form class="name-sheet-form" onsubmit={submitCreate}>
 				<fieldset disabled={formBusy}>
 					<label class="name-sheet-name">
 						<span class="sr-only">Name</span>
-						{#if newType === 'tag'}<span class="name-sheet-glyph" aria-hidden="true">#</span>{/if}
+						{#if newType === 'tag'}<span class="name-sheet-glyph" aria-hidden="true"
+								>{#if tagPlan && !('error' in tagPlan) && tagPlan.folder && !tagPlan.tag}<FolderGlyph
+										open
+									/>{:else}#{/if}</span
+							>{/if}
 						<input
 							id="capture-title"
 							bind:value={newTitle}
 							required
-							maxlength={newType === 'person' ? 200 : 64}
-							placeholder={newType === 'person' ? 'Full name' : 'tag-name'}
+							maxlength={newType === 'person' ? 200 : 129}
+							placeholder={newType === 'person' ? 'Full name' : 'new garden'}
 							autocomplete="off"
 							spellcheck="false"
 						/>
 					</label>
-					{#if newType === 'tag'}<p class={['name-sheet-hint', existingTag && 'exists']}>
-							{#if existingTag}#{existingTag.name} already exists.
+					{#if newType === 'tag'}<p
+							class={[
+								'name-sheet-hint',
+								tagPlan && ('error' in tagPlan || tagPlan.done) && 'exists'
+							]}
+							aria-live="polite"
+						>
+							{#if tagPlan && 'error' in tagPlan}{tagPlan.error}{:else if tagPlan?.folder && !tagPlan.tag}{#if tagPlan.folderRow}Folder
+									{tagPlan.folderRow.name} already exists.
+									<button
+										type="button"
+										class="text-button"
+										onclick={() => {
+											creating = false;
+											if (tagPlan.folderRow) editFolder(tagPlan.folderRow);
+										}}>Edit it</button
+									>{:else}Makes the folder <strong>{tagPlan.folder}</strong>. Add tags to it with
+									{tagPlan.folder}/name.{/if}{:else if tagPlan?.folder}{@const where =
+									tagPlan.folderRow
+										? String(tagPlan.folderRow.name)
+										: `${tagPlan.folder} (new folder)`}{#if tagPlan.done}#{tagPlan.tagRow?.name}
+									is already in {where}.{:else if tagPlan.tagRow}Moves #{tagPlan.tagRow.name} into
+									<strong>{where}</strong>.{:else}Makes #{tagPlan.tag} inside
+									<strong>{where}</strong>.{/if}{:else if existingTag}#{existingTag.name} already exists.
 								<button
 									type="button"
 									class="text-button"
@@ -1365,8 +1512,7 @@
 										creating = false;
 										void navigate(null, `tag:${existingTag?.id}`);
 									}}>Open it</button
-								>{:else}Shows in your sidebar. Add it to links from the editor or while saving with
-								#name.{/if}
+								>{:else}End with <kbd>/</kbd> for a folder, or write folder/name to file the tag in one.{/if}
 						</p>{:else}
 						<div class="name-sheet-fields">
 							<label class="name-sheet-field">
@@ -1401,14 +1547,20 @@
 						<button
 							type="submit"
 							class="name-sheet-submit"
-							disabled={formBusy || !newTitle.trim() || !!existingTag}
+							disabled={formBusy ||
+								!newTitle.trim() ||
+								!!(tagPlan && ('error' in tagPlan || tagPlan.done))}
 							>{formBusy
 								? 'Saving…'
 								: editingPerson
 									? 'Save'
 									: newType === 'person'
 										? 'Add person'
-										: 'Create tag'}</button
+										: tagPlan && !('error' in tagPlan) && tagPlan.folder && !tagPlan.tag
+											? 'Create folder'
+											: tagPlan && !('error' in tagPlan) && tagPlan.tagRow
+												? 'Move tag'
+												: 'Create tag'}</button
 						>
 					</footer>
 				</fieldset>
@@ -1433,6 +1585,19 @@
 	}}
 	onMaintenance={runMaintenance}
 />
+{#if folderEditing}<FolderSheet
+		bind:open={folderSheet}
+		folder={folderEditing}
+		armDelete={folderDelete}
+		{tags}
+		{folders}
+		{library}
+		onSaved={(message) => {
+			cue('success');
+			feedback(message);
+		}}
+		onError={() => cue('error')}
+	/>{/if}
 <MovePalette
 	bind:open={moveOpen}
 	count={moving.length}
@@ -1564,6 +1729,31 @@
 							><span class="preference-switch" class:enabled={managedPrivate}><span></span></span
 							></button
 						>
+						{#if folders.length}<div class="name-sheet-folder">
+								<span id="manage-folder-label">Folder</span>
+								<div
+									class="folder-sheet-chips"
+									role="radiogroup"
+									aria-labelledby="manage-folder-label"
+								>
+									<button
+										type="button"
+										class="folder-chip"
+										role="radio"
+										aria-checked={!managedFolder}
+										disabled={filing}
+										onclick={() => void fileManaged(null)}>None</button
+									>{#each folders as folder (String(folder.id))}<button
+											type="button"
+											class="folder-chip"
+											role="radio"
+											aria-checked={managedFolder === folder.id}
+											disabled={filing}
+											onclick={() => void fileManaged(String(folder.id))}
+											><FolderGlyph open={managedFolder === folder.id} />{folder.name}</button
+										>{/each}
+								</div>
+							</div>{/if}
 						<footer class="name-sheet-actions">
 							{#if deleteArmed}<span class="name-sheet-confirm"
 									><span>Delete #{manage.row.name}?{count ? ' Bookmarks stay.' : ''}</span><button

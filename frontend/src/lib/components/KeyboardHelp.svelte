@@ -5,6 +5,7 @@
 			rows: [
 				['j / k', 'Next / previous bookmark'],
 				['gg / G', 'First / last visible bookmark'],
+				['3j · 5G · 2dd', 'A count repeats a motion or picks a line'],
 				['Ctrl d / Ctrl u', 'Half a page down / up'],
 				['f', 'Focus sidebar navigation']
 			]
@@ -42,10 +43,11 @@
 			rows: [
 				['v', 'Start marking from the focused bookmark'],
 				['j / k · gg / G', 'Extend the marked run'],
+				['o', 'Jump to the other end of the run'],
 				['x', 'Move the run to a tag'],
 				['d', 'Move the run to trash'],
 				['y', 'Copy every link in the run'],
-				['Esc', 'Stop marking']
+				['Esc / v', 'Back to normal mode']
 			]
 		},
 		{

@@ -15,7 +15,9 @@ export const REPLICA_TABLES = [
 	'relationships',
 	'memberships',
 	'savedSearches',
-	'activity'
+	'activity',
+	// Last, so batched bootstrap continuations (which name tables by index) stay valid.
+	'folders'
 ] as const;
 export type ReplicaTable = (typeof REPLICA_TABLES)[number];
 export type ReplicaRecord = {

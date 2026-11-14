@@ -136,6 +136,40 @@ export const collections = pgTable(
 	]
 );
 
+// Folders are a thin shell over tags: they group tags and nothing else. Bookmarks still live
+// on tags; a tag has at most one folder, and deleting a folder releases its tags.
+export const tagFolders = pgTable(
+	'tag_folders',
+	{
+		vaultId: uuid('vault_id')
+			.notNull()
+			.references(() => vaults.id),
+		id: uuid('id').notNull(),
+		name: text('name').notNull(),
+		normalizedName: text('normalized_name').notNull(),
+		// Fractional sort key, as for tags; null folders follow the ordered ones.
+		position: text('position'),
+		...lifecycle(),
+		...revisions()
+	},
+	(t) => [
+		...revisionChecks(t),
+		...lifecycleChecks(t),
+		primaryKey({ columns: [t.vaultId, t.id] }),
+		check(
+			'tag_folder_position_valid',
+			sql`${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$'`
+		),
+		uniqueIndex('tag_folder_name_unique')
+			.on(t.vaultId, t.normalizedName)
+			.where(sql`${t.deletedAt} IS NULL`),
+		check(
+			'tag_folder_name_length',
+			sql`char_length(${t.name}) BETWEEN 1 AND 64 AND char_length(${t.normalizedName}) BETWEEN 1 AND 256`
+		)
+	]
+);
+
 export const tags = pgTable(
 	'tags',
 	{
@@ -149,6 +183,8 @@ export const tags = pgTable(
 		position: text('position'),
 		// Hidden from the public view, together with every entity carrying the tag.
 		isPrivate: boolean('is_private').notNull().default(false),
+		// The folder holding this tag in the sidebar; null leaves it loose.
+		folderId: uuid('folder_id'),
 		...lifecycle(),
 		...revisions()
 	},
@@ -156,6 +192,11 @@ export const tags = pgTable(
 		...revisionChecks(t),
 		...lifecycleChecks(t),
 		primaryKey({ columns: [t.vaultId, t.id] }),
+		foreignKey({
+			columns: [t.vaultId, t.folderId],
+			foreignColumns: [tagFolders.vaultId, tagFolders.id]
+		}),
+		index('tag_folder_members').on(t.vaultId, t.folderId),
 		check(
 			'tag_position_valid',
 			sql`${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$'`

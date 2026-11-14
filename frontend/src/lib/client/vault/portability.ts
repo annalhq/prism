@@ -112,11 +112,8 @@ function readPackage(input: unknown): Tables {
 	}
 	return tables;
 }
-function createCommand(
-	table: 'bookmarks' | 'people' | 'personas' | 'tags' | 'collections',
-	row: Row,
-	id: string
-): Command {
+type CopyTable = 'bookmarks' | 'people' | 'personas' | 'tags' | 'collections' | 'folders';
+function createCommand(table: CopyTable, row: Row, id: string): Command {
 	const raw =
 		table === 'bookmarks'
 			? {
@@ -137,7 +134,16 @@ function createCommand(
 					}
 				: table === 'personas'
 					? { type: 'persona.create', id, name: row.name, description: row.description }
-					: { type: table === 'tags' ? 'tag.create' : 'collection.create', id, name: row.name };
+					: {
+							type:
+								table === 'tags'
+									? 'tag.create'
+									: table === 'folders'
+										? 'folder.create'
+										: 'collection.create',
+							id,
+							name: row.name
+						};
 	return parseCommand(raw);
 }
 export function previewImport(input: unknown): ImportPreview {
@@ -153,7 +159,14 @@ export function previewImport(input: unknown): ImportPreview {
 	try {
 		const tables = readPackage(input);
 		const independentIds = new Set<string>();
-		for (const table of ['bookmarks', 'people', 'personas', 'tags', 'collections'] as const)
+		for (const table of [
+			'bookmarks',
+			'people',
+			'personas',
+			'tags',
+			'collections',
+			'folders'
+		] as const)
 			for (const row of tables[table]) {
 				const id = uuid(row.id);
 				if (independentIds.has(id))
@@ -179,14 +192,11 @@ export function previewImport(input: unknown): ImportPreview {
 				if (ids.has(key)) throw new Error(`Duplicate ${table} identity ${key}.`);
 				ids.add(key);
 				if (
-					['bookmarks', 'people', 'personas', 'tags', 'collections'].includes(table) &&
+					['bookmarks', 'people', 'personas', 'tags', 'collections', 'folders'].includes(table) &&
 					!row.purgedAt
 				) {
-					createCommand(
-						table as 'bookmarks' | 'people' | 'personas' | 'tags' | 'collections',
-						row,
-						key
-					);
+					createCommand(table as CopyTable, row, key);
+					if (table === 'tags' && row.folderId != null) uuid(row.folderId);
 					if (
 						'tagIds' in row &&
 						(!Array.isArray(row.tagIds) ||
@@ -374,7 +384,8 @@ export async function importLibrary(
 		const privacyOf = new Map(
 			client.list<Row>('tags').map((row) => [str(row, 'id'), row.isPrivate === true])
 		);
-		for (const table of ['tags', 'collections'] as const) {
+		// Folders first, so new tags can be filed into them as they are created.
+		for (const table of ['folders', 'tags', 'collections'] as const) {
 			const existing = new Map(
 				client
 					.list<Row>(table)
@@ -400,9 +411,31 @@ export async function importLibrary(
 					await send(createCommand(table, row, id), old, table);
 					result.idMap[old] = id;
 					existing.set(name.normalizedName, id);
+					let revision = 1;
 					if (table === 'tags' && row.isPrivate === true)
 						await send(
-							{ type: 'tag.privacy', id, expectedRevision: '1' as Revision, isPrivate: true },
+							{
+								type: 'tag.privacy',
+								id,
+								expectedRevision: String(revision++) as Revision,
+								isPrivate: true
+							},
+							old,
+							table
+						);
+					// Only a tag created here is filed; an existing tag keeps its own folder.
+					const folder =
+						table === 'tags' && typeof row.folderId === 'string'
+							? result.idMap[row.folderId]
+							: undefined;
+					if (folder)
+						await send(
+							{
+								type: 'tag.folder',
+								id,
+								expectedRevision: String(revision) as Revision,
+								folderId: folder
+							},
 							old,
 							table
 						);

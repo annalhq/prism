@@ -43,6 +43,7 @@
 	let searcher = $state.raw<ReturnType<typeof createSearchClient>>();
 	let generation = 0;
 	const tags = $derived(sortByPosition(library.list<Row>('tags')));
+	const folders = $derived(sortByPosition(library.list<Row>('folders')));
 	const people = $derived(library.list<Row>('people'));
 	// Tag pages live at `?tag=<name>`; `view=tag:<id>` is the old form, still accepted.
 	const requestedTag = $derived(page.url.searchParams.get('tag'));
@@ -165,15 +166,15 @@
 	}
 	onMount(() => {
 		searcher = createSearchClient();
-		const key = libraryKeyboard({
+		const { keydown } = libraryKeyboard({
 			insert: () => void openSearch(),
 			filter: () => void (mobile ? openTags() : sidebar?.focusNavigation()),
 			account: () => {},
 			help: () => {}
 		});
-		window.addEventListener('keydown', key);
+		window.addEventListener('keydown', keydown, true);
 		return () => {
-			window.removeEventListener('keydown', key);
+			window.removeEventListener('keydown', keydown, true);
 			searcher?.stop();
 		};
 	});
@@ -202,6 +203,7 @@
 		bind:this={sidebar}
 		view={person ? 'people' : view}
 		{tags}
+		{folders}
 		home="/public"
 		bind:collapsed={sidebarCollapsed}
 		onSelect={(value) => void navigate(value)}
@@ -214,6 +216,7 @@
 				<TagsExplorer
 					bind:this={tagsExplorer}
 					{tags}
+					{folders}
 					counts={shelfStats.counts}
 					shelves={shelfStats.shelves}
 					onSelect={(value) => void navigate(value)}

@@ -16,6 +16,7 @@ const projectionTables: Record<string, ReplicaTable> = {
 	note: 'notes',
 	tag: 'tags',
 	collection: 'collections',
+	folder: 'folders',
 	savedSearch: 'savedSearches',
 	activity: 'activity',
 	identity: 'identities',
@@ -101,6 +102,7 @@ export function overlay(records: Records, command: Command): void {
 			persona: 'personas',
 			tag: 'tags',
 			collection: 'collections',
+			folder: 'folders',
 			'saved-search': 'savedSearches',
 			note: 'notes',
 			'person-identity': 'identities',
@@ -140,6 +142,7 @@ export function overlay(records: Records, command: Command): void {
 	else if (action === 'rename') value.name = c.name;
 	else if (action === 'move') value.position = c.position;
 	else if (action === 'privacy') value.isPrivate = c.isPrivate;
+	else if (action === 'folder') value.folderId = c.folderId;
 	else if (action === 'replace')
 		Object.assign(value, {
 			entityId: c.id,

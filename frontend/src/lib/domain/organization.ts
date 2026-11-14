@@ -10,16 +10,22 @@ import { keys, object, revision, text, uuid, ValidationError } from './validatio
 
 export const MAX_ENTITY_TAGS = 50;
 export type TaxonomyCommand =
-	| { type: 'tag.create' | 'collection.create'; id: string; name: string }
+	| { type: 'tag.create' | 'collection.create' | 'folder.create'; id: string; name: string }
 	| {
-			type: 'tag.rename' | 'collection.rename';
+			type: 'tag.rename' | 'collection.rename' | 'folder.rename';
 			id: string;
 			expectedRevision: Revision;
 			name: string;
 	  }
-	| { type: 'tag.delete' | 'collection.delete'; id: string; expectedRevision: Revision }
-	| { type: 'tag.move'; id: string; expectedRevision: Revision; position: string }
-	| { type: 'tag.privacy'; id: string; expectedRevision: Revision; isPrivate: boolean };
+	| {
+			type: 'tag.delete' | 'collection.delete' | 'folder.delete';
+			id: string;
+			expectedRevision: Revision;
+	  }
+	| { type: 'tag.move' | 'folder.move'; id: string; expectedRevision: Revision; position: string }
+	| { type: 'tag.privacy'; id: string; expectedRevision: Revision; isPrivate: boolean }
+	// Files a tag into a folder, or back out of every folder with null.
+	| { type: 'tag.folder'; id: string; expectedRevision: Revision; folderId: string | null };
 export type TagMembershipCommand = { type: 'tag.add' | 'tag.remove'; id: string; tagId: string };
 export type BookmarkOrganization = {
 	collectionId?: string | null;
@@ -53,6 +59,11 @@ export const ORGANIZATION_COMMAND_TYPES = [
 	'tag.delete',
 	'tag.move',
 	'tag.privacy',
+	'tag.folder',
+	'folder.create',
+	'folder.rename',
+	'folder.delete',
+	'folder.move',
 	'collection.create',
 	'collection.rename',
 	'collection.delete',
@@ -158,10 +169,12 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 	switch (c.type) {
 		case 'tag.create':
 		case 'collection.create':
+		case 'folder.create':
 			keys(c, ['type', 'id', 'name']);
 			return { type: c.type, id, name: normalizeOrganizationName(c.name).name };
 		case 'tag.rename':
 		case 'collection.rename':
+		case 'folder.rename':
 			keys(c, ['type', 'id', 'name', 'expectedRevision']);
 			return {
 				type: c.type,
@@ -171,9 +184,11 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 			};
 		case 'tag.delete':
 		case 'collection.delete':
+		case 'folder.delete':
 			keys(c, ['type', 'id', 'expectedRevision']);
 			return { type: c.type, id, expectedRevision: revision(c.expectedRevision) };
 		case 'tag.move':
+		case 'folder.move':
 			keys(c, ['type', 'id', 'expectedRevision', 'position']);
 			return {
 				type: c.type,
@@ -190,6 +205,14 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 				id,
 				expectedRevision: revision(c.expectedRevision),
 				isPrivate: c.isPrivate
+			};
+		case 'tag.folder':
+			keys(c, ['type', 'id', 'expectedRevision', 'folderId']);
+			return {
+				type: c.type,
+				id,
+				expectedRevision: revision(c.expectedRevision),
+				folderId: c.folderId === null ? null : uuid(c.folderId)
 			};
 		case 'tag.add':
 		case 'tag.remove':

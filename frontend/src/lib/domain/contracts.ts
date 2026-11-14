@@ -108,6 +108,7 @@ export type Change =
 	| { type: 'links.replace'; links: LinkProjection }
 	| { type: 'tag.upsert'; tag: TaxonomyProjection }
 	| { type: 'collection.upsert'; collection: TaxonomyProjection }
+	| { type: 'folder.upsert'; folder: TaxonomyProjection }
 	| { type: 'saved-search.upsert'; savedSearch: SavedSearchProjection }
 	| { type: 'activity.upsert'; activity: ActivityProjection }
 	| { type: 'person.upsert'; person: import('./people.js').PersonProjection }
@@ -136,10 +137,12 @@ export type TaxonomyProjection = {
 	id: string;
 	name: string;
 	normalizedName: string;
-	/** Tags only: fractional sort key, null until the user reorders tags. */
+	/** Tags and folders: fractional sort key, null until the user reorders them. */
 	position?: string | null;
 	/** Tags only: hidden from the public view, with everything carrying the tag. */
 	isPrivate?: boolean;
+	/** Tags only: the folder grouping this tag, or null when loose. */
+	folderId?: string | null;
 	revision: Revision;
 	lastSeq: Sequence;
 	deletedAt: string | null;
