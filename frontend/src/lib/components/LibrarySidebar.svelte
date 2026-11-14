@@ -263,7 +263,6 @@
 	function highlight(current: string, order: unknown, narrow: boolean): Attachment<HTMLElement> {
 		return (nav) => {
 			void order;
-			void narrow;
 			let frame = 0;
 			// Measured from the rendered boxes, after layout, so nested groups and webfont
 			// swaps can't throw it off.
@@ -274,7 +273,10 @@
 					// so on the tags page the highlight fades out instead of covering the heading.
 					const active = nav.querySelector<HTMLElement>('.sidebar-link[aria-current="page"]');
 					const box = active?.getBoundingClientRect();
-					if (!active || !box?.height || active.closest('[data-open="false"]')) {
+					// Hidden rows (a folded folder, or tags in the collapsed sidebar) carry no highlight.
+					const hidden =
+						active?.closest('[data-open="false"]') || (narrow && active?.closest('.sidebar-group'));
+					if (!active || !box?.height || hidden) {
 						nav.dataset.indicator = 'off';
 						return;
 					}
@@ -284,6 +286,8 @@
 					nav.dataset.indicator = 'on';
 				});
 			};
+			// Collapsed, only the views show; start from the top so none are scrolled away.
+			if (narrow) nav.scrollTop = 0;
 			place();
 			const observer = new ResizeObserver(place);
 			observer.observe(nav);

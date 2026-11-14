@@ -1768,6 +1768,10 @@ kbd {
 .collapsed .sidebar-toggle {
 	right: 4px;
 }
+/* The faded tags group keeps its space; collapsed, the list must not scroll into it. */
+.collapsed .sidebar-navigation {
+	overflow-y: hidden;
+}
 
 /* Folder glyph: the shut and open folders are stacked in one box and cross-faded, so opening
    reads as the flap lifting rather than an icon swap. Sized by its container's font size. */
