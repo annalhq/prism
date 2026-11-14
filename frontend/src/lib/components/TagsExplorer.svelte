@@ -3,12 +3,7 @@
 	import { onMount } from 'svelte';
 	import FolderGlyph from './ui/FolderGlyph.svelte';
 	import FolderMenu from './FolderMenu.svelte';
-	import {
-		closedFolders,
-		groupTags,
-		restoreFolders,
-		setFolderOpen
-	} from '#lib/client/folders.svelte.js';
+	import { groupTags, tagsPageFolders as folderState } from '#lib/client/folders.svelte.js';
 	type Row = Record<string, unknown>;
 	let {
 		tags,
@@ -29,7 +24,7 @@
 		// The folder sheet (rename, choose tags, delete), from a folder's context menu.
 		onEditFolder?: (folder: Row, intent?: 'delete') => void;
 	} = $props();
-	onMount(restoreFolders);
+	onMount(() => folderState.restore());
 	let filter = $state(''),
 		order = $state<'used' | 'name' | 'custom'>('used');
 	let searchInput = $state<HTMLInputElement>();
@@ -123,12 +118,12 @@
 	{#if !needle && grouped.groups.length}<div class="tag-folders">
 			{#each grouped.groups as group (String(group.folder.id))}
 				{@const id = String(group.folder.id)}
-				{@const open = !closedFolders.has(id)}
+				{@const open = folderState.isOpen(id)}
 				<section class={['tag-folder', open && 'open']}>
 					{#snippet head()}<button
 							class="tag-folder-toggle"
 							aria-expanded={open}
-							onclick={() => setFolderOpen(id, !open)}
+							onclick={() => folderState.setOpen(id, !open)}
 							><FolderGlyph {open} /><span>{group.folder.name}</span><small
 								>{group.tags.length} {group.tags.length === 1 ? 'tag' : 'tags'}</small
 							></button

@@ -82,7 +82,7 @@
 	import TagsExplorer from './TagsExplorer.svelte';
 	import FolderSheet from './FolderSheet.svelte';
 	import FolderGlyph from './ui/FolderGlyph.svelte';
-	import { folderOf, setFolderOpen } from '#lib/client/folders.svelte.js';
+	import { folderOf, sidebarFolders } from '#lib/client/folders.svelte.js';
 	import { syncAppearance } from '#lib/client/appearance.svelte.js';
 	let {
 		openOffline = false,
@@ -858,7 +858,8 @@
 			const made = await library.save({ type: 'folder.create', id: folderId, name: plan.folder });
 			if (made.status === 'rejected') throw new Error(made.message ?? 'Could not make the folder.');
 		}
-		if (folderId) setFolderOpen(folderId, true);
+		// Show where the tag went.
+		if (folderId) sidebarFolders.setOpen(folderId, true);
 		if (!plan.tag) {
 			creating = false;
 			cue('success');

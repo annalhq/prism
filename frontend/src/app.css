@@ -5307,6 +5307,9 @@ a.editor-source:hover > svg {
 	display: flex;
 	align-items: center;
 	gap: 4px;
+	/* Hugs its label, so the hover reads as one control rather than a whole row. */
+	width: fit-content;
+	max-width: 100%;
 	border-radius: var(--radius-control);
 	transition: background-color 120ms ease;
 }
@@ -5317,12 +5320,12 @@ a.editor-source:hover > svg {
 }
 .tag-folder-toggle {
 	display: flex;
-	flex: 1;
+	flex: 0 1 auto;
 	align-items: center;
 	gap: 10px;
 	min-width: 0;
 	min-height: 40px;
-	padding: 0 10px;
+	padding: 0 12px 0 10px;
 	color: var(--ink);
 	font-size: var(--text-base);
 	font-weight: 500;

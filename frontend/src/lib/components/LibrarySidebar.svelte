@@ -19,11 +19,9 @@
 	import FolderGlyph from './ui/FolderGlyph.svelte';
 	import FolderMenu from './FolderMenu.svelte';
 	import {
-		closedFolders,
 		folderOf,
 		groupTags,
-		restoreFolders,
-		setFolderOpen
+		sidebarFolders as folderState
 	} from '#lib/client/folders.svelte.js';
 	type Row = Record<string, unknown>;
 	let {
@@ -97,8 +95,8 @@
 	const groupRows = (group: string) =>
 		group ? (grouped.groups.find((g) => g.folder.id === group)?.tags ?? []) : grouped.loose;
 	const ids = (rows: Row[]) => rows.map((r) => String(r.id));
-	const isOpen = (id: string) => !closedFolders.has(id);
-	onMount(restoreFolders);
+	const isOpen = (id: string) => folderState.isOpen(id);
+	onMount(() => folderState.restore());
 	// Opening a tag inside a folded folder unfolds it, so the current row is never hidden.
 	$effect(() => {
 		if (!view.startsWith('tag:')) return;
@@ -109,7 +107,7 @@
 					untrack(() => folders)
 				)
 			: '';
-		if (folder && untrack(() => closedFolders.has(folder))) setFolderOpen(folder, true);
+		if (folder && untrack(() => !folderState.isOpen(folder))) folderState.setOpen(folder, true);
 	});
 	function start(event: DragEvent, kind: 'tag' | 'folder', row: Row, group = '') {
 		drag = { kind, id: String(row.id), group };
@@ -373,7 +371,7 @@
 			[
 				...shownFolders.map((g) => `${g.folder.id}:${ids(g.tags)}`),
 				ids(grouped.loose),
-				[...closedFolders]
+				[...folderState.closed]
 			].join('|'),
 			collapsed
 		)}
@@ -436,7 +434,7 @@
 							ondragstart={(event) => start(event, 'folder', group.folder)}
 							ondragend={cancelDrag}
 							onkeydown={(event) => void nudgeFolder(event, id)}
-							onclick={() => setFolderOpen(id, !open)}
+							onclick={() => folderState.setOpen(id, !open)}
 							><FolderGlyph open={open || target === id} /><span class="sidebar-label"
 								>{group.folder.name}</span
 							>{#if counts?.folders?.[id]}<small class="sidebar-count sidebar-label"
