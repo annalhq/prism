@@ -156,23 +156,23 @@ cp frontend/.env.example frontend/.env
 
 Fill in `frontend/.env` using the [environment template](../frontend/.env.example).
 
-| Variable                  | Purpose                                                                   |
-| ------------------------- | ------------------------------------------------------------------------- |
-| `DATABASE_URL`            | Pooled PostgreSQL connection for the app                                  |
-| `DATABASE_URL_DIRECT`     | Direct database connection for setup and migrations                       |
-| `APP_ORIGIN`              | App origin, such as `http://localhost:5173`                               |
-| `NEON_AUTH_BASE_URL`      | Your Neon Auth service URL                                                |
-| `NEON_AUTH_COOKIE_SECRET` | Session cookie signing secret, at least 32 characters                     |
-| `OWNER_SUBJECT`           | The Neon Auth user ID of the library owner                                |
-| `LIBRARY_PUBLIC_VIEW`     | Optional: set to `enabled` to expose the read-only `/public` view         |
-| `NEON_STORAGE_*`          | Optional: object storage settings for person photos                       |
-| `DB_MIGRATION_TARGET`     | Set to `isolated` only for a confirmed disposable database or test branch |
+| Variable                  | Purpose                                                           |
+| ------------------------- | ----------------------------------------------------------------- |
+| `DATABASE_URL`            | Pooled PostgreSQL connection for the app                          |
+| `DATABASE_URL_DIRECT`     | Direct database connection for setup and migrations               |
+| `APP_ORIGIN`              | App origin, such as `http://localhost:5173`                       |
+| `NEON_AUTH_BASE_URL`      | Your Neon Auth service URL                                        |
+| `NEON_AUTH_COOKIE_SECRET` | Session cookie signing secret, at least 32 characters             |
+| `OWNER_SUBJECT`           | The Neon Auth user ID of the library owner                        |
+| `LIBRARY_PUBLIC_VIEW`     | Optional: set to `enabled` to expose the read-only `/public` view |
+| `NEON_STORAGE_*`          | Optional: object storage settings for person photos               |
+| `PRISM_CONFIRM_UPGRADE`   | Set to `1` only when upgrading an existing library (see below)    |
 
 Create the owner in Neon Auth and use that user's ID for `OWNER_SUBJECT` before initializing the library.
 
 ### 3. Initialize and run
 
-For a fresh, isolated database, set `DB_MIGRATION_TARGET=isolated`, then run:
+On a new database, run:
 
 ```sh
 bun run db:inventory
@@ -183,7 +183,18 @@ bun run dev
 
 Open **http://localhost:5173** and sign in with the configured owner account.
 
-The migration script requires an inventory of the same database from the past 24 hours and checks its migration history. These commands target an isolated database; existing production deployments require a reviewed migration path.
+`db:migrate` requires an inventory of the same database from the past 24 hours, takes a migration lock, and refuses a database whose migration history doesn't match the files in `frontend/drizzle`.
+
+### Upgrading
+
+After pulling a release, back up your database (on Neon, create a branch), then apply any new migrations:
+
+```sh
+bun run db:inventory
+PRISM_CONFIRM_UPGRADE=1 bun run db:migrate
+```
+
+It lists the migrations it applies, and prints "Database is up to date" when there are none.
 
 ### Deployment
 
