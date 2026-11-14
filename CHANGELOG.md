@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.0](https://github.com/annalhq/prism/compare/v0.2.1...v0.3.0) (2026-11-14)
+
+### ⚠ BREAKING CHANGES
+
+* introduce modular theme management system
+
+### Features
+
+* **bookmarks:** add minimal list layout and header visibility toggle ([fea3c68](https://github.com/annalhq/prism/commit/fea3c68e14c038cfa1c59132ad42398e4d46f27b))
+* introduce modular theme management system ([5d89b0f](https://github.com/annalhq/prism/commit/5d89b0fb203bd8008f85f7311275618d288922f5))
+* **library:** add vim visual mode with cut-to-tag move palette ([62c5259](https://github.com/annalhq/prism/commit/62c52598dd28a34561e0804ca35285f882e4d1d1))
+* **library:** add visual selection, bookmark moving, trash and copy ([c6166b0](https://github.com/annalhq/prism/commit/c6166b04ea47da9faf40a6d53cea34ba56cd7d9d))
+* **style:** add toggle for corner styling ([4501c5e](https://github.com/annalhq/prism/commit/4501c5ebd324f32a1a362b885d141ce7b0e3e7e0))
+* **tags:** add folders to group tags ([3caf91a](https://github.com/annalhq/prism/commit/3caf91a5cc1621cc99750644af913eb4b01c29a8))
+* **tags:** replace UUID query params with readable tag slugs ([0940e10](https://github.com/annalhq/prism/commit/0940e10706034f1fd917cf58e306c36d57fd2468))
+
+### Bug Fixes
+
+* **mobile:** prevent context menu overflow and smooth search bar lift ([5cccab7](https://github.com/annalhq/prism/commit/5cccab7bfdb158461ba9242a36718ffd9cf61f6a))
+* resolve collapsed sidebar highlighting and scrolling issues ([3e0b4bc](https://github.com/annalhq/prism/commit/3e0b4bcc790f5eb172e3db7d437af0d147f74898))
+
+### Performance
+
+* **avatars:** reduce avatar loading latency and redundant requests ([a630275](https://github.com/annalhq/prism/commit/a6302756cbeeac78e0ab0fccd931ba81b8337ce9))
+
 ## [0.2.1](https://github.com/annalhq/prism/compare/v0.2.0...v0.2.1) (2026-11-12)
 
 ### Features
