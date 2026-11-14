@@ -12,6 +12,10 @@
 				}
 				if (localStorage.getItem('prism:corners') === 'square')
 					document.documentElement.dataset.corners = 'square';
+				if (localStorage.getItem('prism:list') === 'minimal')
+					document.documentElement.dataset.list = 'minimal';
+				if (localStorage.getItem('prism:toolbar') === 'hidden')
+					document.documentElement.dataset.toolbar = 'hidden';
 			} catch {}
 		</script>
 		%sveltekit.head%

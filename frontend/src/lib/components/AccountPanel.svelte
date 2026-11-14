@@ -3,6 +3,10 @@
 	import { soundPreference, setSounds, cue } from '#lib/client/sounds.svelte.js';
 	import {
 		cornersPreference,
+		listPreference,
+		setMinimalList,
+		setToolbarHidden,
+		toolbarPreference,
 		setSquareCorners,
 		setTheme,
 		themePreference
@@ -18,6 +22,10 @@
 		Palette,
 		Square,
 		Squircle,
+		Rows3,
+		AlignLeft,
+		PanelTop,
+		PanelTopDashed,
 		Library,
 		RefreshCw,
 		Cloud,
@@ -209,7 +217,13 @@
 			id: 'appearance',
 			label: 'Appearance',
 			icon: Palette,
-			hint: cornersPreference.square ? 'Square corners' : ''
+			hint: [
+				listPreference.minimal && 'Minimal list',
+				toolbarPreference.hidden && 'No list header',
+				cornersPreference.square && 'Square corners'
+			]
+				.filter(Boolean)
+				.join(' · ')
 		},
 		{
 			id: 'extension',
@@ -388,6 +402,38 @@
 													>{/each}
 											</div>
 										</div>
+										<button
+											class="settings-row"
+											role="switch"
+											aria-checked={listPreference.minimal}
+											onclick={() => setMinimalList(!listPreference.minimal)}
+											><span class="settings-text"
+												><strong>Minimal list</strong><small
+													>One centred column: title and site on a single line</small
+												></span
+											>{#if listPreference.minimal}<AlignLeft class="settings-glyph" />{:else}<Rows3
+													class="settings-glyph"
+												/>{/if}<span
+												class="preference-switch"
+												class:enabled={listPreference.minimal}><span></span></span
+											></button
+										>
+										<button
+											class="settings-row"
+											role="switch"
+											aria-checked={!toolbarPreference.hidden}
+											onclick={() => setToolbarHidden(!toolbarPreference.hidden)}
+											><span class="settings-text"
+												><strong>List header</strong><small
+													>The sort and shortcuts bar above your bookmarks</small
+												></span
+											>{#if toolbarPreference.hidden}<PanelTopDashed
+													class="settings-glyph"
+												/>{:else}<PanelTop class="settings-glyph" />{/if}<span
+												class="preference-switch"
+												class:enabled={!toolbarPreference.hidden}><span></span></span
+											></button
+										>
 										<button
 											class="settings-row"
 											role="switch"

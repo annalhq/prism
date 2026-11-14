@@ -3020,6 +3020,61 @@ kbd {
 .swipe-hint.to-later {
 	justify-content: flex-end;
 }
+/* Minimal list (Settings → Appearance): one centred reading column of single lines, after
+   Curius. A small icon, the title, the site right beside it in a quieter tone, and a hairline
+   between rows; no columns, no date. Same row markup, so keyboard, menu, swipe and note behave
+   exactly as in the default list. */
+:root[data-list='minimal'] :is(.bookmark-list:not(.post-feed, .people-list), .list-toolbar) {
+	--row-title-inset: 34px;
+	max-width: 720px;
+	margin-inline: auto;
+}
+:root[data-list='minimal'] .bookmark-list:not(.post-feed, .people-list) > .bookmark-gesture {
+	border-radius: 0;
+}
+:root[data-list='minimal']
+	.bookmark-list:not(.post-feed, .people-list)
+	> .bookmark-gesture
+	+ .bookmark-gesture {
+	border-top: 1px solid var(--hairline);
+}
+:root[data-list='minimal'] :is(.bookmark-disclosure, .library-row) {
+	border-radius: 0;
+}
+:root[data-list='minimal'] .library-row {
+	display: flex;
+	gap: 8px;
+	min-height: 0;
+	padding: 8px 12px;
+}
+:root[data-list='minimal'] .library-row .row-leading {
+	width: 14px;
+	height: 14px;
+}
+:root[data-list='minimal'] .library-row .bookmark-content {
+	flex: 0 1 auto;
+}
+:root[data-list='minimal'] .library-row .bookmark-domain {
+	flex: 0 1 auto;
+	max-width: 40%;
+	font-size: var(--text-sm);
+}
+:root[data-list='minimal'] .library-row .bookmark-date {
+	display: none;
+}
+/* Its header shrinks to the column too: no column labels or rule, just the sort and count. */
+:root[data-list='minimal'] .list-toolbar {
+	min-height: 32px;
+	padding: 0 12px;
+	border-bottom: 0;
+}
+:root[data-list='minimal'] .list-toolbar > :is(.column-sort:not(.date-sort), .list-shortcuts) {
+	display: none;
+}
+/* List header hidden (Settings → Appearance), in either list. */
+:root[data-toolbar='hidden'] .list-toolbar {
+	display: none;
+}
 .welcome-panel {
 	display: flex;
 	flex-direction: column;
