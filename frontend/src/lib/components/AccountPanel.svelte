@@ -7,16 +7,13 @@
 		setMinimalList,
 		setToolbarHidden,
 		toolbarPreference,
-		setSquareCorners,
-		setTheme,
-		themePreference
+		setSquareCorners
 	} from '#lib/client/theme.svelte.js';
+	import ThemeSettings from './settings/ThemeSettings.svelte';
 	import { resolve } from '$app/paths';
 	import {
 		Volume2,
 		VolumeX,
-		Sun,
-		Moon,
 		ChevronLeft,
 		SlidersHorizontal,
 		Palette,
@@ -202,10 +199,6 @@
 			extensionError = '';
 		}
 	});
-	const themes = [
-		{ value: 'dark', label: 'Dark' },
-		{ value: 'light', label: 'Light' }
-	] as const;
 	function create(type: string) {
 		open = false;
 		onCreate(type);
@@ -240,8 +233,10 @@
 		{ id: 'account', label: 'Account', icon: LockKeyhole, hint: '' }
 	] as const);
 	const current = $derived(sections.find((entry) => entry.id === section)!);
+	let themePage = $state<'main' | 'themes'>('main');
 	function openSection(next: Section) {
 		section = next;
+		themePage = 'main';
 		drilled = true;
 	}
 </script>
@@ -386,89 +381,78 @@
 									</div>
 								</section>
 							{:else if section === 'appearance'}
-								<section class="settings-group">
-									<h3>Look and feel</h3>
-									<div class="settings-card">
-										<div class="settings-row">
-											<span class="settings-text"><strong>Theme</strong></span>
-											<div class="settings-theme" role="radiogroup" aria-label="Theme">
-												<span class="settings-theme-thumb" aria-hidden="true"></span>
-												{#each themes as option (option.value)}<button
-														role="radio"
-														aria-checked={themePreference.value === option.value}
-														onclick={() => setTheme(option.value)}
-														>{#if option.value === 'light'}<Sun />{:else}<Moon
-															/>{/if}{option.label}</button
-													>{/each}
-											</div>
+								<ThemeSettings {library} changed={status} {feedback} bind:page={themePage} />
+								{#if themePage === 'main'}<section class="settings-group">
+										<h3>Look and feel</h3>
+										<div class="settings-card">
+											<button
+												class="settings-row"
+												role="switch"
+												aria-checked={listPreference.minimal}
+												onclick={() => setMinimalList(!listPreference.minimal)}
+												><span class="settings-text"
+													><strong>Minimal list</strong><small
+														>One centred column: title and site on a single line</small
+													></span
+												>{#if listPreference.minimal}<AlignLeft
+														class="settings-glyph"
+													/>{:else}<Rows3 class="settings-glyph" />{/if}<span
+													class="preference-switch"
+													class:enabled={listPreference.minimal}><span></span></span
+												></button
+											>
+											<button
+												class="settings-row"
+												role="switch"
+												aria-checked={!toolbarPreference.hidden}
+												onclick={() => setToolbarHidden(!toolbarPreference.hidden)}
+												><span class="settings-text"
+													><strong>List header</strong><small
+														>The sort and shortcuts bar above your bookmarks</small
+													></span
+												>{#if toolbarPreference.hidden}<PanelTopDashed
+														class="settings-glyph"
+													/>{:else}<PanelTop class="settings-glyph" />{/if}<span
+													class="preference-switch"
+													class:enabled={!toolbarPreference.hidden}><span></span></span
+												></button
+											>
+											<button
+												class="settings-row"
+												role="switch"
+												aria-checked={cornersPreference.square}
+												onclick={() => setSquareCorners(!cornersPreference.square)}
+												><span class="settings-text"
+													><strong>Square corners</strong><small
+														>A flat, squared look instead of rounded edges</small
+													></span
+												>{#if cornersPreference.square}<Square
+														class="settings-glyph"
+													/>{:else}<Squircle class="settings-glyph" />{/if}<span
+													class="preference-switch"
+													class:enabled={cornersPreference.square}><span></span></span
+												></button
+											>
+											<button
+												class="settings-row"
+												role="switch"
+												aria-checked={soundPreference.enabled}
+												onclick={() => {
+													setSounds(!soundPreference.enabled);
+													if (soundPreference.enabled) cue('success');
+												}}
+												><span class="settings-text"
+													><strong>Sounds</strong><small>Quiet cues for saves and errors</small
+													></span
+												>{#if soundPreference.enabled}<Volume2
+														class="settings-glyph"
+													/>{:else}<VolumeX class="settings-glyph" />{/if}<span
+													class="preference-switch"
+													class:enabled={soundPreference.enabled}><span></span></span
+												></button
+											>
 										</div>
-										<button
-											class="settings-row"
-											role="switch"
-											aria-checked={listPreference.minimal}
-											onclick={() => setMinimalList(!listPreference.minimal)}
-											><span class="settings-text"
-												><strong>Minimal list</strong><small
-													>One centred column: title and site on a single line</small
-												></span
-											>{#if listPreference.minimal}<AlignLeft class="settings-glyph" />{:else}<Rows3
-													class="settings-glyph"
-												/>{/if}<span
-												class="preference-switch"
-												class:enabled={listPreference.minimal}><span></span></span
-											></button
-										>
-										<button
-											class="settings-row"
-											role="switch"
-											aria-checked={!toolbarPreference.hidden}
-											onclick={() => setToolbarHidden(!toolbarPreference.hidden)}
-											><span class="settings-text"
-												><strong>List header</strong><small
-													>The sort and shortcuts bar above your bookmarks</small
-												></span
-											>{#if toolbarPreference.hidden}<PanelTopDashed
-													class="settings-glyph"
-												/>{:else}<PanelTop class="settings-glyph" />{/if}<span
-												class="preference-switch"
-												class:enabled={!toolbarPreference.hidden}><span></span></span
-											></button
-										>
-										<button
-											class="settings-row"
-											role="switch"
-											aria-checked={cornersPreference.square}
-											onclick={() => setSquareCorners(!cornersPreference.square)}
-											><span class="settings-text"
-												><strong>Square corners</strong><small
-													>A flat, squared look instead of rounded edges</small
-												></span
-											>{#if cornersPreference.square}<Square
-													class="settings-glyph"
-												/>{:else}<Squircle class="settings-glyph" />{/if}<span
-												class="preference-switch"
-												class:enabled={cornersPreference.square}><span></span></span
-											></button
-										>
-										<button
-											class="settings-row"
-											role="switch"
-											aria-checked={soundPreference.enabled}
-											onclick={() => {
-												setSounds(!soundPreference.enabled);
-												if (soundPreference.enabled) cue('success');
-											}}
-											><span class="settings-text"
-												><strong>Sounds</strong><small>Quiet cues for saves and errors</small></span
-											>{#if soundPreference.enabled}<Volume2
-													class="settings-glyph"
-												/>{:else}<VolumeX class="settings-glyph" />{/if}<span
-												class="preference-switch"
-												class:enabled={soundPreference.enabled}><span></span></span
-											></button
-										>
-									</div>
-								</section>
+									</section>{/if}
 							{:else if section === 'extension'}
 								<section class="settings-group">
 									<p class="settings-lede">

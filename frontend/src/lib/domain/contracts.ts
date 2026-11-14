@@ -69,6 +69,7 @@ export type Command =
 	| import('./people.js').PersonIdentityCommand
 	| import('./relationships.js').ContentPersonCommand
 	| import('./organization.js').OrganizationCommand
+	| import('./appearance.js').AppearanceCommand
 	| NoteCommand
 	| RelatedLinkCommand
 	| { type: 'bookmark.bulk'; commands: BulkBookmarkCommand[] };
@@ -102,6 +103,7 @@ export type BookmarkTombstone = {
 };
 export type Change =
 	| import('./personas.js').PersonaChange
+	| import('./appearance.js').AppearanceChange
 	| { type: 'bookmark.upsert'; bookmark: BookmarkProjection }
 	| { type: 'entity.upsert'; entity: EntityProjection }
 	| { type: 'note.upsert'; note: NoteProjection }

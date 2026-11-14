@@ -1,0 +1,21 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Kanagawa Lotus",
+	"author": "rebelot/kanagawa.nvim",
+	"scheme": "light",
+	"palette": {
+		"background": "#F2ECBC",
+		"foreground": "#545464",
+		"accent": "#4D699B",
+		"danger": "#C84053",
+		"warning": "#CC6D00"
+	},
+	"colors": {
+		"surface": "#E5DDB0",
+		"field": "#E7DBA0",
+		"elevated": "#F6F0C8",
+		"on-accent": "#F2ECBC"
+	}
+}

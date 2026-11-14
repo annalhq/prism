@@ -1,0 +1,22 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Catppuccin Mocha",
+	"author": "catppuccin/catppuccin",
+	"scheme": "dark",
+	"palette": {
+		"background": "#1E1E2E",
+		"foreground": "#CDD6F4",
+		"accent": "#CBA6F7",
+		"danger": "#F38BA8",
+		"warning": "#FAB387"
+	},
+	"colors": {
+		"surface": "#181825",
+		"field": "#313244",
+		"elevated": "#313244",
+		"line": "#45475A",
+		"on-accent": "#11111B"
+	}
+}

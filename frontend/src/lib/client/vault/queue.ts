@@ -20,6 +20,7 @@ function revisionKey(command: ReturnType<typeof children>[number]): string | und
 		tag: 'tags',
 		collection: 'collections',
 		folder: 'folders',
+		theme: 'themes',
 		'saved-search': 'savedSearches',
 		'person-identity': 'identities',
 		'related-link': 'entities'

@@ -1,0 +1,21 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Gruvbox Light",
+	"author": "morhetz/gruvbox",
+	"scheme": "light",
+	"palette": {
+		"background": "#FBF1C7",
+		"foreground": "#3C3836",
+		"accent": "#076678",
+		"danger": "#9D0006",
+		"warning": "#AF3A03"
+	},
+	"colors": {
+		"surface": "#F2E5BC",
+		"field": "#EBDBB2",
+		"line": "#D5C4A1",
+		"on-accent": "#FBF1C7"
+	}
+}

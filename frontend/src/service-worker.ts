@@ -4,8 +4,11 @@ import { version } from '$app/env';
 
 const worker = self as unknown as ServiceWorkerGlobalScope;
 const cacheName = `prism-shell-${version}`;
+// The theme gallery is fetched on demand, not precached.
 const assetUrls = new Set(
-	[...immutable, ...assets].map(({ path }) => new URL(path, worker.location.origin).href)
+	[...immutable, ...assets]
+		.filter(({ path }) => !path.startsWith('/themes/'))
+		.map(({ path }) => new URL(path, worker.location.origin).href)
 );
 const shellUrl = new URL('/', worker.location.origin).href;
 

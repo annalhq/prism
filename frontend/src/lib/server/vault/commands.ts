@@ -30,6 +30,8 @@ import { replaceNote } from './notes.js';
 import { changeRelatedLink } from './links.js';
 import { Rejected, reject } from './rejections.js';
 import { changeTaxonomy, changeTagMembership, organizeBookmark } from './organization.js';
+import { applyAppearanceCommand } from './themes.js';
+import { isAppearanceCommand } from '#lib/domain/appearance.js';
 import { changeSavedSearch } from './saved-searches.js';
 import { recordOpen } from './activity.js';
 import {
@@ -363,6 +365,10 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 					changes.push(...(await changePerson(mutation, owner.vaultId, command, seq, now)));
 				} else if (isOrganizationCommand(command)) {
 					changes.push(...(await applyOrganization(mutation, owner.vaultId, command, seq, now)));
+				} else if (isAppearanceCommand(command)) {
+					changes.push(
+						...(await applyAppearanceCommand(mutation, owner.vaultId, command, seq, now))
+					);
 				} else {
 					for (const item of command.type === 'bookmark.bulk' ? command.commands : [command]) {
 						try {

@@ -1,4 +1,5 @@
 import { isPersonaCommand, parsePersonaCommand } from './personas.js';
+import { isAppearanceCommand, parseAppearanceCommand } from './appearance.js';
 import { isPersonCommand, parsePersonCommand } from './people.js';
 import { parseContentPersonCommand } from './relationships.js';
 import {
@@ -147,6 +148,8 @@ export function parseCommand(value: unknown): Command {
 		return parseContentPersonCommand(c);
 	if (typeof c.type === 'string' && isOrganizationCommand({ type: c.type }))
 		return parseOrganizationCommand(c);
+	if (typeof c.type === 'string' && isAppearanceCommand({ type: c.type }))
+		return parseAppearanceCommand(c);
 	if (c.type === 'note.replace') {
 		keys(c, ['type', 'id', 'expectedRevision', 'bodyMarkdown']);
 		try {

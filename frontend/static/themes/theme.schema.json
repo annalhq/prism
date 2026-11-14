@@ -1,0 +1,313 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "Prism theme or module",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["prism", "name"],
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"prism": {
+			"const": 1
+		},
+		"kind": {
+			"enum": ["theme", "module"],
+			"default": "theme"
+		},
+		"name": {
+			"type": "string",
+			"minLength": 1,
+			"maxLength": 64
+		},
+		"author": {
+			"type": "string",
+			"maxLength": 120
+		},
+		"description": {
+			"type": "string",
+			"maxLength": 160
+		},
+		"scheme": {
+			"enum": ["dark", "light"],
+			"description": "Required for themes; not allowed on modules."
+		},
+		"palette": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"background": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"foreground": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"accent": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"danger": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"warning": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				}
+			},
+			"required": ["background", "foreground"]
+		},
+		"colors": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"canvas": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"surface": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"field": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"elevated": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"sheet": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"card": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"hover": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"active": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"pressed": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"selection": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"ink": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"muted-ink": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"secondary": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"tertiary": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"line": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"hairline": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"highlight": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"accent": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"accent-hover": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"on-accent": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"scrim": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"danger": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"warning": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"shadow-faint": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"shadow-soft": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"shadow-strong": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"switch-off": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"switch-knob": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"switch-on": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"switch-on-knob": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"cover-glow": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"cover-base": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				},
+				"warm-white": {
+					"type": "string",
+					"maxLength": 96,
+					"pattern": "^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\\([0-9\\s,/%.+deEgnorturad-]*\\)|transparent)$"
+				}
+			}
+		},
+		"shape": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"radius": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"sm": {
+							"type": "number",
+							"minimum": 0,
+							"maximum": 40
+						},
+						"control": {
+							"type": "number",
+							"minimum": 0,
+							"maximum": 40
+						},
+						"card": {
+							"type": "number",
+							"minimum": 0,
+							"maximum": 40
+						},
+						"panel": {
+							"type": "number",
+							"minimum": 0,
+							"maximum": 40
+						}
+					}
+				}
+			}
+		},
+		"typography": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"sans": {
+					"type": "string",
+					"maxLength": 200,
+					"description": "Up to 4 installed font family names, comma separated."
+				},
+				"mono": {
+					"type": "string",
+					"maxLength": 200,
+					"description": "Up to 4 installed font family names, comma separated."
+				},
+				"display": {
+					"type": "string",
+					"maxLength": 200,
+					"description": "Up to 4 installed font family names, comma separated."
+				},
+				"scale": {
+					"type": "number",
+					"minimum": 0.85,
+					"maximum": 1.25
+				}
+			}
+		}
+	},
+	"if": {
+		"properties": {
+			"kind": {
+				"const": "module"
+			}
+		},
+		"required": ["kind"]
+	},
+	"then": {
+		"not": {
+			"required": ["scheme"]
+		}
+	},
+	"else": {
+		"required": ["scheme"]
+	}
+}

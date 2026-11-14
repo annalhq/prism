@@ -35,6 +35,8 @@
 		"db:migrate:production:rabbit-holes": "bun scripts/db/migrate-production-0011.ts",
 		"db:migrate:production:private-tags": "bun scripts/db/migrate-production-0012.ts",
 		"db:migrate:production:tag-folders": "bun scripts/db/migrate-production-0013.ts",
+		"db:migrate:production:themes": "bun scripts/db/migrate-production-0014.ts",
+		"themes:schema": "bun scripts/themes/schema.ts && prettier --write static/themes/theme.schema.json",
 		"db:inventory": "bun scripts/db/inventory.ts",
 		"db:init-owner": "bun scripts/db/init-owner.ts"
 	},

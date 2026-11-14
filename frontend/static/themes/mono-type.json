@@ -1,0 +1,10 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "module",
+	"name": "Monospace",
+	"description": "Every interface label in the mono",
+	"typography": {
+		"sans": "STK Bureau Sans Semi Mono"
+	}
+}

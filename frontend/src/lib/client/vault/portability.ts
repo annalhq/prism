@@ -8,6 +8,8 @@ import { parseMarkdown } from '#lib/domain/markdown.js';
 import { parseSearchFilter } from '#lib/domain/search.js';
 import { parseCommand, object, uuid } from '#lib/domain/validation.js';
 import { looksLikeNetscape } from '#lib/domain/netscape.js';
+import { APPEARANCE_ID } from '#lib/domain/appearance.js';
+import { builtinTheme, parseThemeDocument } from '#lib/domain/theme.js';
 import type { LibraryClient } from './library.js';
 
 type Row = Record<string, unknown>;
@@ -188,7 +190,9 @@ export function previewImport(input: unknown): ImportPreview {
 									? `${uuid(row.bookmarkId)}/${uuid(row.personId)}/${str(row, 'role')}`
 									: table === 'memberships'
 										? `${uuid(row.personaId)}/${uuid(object(row.member).id)}`
-										: uuid(row.id);
+										: table === 'appearance'
+											? APPEARANCE_ID
+											: uuid(row.id);
 				if (ids.has(key)) throw new Error(`Duplicate ${table} identity ${key}.`);
 				ids.add(key);
 				if (
@@ -441,6 +445,48 @@ export async function importLibrary(
 						);
 				}
 		}
+		// Themes get new ids; an installed theme with the same kind and name is reused.
+		const themeIds: Record<string, string> = {};
+		const themeKey = (kind: unknown, name: unknown) =>
+			`${kind}:${normalizeOrganizationName(name).normalizedName}`;
+		const installed = new Map(
+			client
+				.list<Row>('themes')
+				.filter(live)
+				.map((row) => [themeKey(row.kind, row.name), str(row, 'id')])
+		);
+		for (const row of tables.themes)
+			if (live(row)) {
+				const old = str(row, 'id');
+				let document;
+				try {
+					document = parseThemeDocument(row.document);
+				} catch (error) {
+					result.warnings.push(`Theme ${old} omitted: ${(error as Error).message}`);
+					continue;
+				}
+				const match = installed.get(themeKey(document.kind, document.name));
+				if (match) {
+					themeIds[old] = match;
+					skip(old, 'Reused installed theme name.');
+					continue;
+				}
+				const id = crypto.randomUUID();
+				await send({ type: 'theme.create', id, document }, old, 'themes');
+				themeIds[old] = id;
+				installed.set(themeKey(document.kind, document.name), id);
+				if (document.kind === 'module' && row.enabled === false)
+					await send({ type: 'theme.toggle', id, enabled: false }, old, 'themes');
+			}
+		const active = tables.appearance[0]?.activeTheme;
+		const activeTheme =
+			typeof active === 'string' ? (builtinTheme(active) ? active : themeIds[active]) : undefined;
+		if (activeTheme)
+			await send(
+				{ type: 'appearance.set', id: APPEARANCE_ID, activeTheme },
+				APPEARANCE_ID,
+				'appearance'
+			);
 		const urls = new Map(
 			client
 				.list<Row>('bookmarks')

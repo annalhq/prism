@@ -590,6 +590,56 @@ export const savedSearches = pgTable(
 	]
 );
 
+export const themes = pgTable(
+	'themes',
+	{
+		vaultId: uuid('vault_id')
+			.notNull()
+			.references(() => vaults.id),
+		id: uuid('id').notNull(),
+		kind: text('kind').notNull(),
+		name: text('name').notNull(),
+		normalizedName: text('normalized_name').notNull(),
+		document: jsonb('document').notNull(),
+		enabled: boolean('enabled').notNull().default(true),
+		position: text('position'),
+		...lifecycle(),
+		...revisions()
+	},
+	(t) => [
+		...revisionChecks(t),
+		...lifecycleChecks(t),
+		primaryKey({ columns: [t.vaultId, t.id] }),
+		uniqueIndex('theme_name_unique')
+			.on(t.vaultId, t.kind, t.normalizedName)
+			.where(sql`${t.deletedAt} IS NULL`),
+		check(
+			'theme_limits',
+			sql`${t.kind} IN ('theme','module') AND char_length(${t.name}) BETWEEN 1 AND 64 AND octet_length(${t.document}::text) <= 16384 AND (${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$')`
+		)
+	]
+);
+
+// One row per vault; `id` is a fixed replica key.
+export const vaultAppearance = pgTable(
+	'vault_appearance',
+	{
+		vaultId: uuid('vault_id')
+			.primaryKey()
+			.references(() => vaults.id),
+		id: uuid('id')
+			.notNull()
+			.default(sql`'00000000-0000-0000-0000-000000000000'`),
+		activeTheme: text('active_theme').notNull(),
+		...revisions()
+	},
+	(t) => [
+		...revisionChecks(t),
+		check('vault_appearance_id', sql`${t.id} = '00000000-0000-0000-0000-000000000000'`),
+		check('vault_appearance_theme', sql`char_length(${t.activeTheme}) BETWEEN 1 AND 64`)
+	]
+);
+
 export const bookmarkActivity = pgTable(
 	'bookmark_activity',
 	{

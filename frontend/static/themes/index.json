@@ -1,0 +1,94 @@
+{
+	"themes": [
+		{
+			"file": "kanagawa-wave.json",
+			"name": "Kanagawa Wave",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#1F1F28",
+				"ink": "#DCD7BA",
+				"accent": "#7E9CD8"
+			}
+		},
+		{
+			"file": "kanagawa-lotus.json",
+			"name": "Kanagawa Lotus",
+			"kind": "theme",
+			"scheme": "light",
+			"swatch": {
+				"canvas": "#F2ECBC",
+				"ink": "#545464",
+				"accent": "#4D699B"
+			}
+		},
+		{
+			"file": "gruvbox-dark.json",
+			"name": "Gruvbox Dark",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#282828",
+				"ink": "#EBDBB2",
+				"accent": "#FABD2F"
+			}
+		},
+		{
+			"file": "gruvbox-light.json",
+			"name": "Gruvbox Light",
+			"kind": "theme",
+			"scheme": "light",
+			"swatch": {
+				"canvas": "#FBF1C7",
+				"ink": "#3C3836",
+				"accent": "#076678"
+			}
+		},
+		{
+			"file": "catppuccin-mocha.json",
+			"name": "Catppuccin Mocha",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#1E1E2E",
+				"ink": "#CDD6F4",
+				"accent": "#CBA6F7"
+			}
+		},
+		{
+			"file": "catppuccin-latte.json",
+			"name": "Catppuccin Latte",
+			"kind": "theme",
+			"scheme": "light",
+			"swatch": {
+				"canvas": "#EFF1F5",
+				"ink": "#4C4F69",
+				"accent": "#8839EF"
+			}
+		},
+		{
+			"file": "rounded.json",
+			"name": "Rounded",
+			"kind": "module",
+			"description": "Softer, rounder corners"
+		},
+		{
+			"file": "mono-type.json",
+			"name": "Monospace",
+			"kind": "module",
+			"description": "Every interface label in the mono"
+		},
+		{
+			"file": "compact.json",
+			"name": "Compact",
+			"kind": "module",
+			"description": "Slightly smaller type"
+		},
+		{
+			"file": "larger-text.json",
+			"name": "Larger text",
+			"kind": "module",
+			"description": "Slightly larger type"
+		}
+	]
+}

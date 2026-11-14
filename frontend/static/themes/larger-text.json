@@ -1,0 +1,10 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "module",
+	"name": "Larger text",
+	"description": "Slightly larger type",
+	"typography": {
+		"scale": 1.1
+	}
+}

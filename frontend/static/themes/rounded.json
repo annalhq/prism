@@ -1,0 +1,15 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "module",
+	"name": "Rounded",
+	"description": "Softer, rounder corners",
+	"shape": {
+		"radius": {
+			"sm": 8,
+			"control": 14,
+			"card": 20,
+			"panel": 26
+		}
+	}
+}

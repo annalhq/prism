@@ -6,10 +6,20 @@
 		<meta name="theme-color" content="#121212" />
 		<script>
 			try {
-				if (localStorage.getItem('prism:theme') === 'light') {
-					document.documentElement.dataset.theme = 'light';
-					document.querySelector('meta[name="theme-color"]').content = '#f7f5ef';
+				// Compiled theme cache; see client/appearance.svelte.ts.
+				var look = JSON.parse(localStorage.getItem('prism:appearance') || 'null');
+				var light = look
+					? look.scheme === 'light'
+					: localStorage.getItem('prism:theme') === 'light';
+				if (light) document.documentElement.dataset.theme = 'light';
+				if (look && look.css) {
+					var style = document.createElement('style');
+					style.id = 'prism-theme';
+					style.textContent = look.css;
+					document.head.appendChild(style);
 				}
+				var color = look ? look.themeColor : light && '#f7f5ef';
+				if (color) document.querySelector('meta[name="theme-color"]').content = color;
 				if (localStorage.getItem('prism:corners') === 'square')
 					document.documentElement.dataset.corners = 'square';
 				if (localStorage.getItem('prism:list') === 'minimal')

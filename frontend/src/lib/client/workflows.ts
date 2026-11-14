@@ -107,7 +107,7 @@ export async function moveTag(
 	ordered: Row[],
 	id: string,
 	toIndex: number,
-	table: 'tags' | 'folders' = 'tags'
+	table: 'tags' | 'folders' | 'themes' = 'tags'
 ): Promise<void> {
 	const from = ordered.findIndex((t) => t.id === id);
 	if (from < 0) return;
@@ -129,7 +129,7 @@ export async function moveTag(
 	for (const [row, key] of updates) {
 		const current = library.get<Row>(table, String(row.id)) ?? row;
 		const result = await library.save({
-			type: table === 'tags' ? 'tag.move' : 'folder.move',
+			type: table === 'tags' ? 'tag.move' : table === 'folders' ? 'folder.move' : 'theme.move',
 			id: String(row.id),
 			expectedRevision: String(current.revision) as Revision,
 			position: key

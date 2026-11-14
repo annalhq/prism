@@ -1,0 +1,22 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Kanagawa Wave",
+	"author": "rebelot/kanagawa.nvim",
+	"scheme": "dark",
+	"palette": {
+		"background": "#1F1F28",
+		"foreground": "#DCD7BA",
+		"accent": "#7E9CD8",
+		"danger": "#E82424",
+		"warning": "#FF9E3B"
+	},
+	"colors": {
+		"surface": "#1a1a22",
+		"field": "#2A2A37",
+		"elevated": "#2A2A37",
+		"line": "#363646",
+		"on-accent": "#16161D"
+	}
+}

@@ -83,6 +83,7 @@
 	import FolderSheet from './FolderSheet.svelte';
 	import FolderGlyph from './ui/FolderGlyph.svelte';
 	import { folderOf, setFolderOpen } from '#lib/client/folders.svelte.js';
+	import { syncAppearance } from '#lib/client/appearance.svelte.js';
 	let {
 		openOffline = false,
 		identity = null,
@@ -172,6 +173,11 @@
 	});
 	const contentVersion = $derived(status?.contentVersion ?? 0);
 	const libraryReady = $derived(status?.ready ?? false);
+	// Synced themes; before the replica is ready the cached appearance stays in place.
+	$effect(() => {
+		void version;
+		if (library && libraryReady) syncAppearance(library);
+	});
 	const personId = $derived(personIdFromSlug(profileSlug));
 	const tags = $derived.by(() => {
 		void version;

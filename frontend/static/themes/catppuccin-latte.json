@@ -1,0 +1,21 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Catppuccin Latte",
+	"author": "catppuccin/catppuccin",
+	"scheme": "light",
+	"palette": {
+		"background": "#EFF1F5",
+		"foreground": "#4C4F69",
+		"accent": "#8839EF",
+		"danger": "#D20F39",
+		"warning": "#FE640B"
+	},
+	"colors": {
+		"surface": "#E6E9EF",
+		"field": "#DCE0E8",
+		"line": "#CCD0DA",
+		"on-accent": "#EFF1F5"
+	}
+}

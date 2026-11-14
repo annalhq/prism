@@ -1,20 +1,5 @@
-export type Theme = 'dark' | 'light';
-// Mirrors the bootstrap script in app.html, which applies the stored theme before first paint.
-const themeColors: Record<Theme, string> = { dark: '#121212', light: '#f7f5ef' };
-export const themePreference = $state<{ value: Theme }>({ value: 'dark' });
-function apply(theme: Theme) {
-	document.documentElement.dataset.theme = theme;
-	document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[theme]);
-}
-export function setTheme(theme: Theme) {
-	themePreference.value = theme;
-	apply(theme);
-	try {
-		localStorage.setItem('prism:theme', theme);
-	} catch {
-		/* Device storage is optional. */
-	}
-}
+import { restoreAppearance } from './appearance.svelte.js';
+
 // Square corners: some people prefer a flat, squared look over the rounded one. Also mirrored
 // in app.html so the first paint already has the chosen corners.
 export const cornersPreference = $state<{ square: boolean }>({ square: false });
@@ -64,14 +49,13 @@ export function setToolbarHidden(hidden: boolean) {
 }
 export function initializeTheme() {
 	try {
-		themePreference.value = localStorage.getItem('prism:theme') === 'light' ? 'light' : 'dark';
 		cornersPreference.square = localStorage.getItem('prism:corners') === 'square';
 		listPreference.minimal = localStorage.getItem('prism:list') === 'minimal';
 		toolbarPreference.hidden = localStorage.getItem('prism:toolbar') === 'hidden';
 	} catch {
 		/* Use default. */
 	}
-	apply(themePreference.value);
+	restoreAppearance();
 	applyCorners(cornersPreference.square);
 	applyList(listPreference.minimal);
 	applyToolbar(toolbarPreference.hidden);
