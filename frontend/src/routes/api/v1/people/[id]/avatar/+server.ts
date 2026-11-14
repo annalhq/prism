@@ -9,7 +9,7 @@ import { entityId } from '#lib/server/vault/read-parameters.js';
 // from object storage. It is fetched from unavatar.io the first time it's asked for; until then,
 // or while unavatar's daily limit is used up, this answers 404 and the client shows the monogram.
 // The client puts the photo's source in the query string, so a changed link is a new URL;
-// otherwise the browser may keep the image for a week.
+// the browser keeps each URL's image without revalidating.
 export const GET: RequestHandler = async (event) => {
 	try {
 		const owner = await requireOwner(event);
@@ -29,7 +29,8 @@ export const GET: RequestHandler = async (event) => {
 		const etag = `"${image.sha256}"`;
 		const headers = {
 			'Content-Type': image.mime,
-			'Cache-Control': 'private, max-age=604800',
+			// The URL carries the photo's source, and a source's photo is stored once.
+			'Cache-Control': 'private, max-age=31536000, immutable',
 			ETag: etag,
 			'Content-Security-Policy': "default-src 'none'; sandbox"
 		};

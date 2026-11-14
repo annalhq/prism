@@ -3156,10 +3156,13 @@ kbd {
 	border-radius: inherit;
 	object-fit: cover;
 	opacity: 0;
-	transition: opacity 260ms ease;
+	transition: opacity 160ms ease;
 }
 .person-avatar > img.loaded {
 	opacity: 1;
+}
+.person-avatar > img.instant {
+	transition: none;
 }
 
 /* People page header: Feed · People tabs, a sort when it applies, and Add. */

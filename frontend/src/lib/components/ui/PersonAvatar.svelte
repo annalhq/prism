@@ -1,4 +1,11 @@
 <script lang="ts" module>
+	// Per session: photos already shown appear at once on remount; photos that failed are not
+	// requested again.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Session cache, not state.
+	const shown = new Set<string>();
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Session cache, not state.
+	const failedPhotos = new Set<string>();
+
 	// A stable hue from the name, so a person keeps the same colour everywhere with nothing
 	// stored. Shared so a profile can tint its cover to match the avatar.
 	export function avatarHue(name: string): number {
@@ -22,12 +29,24 @@
 		photo?: string | null;
 	} = $props();
 	let loaded = $state(false),
+		instant = $state(false),
 		failed = $state(false);
 	$effect.pre(() => {
-		void photo;
-		loaded = false;
-		failed = false;
+		loaded = instant = !!photo && shown.has(photo);
+		failed = !!photo && failedPhotos.has(photo);
 	});
+	function settle() {
+		if (!photo) return;
+		shown.add(photo);
+		loaded = true;
+	}
+	// A cached image can finish before its load handler is attached.
+	const cached = (image: HTMLImageElement) => {
+		if (image.complete && image.naturalWidth) {
+			instant = true;
+			settle();
+		}
+	};
 	// Two letters at most: first and last word, so "Ada King Lovelace" reads "AL".
 	const initials = $derived.by(() => {
 		const words = name.trim().split(/\s+/).filter(Boolean);
@@ -51,10 +70,13 @@
 	>{initials}{#if photo && !failed}<img
 			src={photo}
 			alt=""
-			loading="lazy"
 			decoding="async"
-			class:loaded
-			onload={() => (loaded = true)}
-			onerror={() => (failed = true)}
+			class={{ loaded, instant }}
+			{@attach cached}
+			onload={settle}
+			onerror={() => {
+				if (photo) failedPhotos.add(photo);
+				failed = true;
+			}}
 		/>{/if}</span
 >

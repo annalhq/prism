@@ -59,7 +59,7 @@ Read Later gives unfinished reading a place of its own. Trash lets you restore d
 
 ### Make the space yours
 
-Choose light or dark mode, turn subtle sound cues on or off, and move comfortably between desktop and mobile. The omnibar, bookmark editor, context menus, account panel, and mobile navigation have all been refined through v0.2.0.
+Pick Zen dark or Zen light, install themes like Kanagawa, Gruvbox and Catppuccin from the gallery, or drop in your own JSON theme and stack modules on top; your choice syncs to every device ([theming guide](theming.md)). Turn subtle sound cues on or off, and move comfortably between desktop and mobile. The omnibar, bookmark editor, context menus, account panel, and mobile navigation have all been refined through v0.2.0.
 
 Your cached library remains available offline on a trusted device, with changes syncing when you reconnect. Import and export your library as Prism JSON, or export pending work and drafts separately.
 

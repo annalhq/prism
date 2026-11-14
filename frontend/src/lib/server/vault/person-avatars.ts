@@ -152,13 +152,15 @@ export async function personAvatar(
 	personId: string
 ): Promise<AvatarImage | AvatarMiss> {
 	const { vaultId } = owner;
-	const source = await sourceOf(vaultId, personId);
+	const [source, [saved]] = await Promise.all([
+		sourceOf(vaultId, personId),
+		database()
+			.select()
+			.from(personAvatars)
+			.where(and(eq(personAvatars.vaultId, vaultId), eq(personAvatars.personId, personId)))
+	]);
 	if (!source) return { miss: 'no-profile' };
 	const handle = sourceKey(source);
-	const [saved] = await database()
-		.select()
-		.from(personAvatars)
-		.where(and(eq(personAvatars.vaultId, vaultId), eq(personAvatars.personId, personId)));
 	if (saved?.handle === handle) {
 		if (saved.state === 'stored' && saved.objectKey && saved.mime && saved.sha256) {
 			if (!storageConfigured()) return { miss: 'no-storage' };
