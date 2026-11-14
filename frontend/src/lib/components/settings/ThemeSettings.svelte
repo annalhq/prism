@@ -69,8 +69,10 @@
 
 	const keyOf = (document: Pick<ThemeDocument, 'kind' | 'name'>) =>
 		`${document.kind}:${normalizeOrganizationName(document.name).normalizedName}`;
-	const installedKeys = $derived(
-		new Set([...installed.themes, ...installed.modules].map((entry) => keyOf(entry.document)))
+	const installedByKey = $derived(
+		new Map(
+			[...installed.themes, ...installed.modules].map((entry) => [keyOf(entry.document), entry])
+		)
 	);
 
 	async function run(task: () => Promise<void>) {
@@ -306,17 +308,20 @@
 			{:else}
 				<div class="settings-card">
 					{#if gallery}{#each gallery as entry (entry.file)}
-							{@const done = installedKeys.has(keyOf(entry))}<button
-								class="settings-row"
-								disabled={busy || done || !library}
-								onclick={() => installFromGallery(entry)}
+							{@const existing = installedByKey.get(keyOf(entry))}<button
+								class={['settings-row', existing && 'theme-installed']}
+								disabled={busy || !library}
+								aria-label={existing ? `Remove ${entry.name}` : `Install ${entry.name}`}
+								onclick={() => (existing ? remove(existing) : installFromGallery(entry))}
 								>{#if entry.swatch}{@render swatch(entry.swatch)}{/if}<span class="settings-text"
 									><strong>{entry.name}</strong><small
 										>{entry.kind === 'module'
 											? (entry.description ?? 'Module')
 											: schemeLabel(entry.scheme)}</small
 									></span
-								><span class="theme-install">{done ? 'Installed' : 'Install'}</span></button
+								>{#if existing}<span class="theme-install"
+										><span>Installed</span><span class="theme-remove">Remove</span></span
+									>{:else}<span class="theme-install">Install</span>{/if}</button
 							>{/each}{:else}<p class="settings-note">{galleryError || 'Loading…'}</p>{/if}
 				</div>
 			{/if}

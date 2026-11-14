@@ -5921,6 +5921,33 @@ a.editor-source:hover > svg {
 .settings-row:disabled .theme-install {
 	opacity: 0.7;
 }
+/* Installed gallery rows offer removal on hover or focus. */
+.theme-install {
+	display: grid;
+	justify-items: end;
+}
+.theme-install > span {
+	grid-area: 1 / 1;
+	transition: opacity 120ms ease;
+}
+.theme-remove {
+	color: var(--danger);
+	opacity: 0;
+}
+.theme-installed:is(:hover, :focus-visible):not(:disabled) .theme-install > :first-child {
+	opacity: 0;
+}
+.theme-installed:is(:hover, :focus-visible):not(:disabled) .theme-remove {
+	opacity: 1;
+}
+@media (hover: none) {
+	.theme-installed .theme-install > :first-child {
+		opacity: 0;
+	}
+	.theme-installed .theme-remove {
+		opacity: 1;
+	}
+}
 .settings-row .preference-switch > span {
 	transition:
 		transform 320ms var(--ease-spring),
