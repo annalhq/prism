@@ -254,6 +254,9 @@ async function showPairing() {
 			<h1>Connect to Prism</h1>
 			<p class="lede">In Prism, open Account and generate a pairing code. Paste it here to start saving pages and posts.</p>
 			<form id="pair-form" novalidate>
+				<label class="label" for="pair-name">Name this browser</label>
+				<input id="pair-name" class="field" maxlength="60" autocomplete="off" spellcheck="false" required />
+				<p class="hint-text">So you can tell your browsers apart in Prism.</p>
 				<label class="label" for="pair-code">Pairing code</label>
 				<textarea id="pair-code" rows="3" autocomplete="off" spellcheck="false" placeholder="prism1.…" required></textarea>
 				<p class="origin" id="pair-origin" aria-live="polite"></p>

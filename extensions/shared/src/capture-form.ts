@@ -198,9 +198,11 @@ export async function renderCaptureForm(
 				<ul class="options" id="prism-suggestions" role="listbox" aria-label="Suggestions"></ul>
 				<p class="note"></p>
 			</div>
+			<textarea class="description" rows="3" maxlength="10000" aria-label="Description" placeholder="Add a description…" hidden></textarea>
 			<p class="status" role="status" aria-live="polite"></p>
 			<div class="footer">
 				<button type="button" class="quiet" data-dismiss>${compact ? 'Cancel' : 'Close'}</button>
+				<button type="button" class="quiet add-description">${icons.plus}Description</button>
 				<span class="hint" title="Save with ${isMac ? '⌘' : 'Ctrl'}+Enter" aria-hidden="true"><kbd>${isMac ? '⌘' : 'Ctrl'}</kbd><kbd>${icons.enter}</kbd></span>
 				<button type="submit" class="primary"><span class="btn-icon" aria-hidden="true"><span class="spinner"></span>${icons.check}</span><span class="btn-label">Save</span></button>
 			</div>
