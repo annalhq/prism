@@ -4,6 +4,8 @@ import { isPersonCommand, parsePersonCommand } from './people.js';
 import { parseContentPersonCommand } from './relationships.js';
 import {
 	MAX_BULK_BOOKMARKS,
+	MAX_HIGHLIGHT_CONTEXT,
+	MAX_HIGHLIGHT_LENGTH,
 	type ExtensionBookmarkCommand,
 	type BookmarkCommand,
 	type BulkBookmarkCommand,
@@ -94,7 +96,18 @@ function bookmark(value: unknown): BookmarkCommand {
 export function parseCommand(value: unknown): Command {
 	const c = object(value);
 	if (c.type === 'extension.bookmark.create') {
-		keys(c, ['type', 'id', 'kind', 'title', 'url', 'tagIds', 'newTags', 'person']);
+		keys(c, [
+			'type',
+			'id',
+			'kind',
+			'title',
+			'url',
+			'tagIds',
+			'newTags',
+			'person',
+			'description',
+			'highlight'
+		]);
 		if (c.kind !== 'page' && c.kind !== 'social')
 			throw new ValidationError('Extension bookmarks must be pages or social posts.');
 		if (typeof c.url !== 'string') throw new ValidationError('A bookmark URL is required.');
@@ -130,6 +143,17 @@ export function parseCommand(value: unknown): Command {
 			keys(value, ['id', 'role']);
 			person = { id: uuid(value.id) };
 		}
+		const description = c.description === undefined ? '' : text(c.description, 10000).trim();
+		let highlight: ExtensionBookmarkCommand['highlight'];
+		if (c.highlight !== undefined && c.highlight !== null) {
+			const value = object(c.highlight);
+			keys(value, ['text', 'prefix', 'suffix']);
+			highlight = {
+				text: text(value.text, MAX_HIGHLIGHT_LENGTH, true),
+				prefix: text(value.prefix ?? '', MAX_HIGHLIGHT_CONTEXT),
+				suffix: text(value.suffix ?? '', MAX_HIGHLIGHT_CONTEXT)
+			};
+		}
 		return {
 			type: c.type,
 			id: uuid(c.id),
@@ -138,7 +162,9 @@ export function parseCommand(value: unknown): Command {
 			url: url(c.url)!,
 			tagIds,
 			...(newTags?.length ? { newTags } : {}),
-			...(person ? { person } : {})
+			...(person ? { person } : {}),
+			...(description ? { description } : {}),
+			...(highlight ? { highlight } : {})
 		};
 	}
 	if (typeof c.type === 'string' && isPersonaCommand({ type: c.type }))

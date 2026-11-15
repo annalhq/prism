@@ -48,7 +48,16 @@ export type ExtensionBookmarkCommand = {
 	// or matched by name to an existing tag (one may have been made since the catalog loaded).
 	newTags?: { id: string; name: string }[];
 	person?: { id: string };
+	// Saved on create. When the URL is already in the library, it is appended to that
+	// bookmark's description instead.
+	description?: string;
+	// Text selected on the page, with a little surrounding text so the extension can find it
+	// again on a later visit. Bookmarks saved with one are tagged `highlight`.
+	highlight?: ExtensionHighlight;
 };
+export type ExtensionHighlight = { text: string; prefix: string; suffix: string };
+export const MAX_HIGHLIGHT_LENGTH = 5000;
+export const MAX_HIGHLIGHT_CONTEXT = 64;
 export type NoteCommand = {
 	type: 'note.replace';
 	id: string;
@@ -194,6 +203,7 @@ export type CommandErrorCode =
 	| 'not_in_trash'
 	| 'purged'
 	| 'duplicate_url'
+	| 'description_full'
 	| 'url_hash_collision'
 	| 'identity_limit'
 	| 'duplicate_identity'

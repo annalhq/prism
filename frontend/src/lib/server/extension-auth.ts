@@ -84,8 +84,15 @@ const browserLabels: Record<ExtensionBrowser, string> = {
 	chrome: 'Chrome extension'
 };
 
-/** `browser` names the device in the Account panel; older clients send none and were Firefox. */
-export async function redeemExtensionPairing(code: string, browser: ExtensionBrowser = 'firefox') {
+/**
+ * `name` is what the user called this browser while pairing; older clients send none, so the
+ * browser's label stands in (and older clients that send no browser were Firefox).
+ */
+export async function redeemExtensionPairing(
+	code: string,
+	browser: ExtensionBrowser = 'firefox',
+	name?: string
+) {
 	const origin = pairingOrigin(code);
 	const id = randomUUID();
 	const token = `prismext.${id}.${randomBytes(32).toString('base64url')}`;
@@ -115,7 +122,7 @@ export async function redeemExtensionPairing(code: string, browser: ExtensionBro
 		await tx.insert(deviceTokens).values({
 			vaultId: pairing.vaultId,
 			id,
-			name: browserLabels[browser],
+			name: name ?? browserLabels[browser],
 			tokenHash: digest(token),
 			scopes: extensionScopes,
 			expiresAt: null
@@ -125,7 +132,31 @@ export async function redeemExtensionPairing(code: string, browser: ExtensionBro
 	return { token, connectionId: id, origin, subject: result.subject };
 }
 
+/**
+ * A connection name typed in the extension: single-line, trimmed, 1–60 characters. Anything
+ * else is rejected rather than silently cut, so the user sees what was stored.
+ */
+export function connectionName(value: unknown): string {
+	const name =
+		typeof value === 'string'
+			? value
+					.replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+					.replace(/\s+/g, ' ')
+					.trim()
+			: '';
+	if (!name || [...name].length > 60)
+		throw new ApiError(400, 'invalid_connection_name', 'Name this browser in 1–60 characters.');
+	return name;
+}
+
 export async function requireExtensionOwner(request: Request): Promise<OwnerContext> {
+	return (await requireExtensionConnection(request)).owner;
+}
+
+/** The calling extension connection, for requests that act on the connection itself. */
+export async function requireExtensionConnection(
+	request: Request
+): Promise<{ owner: OwnerContext; connectionId: string }> {
 	const authorization = request.headers.get('authorization') ?? '';
 	const match = /^Bearer (prismext\.[0-9a-f-]{36}\.[A-Za-z0-9_-]{40,64})$/.exec(authorization);
 	if (!match)
@@ -156,6 +187,6 @@ export async function requireExtensionOwner(request: Request): Promise<OwnerCont
 	await database()
 		.update(deviceTokens)
 		.set({ lastUsedAt: new Date() })
-		.where(eq(deviceTokens.id, row.id));
-	return { subject: row.ownerSubject, vaultId: row.vaultId };
+		.where(and(eq(deviceTokens.vaultId, row.vaultId), eq(deviceTokens.id, row.id)));
+	return { owner: { subject: row.ownerSubject, vaultId: row.vaultId }, connectionId: row.id };
 }

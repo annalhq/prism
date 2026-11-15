@@ -524,7 +524,12 @@
 												<span class="settings-status" aria-hidden="true"><Globe /></span><span
 													class="settings-text"
 													><strong>{connection.name}</strong><small
-														>Paired {new Date(connection.createdAt).toLocaleDateString()}</small
+														>Paired {new Date(
+															connection.createdAt
+														).toLocaleDateString()}{#if connection.lastUsedAt}
+															· Last used {new Date(
+																connection.lastUsedAt
+															).toLocaleDateString()}{/if}</small
 													></span
 												><button
 													class="settings-action danger"

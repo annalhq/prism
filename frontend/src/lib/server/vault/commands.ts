@@ -5,7 +5,7 @@ import { changeIdentity } from './identities.js';
 import { changeContentPerson } from './relationships.js';
 import { tagTweet } from './tweets.js';
 import { CONNECTION_ROLE } from '#lib/domain/relationships.js';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import {
 	MAX_COMMAND_BYTES,
@@ -14,6 +14,7 @@ import {
 	type Change,
 	type ChangeFrame,
 	type CommandResult,
+	type ExtensionBookmarkCommand,
 	type Revision,
 	type Sequence
 } from '#lib/domain/contracts.js';
@@ -21,7 +22,7 @@ import { normalizeUrl } from '#lib/domain/urls.js';
 import { parseCommand, ValidationError } from '#lib/domain/validation.js';
 import type { OwnerContext } from '../auth.js';
 import { inTransaction, type Transaction } from '../db/connection.js';
-import { bookmarks, changeLog, entities, tags, vaults } from '../db/schema.js';
+import { bookmarkHighlights, bookmarks, changeLog, entities, tags, vaults } from '../db/schema.js';
 import { ApiError } from '../http.js';
 import { bookmarkProjection } from './projections.js';
 import { prepareEnvelope, readReceipt, writeReceipt } from './receipts.js';
@@ -241,6 +242,158 @@ async function applyOrganization(
 	}
 }
 
+/** Finds an active tag by name, or creates it with `id`. Returns the tag's ID. */
+async function ensureTag(
+	tx: Transaction,
+	vaultId: string,
+	tag: { id: string; name: string },
+	seq: bigint,
+	now: Date,
+	changes: Change[]
+): Promise<string> {
+	const [existing] = await tx
+		.select({ id: tags.id })
+		.from(tags)
+		.where(
+			and(
+				eq(tags.vaultId, vaultId),
+				eq(tags.normalizedName, normalizeOrganizationName(tag.name).normalizedName),
+				isNull(tags.deletedAt)
+			)
+		)
+		.limit(1);
+	if (existing) return existing.id;
+	changes.push(
+		...(await applyOrganization(
+			tx,
+			vaultId,
+			{ type: 'tag.create', id: tag.id, name: tag.name },
+			seq,
+			now
+		))
+	);
+	return tag.id;
+}
+
+async function appendDescription(
+	tx: Transaction,
+	vaultId: string,
+	id: string,
+	addition: string,
+	seq: bigint,
+	now: Date
+): Promise<Change> {
+	const [current] = await tx
+		.select({ description: bookmarks.description, revision: entities.revision })
+		.from(bookmarks)
+		.innerJoin(
+			entities,
+			and(eq(entities.vaultId, bookmarks.vaultId), eq(entities.id, bookmarks.id))
+		)
+		.where(and(eq(bookmarks.vaultId, vaultId), eq(bookmarks.id, id)));
+	const existing = current.description.trimEnd();
+	const description = existing ? `${existing}\n\n${addition}` : addition;
+	if ([...description].length > 10000)
+		reject('description_full', 'This bookmark’s description is full.', { id });
+	return applyBookmark(
+		tx,
+		vaultId,
+		{
+			type: 'bookmark.update',
+			id,
+			expectedRevision: String(current.revision) as Revision,
+			patch: { description }
+		},
+		seq,
+		now
+	);
+}
+
+/** Bookmarks saved with a page highlight are filed under this tag. */
+const HIGHLIGHT_TAG = 'highlight';
+
+/**
+ * Saves a bookmark from the browser extension. When the URL is already in the library and the
+ * save carries a description or highlight, the text is appended to that bookmark instead (the
+ * way repeated highlights on one page collect); otherwise the duplicate is reported as before.
+ */
+async function applyExtensionBookmark(
+	tx: Transaction,
+	vaultId: string,
+	command: ExtensionBookmarkCommand,
+	seq: bigint,
+	now: Date
+): Promise<Change[]> {
+	const { tagIds, newTags, person, highlight, ...bookmark } = command;
+	const changes: Change[] = [];
+	let bookmarkId = command.id;
+	let created = true;
+	try {
+		changes.push(
+			await applyBookmark(tx, vaultId, { ...bookmark, type: 'bookmark.create' }, seq, now)
+		);
+	} catch (error) {
+		if (!(error instanceof AlreadyExists) || !(command.description || highlight)) throw error;
+		created = false;
+		bookmarkId = error.id;
+		if (command.description)
+			changes.push(await appendDescription(tx, vaultId, bookmarkId, command.description, seq, now));
+	}
+	const chosen = new Set<string>();
+	if (created) {
+		for (const tagId of tagIds) chosen.add(tagId);
+		// New tags join the chosen ones: an active tag with the same name is reused (it may have
+		// been made in Prism since the extension's catalog loaded); otherwise the tag is created
+		// with the extension's ID.
+		for (const tag of newTags ?? [])
+			chosen.add(await ensureTag(tx, vaultId, tag, seq, now, changes));
+	}
+	if (highlight) {
+		chosen.add(
+			await ensureTag(tx, vaultId, { id: randomUUID(), name: HIGHLIGHT_TAG }, seq, now, changes)
+		);
+		await tx.insert(bookmarkHighlights).values({
+			vaultId,
+			id: randomUUID(),
+			bookmarkId,
+			text: highlight.text,
+			prefix: highlight.prefix,
+			suffix: highlight.suffix,
+			createdAt: now
+		});
+	}
+	for (const tagId of chosen)
+		changes.push(
+			...(await applyOrganization(
+				tx,
+				vaultId,
+				{ type: 'tag.add', id: bookmarkId, tagId },
+				seq,
+				now,
+				true
+			))
+		);
+	if (!created) return changes;
+	changes.push(...(await tagTweet(tx, vaultId, command.id, command.url, seq, now)));
+	if (person)
+		changes.push(
+			...(await changeContentPerson(
+				tx,
+				vaultId,
+				{
+					type: 'content-person.add',
+					bookmarkId: command.id,
+					personId: person.id,
+					role: CONNECTION_ROLE,
+					provenance: 'manual'
+				},
+				seq,
+				now
+			))
+		);
+	return changes;
+}
+
 export async function executeCommand(owner: OwnerContext, input: unknown): Promise<CommandResult> {
 	// Both the route and service enforce size; internal callers cannot bypass the budget.
 	const envelope = prepareEnvelope(input);
@@ -267,78 +420,9 @@ export async function executeCommand(owner: OwnerContext, input: unknown): Promi
 				const now = new Date();
 				const changes: Change[] = [];
 				if (command.type === 'extension.bookmark.create') {
-					const { tagIds, newTags, person, ...bookmark } = command;
 					changes.push(
-						await applyBookmark(
-							mutation,
-							owner.vaultId,
-							{ ...bookmark, type: 'bookmark.create' },
-							seq,
-							now
-						)
+						...(await applyExtensionBookmark(mutation, owner.vaultId, command, seq, now))
 					);
-					// New tags join the chosen ones: an active tag with the same name is reused (it
-					// may have been made in Prism since the extension's catalog loaded); otherwise
-					// the tag is created with the extension's ID.
-					const chosen = new Set(tagIds);
-					for (const tag of newTags ?? []) {
-						const [existing] = await mutation
-							.select({ id: tags.id })
-							.from(tags)
-							.where(
-								and(
-									eq(tags.vaultId, owner.vaultId),
-									eq(tags.normalizedName, normalizeOrganizationName(tag.name).normalizedName),
-									isNull(tags.deletedAt)
-								)
-							)
-							.limit(1);
-						if (existing) chosen.add(existing.id);
-						else {
-							changes.push(
-								...(await applyOrganization(
-									mutation,
-									owner.vaultId,
-									{ type: 'tag.create', id: tag.id, name: tag.name },
-									seq,
-									now
-								))
-							);
-							chosen.add(tag.id);
-						}
-					}
-					for (const tagId of chosen) {
-						changes.push(
-							...(await applyOrganization(
-								mutation,
-								owner.vaultId,
-								{ type: 'tag.add', id: command.id, tagId },
-								seq,
-								now,
-								true
-							))
-						);
-					}
-					changes.push(
-						...(await tagTweet(mutation, owner.vaultId, command.id, command.url, seq, now))
-					);
-					if (person) {
-						changes.push(
-							...(await changeContentPerson(
-								mutation,
-								owner.vaultId,
-								{
-									type: 'content-person.add',
-									bookmarkId: command.id,
-									personId: person.id,
-									role: CONNECTION_ROLE,
-									provenance: 'manual'
-								},
-								seq,
-								now
-							))
-						);
-					}
 				} else if (isPersonaCommand(command)) {
 					changes.push(...(await applyPersonaCommand(mutation, owner.vaultId, command, seq, now)));
 				} else if (command.type === 'note.replace') {

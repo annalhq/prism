@@ -330,14 +330,23 @@ export type CompiledAppearance = {
 	themeColor: string;
 };
 
+export type ResolvedAppearance = {
+	scheme: ThemeScheme;
+	/** Colour, font and type-scale tokens, keyed by CSS variable name. */
+	tokens: Map<string, string>;
+	/** `--radius-*` tokens; square corners override these. */
+	radii: Map<string, string>;
+	themeColor: string;
+};
+
 /**
- * Compiles a theme and its modules, in order: palette, explicit tokens, then each module.
- * Later layers win.
+ * Resolves a theme and its modules to CSS variables, in order: palette, explicit tokens, then
+ * each module. Later layers win. Values are only what the Zen base in app.css doesn't set.
  */
-export function compileAppearance(
+export function resolveAppearance(
 	theme: BuiltinThemeId | ThemeDocument,
 	modules: readonly ThemeDocument[] = []
-): CompiledAppearance {
+): ResolvedAppearance {
 	const builtin = typeof theme === 'string' ? builtinTheme(theme) : undefined;
 	const scheme: ThemeScheme =
 		builtin?.scheme ?? (typeof theme === 'object' ? theme.scheme : undefined) ?? 'dark';
@@ -365,6 +374,15 @@ export function compileAppearance(
 			for (const [step, px] of Object.entries(TYPE_SCALE))
 				tokens.set(`--text-${step}`, `${+(px * type.scale).toFixed(2)}px`);
 	}
+	return { scheme, tokens, radii, themeColor };
+}
+
+/** Compiles a theme and its modules to one CSS block for the web app. */
+export function compileAppearance(
+	theme: BuiltinThemeId | ThemeDocument,
+	modules: readonly ThemeDocument[] = []
+): CompiledAppearance {
+	const { scheme, tokens, radii, themeColor } = resolveAppearance(theme, modules);
 	const block = (selector: string, entries: Map<string, string>) =>
 		entries.size
 			? `${selector}{${[...entries].map(([name, value]) => `${name}:${value}`).join(';')}}`

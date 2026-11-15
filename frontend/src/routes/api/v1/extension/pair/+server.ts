@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { redeemExtensionPairing } from '#lib/server/extension-auth.js';
+import { connectionName, redeemExtensionPairing } from '#lib/server/extension-auth.js';
 import { ApiError, apiErrorResponse } from '#lib/server/http.js';
 import { boundedRequest } from '#lib/server/request-policy.js';
 
@@ -21,7 +21,10 @@ export const POST: RequestHandler = async (event) => {
 		const requested =
 			input && typeof input === 'object' ? (input as { browser?: unknown }).browser : undefined;
 		const browser = requested === 'chrome' ? 'chrome' : 'firefox';
-		const { token, connectionId } = await redeemExtensionPairing(code, browser);
+		const requestedName =
+			input && typeof input === 'object' ? (input as { name?: unknown }).name : undefined;
+		const name = requestedName === undefined ? undefined : connectionName(requestedName);
+		const { token, connectionId } = await redeemExtensionPairing(code, browser, name);
 		return Response.json({ token, connectionId }, { headers: { 'Cache-Control': 'no-store' } });
 	} catch (error) {
 		if (error instanceof ApiError) return apiErrorResponse(error, event.locals.requestId);

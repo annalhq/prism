@@ -257,6 +257,36 @@ export const bookmarks = pgTable(
 	]
 );
 
+/**
+ * Passages saved from the browser extension. Only the extension reads these, to paint them
+ * when the page is visited again; their text is also appended to the bookmark's description.
+ * `prefix`/`suffix` are the surrounding page text, used to find the passage again.
+ */
+export const bookmarkHighlights = pgTable(
+	'bookmark_highlights',
+	{
+		vaultId: uuid('vault_id').notNull(),
+		id: uuid('id').notNull(),
+		bookmarkId: uuid('bookmark_id').notNull(),
+		text: text('text').notNull(),
+		prefix: text('prefix').notNull().default(''),
+		suffix: text('suffix').notNull().default(''),
+		createdAt: utc('created_at').notNull().defaultNow()
+	},
+	(t) => [
+		primaryKey({ columns: [t.vaultId, t.id] }),
+		foreignKey({
+			columns: [t.vaultId, t.bookmarkId],
+			foreignColumns: [bookmarks.vaultId, bookmarks.id]
+		}).onDelete('cascade'),
+		check(
+			'bookmark_highlight_lengths',
+			sql`char_length(${t.text}) BETWEEN 1 AND 5000 AND char_length(${t.prefix}) <= 64 AND char_length(${t.suffix}) <= 64`
+		),
+		index('bookmark_highlights_bookmark').on(t.vaultId, t.bookmarkId, t.createdAt)
+	]
+);
+
 export const people = pgTable(
 	'people',
 	{
