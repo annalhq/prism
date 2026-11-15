@@ -1,85 +1,92 @@
 import { browser } from 'wxt/browser';
 import { extensionsPage } from './platform';
 import type { Capture, Catalog, ExtensionMessage, SaveInput } from './protocol';
-import { avatarHue, icons, initials, themeCss } from './theme';
+import { avatarHue, followLook, icons, initials, themeCss } from './theme';
 
 type Tag = Catalog['tags'][number];
 type Person = Catalog['people'][number];
 type NewTag = { id: string; name: string };
 type Token =
-	| { kind: 'tag'; item: Tag }
-	| { kind: 'new-tag'; item: NewTag }
-	| { kind: 'person'; item: Person };
+	{ kind: 'tag'; item: Tag } | { kind: 'new-tag'; item: NewTag } | { kind: 'person'; item: Person };
 type SaveState = 'idle' | 'saving' | 'queued' | 'saved';
 
-// Matches the web app's capture card: a serif title, a faint well for tags and people that
+// Matches the web app's capture card: a large sans title, a faint well for tags and people that
 // lifts into the raised tab while typing, raised chips and suggestions, people as their coloured
 // monogram, and motion on one soft spring. Radii nest: card 20 − padding 8 → wells 12.
 const formCss = `${themeCss}
 :host{display:block}
-.panel{font-family:var(--font);font-size:13px;line-height:1.45;color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.panel{font-family:var(--font-sans);font-size:var(--text-md);line-height:1.45;color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .panel *{box-sizing:border-box}
-.panel button,.panel input{font:inherit;color:inherit}
-.panel .card{display:flex;flex-direction:column;margin:0;padding:8px;background:var(--surface);border-radius:var(--r-panel);box-shadow:var(--raised),0 18px 48px var(--shadow-strong);overflow:hidden}
+.panel button,.panel input,.panel textarea{font:inherit;color:inherit}
+.panel .card{display:flex;flex-direction:column;margin:0;padding:8px;background:var(--surface);border-radius:20px;box-shadow:var(--raised),0 18px 48px var(--shadow-strong);overflow:hidden}
 .panel.compact .card{box-shadow:var(--raised)}
-.panel:not(.compact) .card{animation:prism-rise 380ms var(--spring) both}
+.panel:not(.compact) .card{animation:prism-rise 380ms var(--ease-spring) both}
 
-.panel .site{display:flex;align-items:center;gap:7px;min-width:0;padding:6px 8px 0;color:var(--ink-3);font-size:11px}
+.panel .site{display:flex;align-items:center;gap:7px;min-width:0;padding:6px 8px 0;color:var(--tertiary);font-size:var(--text-xs)}
 .panel .site-icon{display:grid;flex:none;place-items:center;width:14px;height:14px}
 .panel .site-icon img{width:14px;height:14px;border-radius:3px}
 .panel .site-host{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.panel .title{width:100%;margin:0;padding:6px 8px 12px;border:0;background:transparent;font-size:20px;font-weight:400;line-height:1.25;letter-spacing:-0.01em;outline:none}
-.panel .title::placeholder,.panel .token-input::placeholder{color:var(--ink-3);opacity:1}
+.panel .title{width:100%;margin:0;padding:6px 8px 12px;border:0;background:transparent;font-size:var(--text-title);font-weight:400;line-height:1.25;letter-spacing:var(--tracking-title);outline:none}
+.panel .title::placeholder,.panel .token-input::placeholder{color:var(--tertiary);opacity:1}
 .panel .title[aria-invalid="true"]::placeholder{color:var(--danger)}
 .panel .divider{display:none}
 
-.panel .tokens{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-height:44px;padding:6px 8px;border-radius:calc(var(--r-panel) - 8px);background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);cursor:text;transition:background-color 260ms var(--ease),box-shadow 380ms var(--spring)}
+.panel .tokens{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-height:44px;padding:6px 8px;border-radius:12px;background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);cursor:text;transition:background-color 260ms var(--ease-out),box-shadow 380ms var(--ease-spring)}
 .panel .tokens:hover:not(:focus-within){box-shadow:inset 0 0 0 1px var(--line)}
 .panel .tokens:focus-within{background:var(--lift);box-shadow:var(--raised)}
 .panel .tokens.locked{background:transparent;box-shadow:inset 0 0 0 1px var(--hairline)}
 .panel .token-input{flex:1 1 90px;min-width:90px;height:28px;margin:0;padding:0 2px;border:0;background:transparent;outline:none}
 .panel .token-input:disabled{cursor:default}
-.panel .chip{display:inline-flex;align-items:center;gap:5px;height:28px;max-width:100%;padding:0 3px 0 9px;border-radius:var(--r-pill);background:var(--lift);box-shadow:var(--raised);color:var(--ink);font-size:12px;font-weight:500;cursor:default}
+.panel .chip{display:inline-flex;align-items:center;gap:5px;height:28px;max-width:100%;padding:0 3px 0 9px;border-radius:var(--radius-pill);background:var(--lift);box-shadow:var(--raised);color:var(--ink);font-size:var(--text-sm);font-weight:500;cursor:default}
 .panel .chip.person{padding-left:3px;gap:6px}
-.panel .chip.enter{animation:prism-pop 300ms var(--spring) both}
-.panel .chip-glyph{display:grid;flex:none;place-items:center;color:var(--ink-3)}
+.panel .chip.enter{animation:prism-pop 300ms var(--ease-spring) both}
+.panel .chip-glyph{display:grid;flex:none;place-items:center;color:var(--tertiary)}
 .panel .chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.panel .chip-remove{display:grid;flex:none;place-items:center;width:20px;height:20px;padding:0;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink-3);cursor:pointer;opacity:.7;transition:opacity 140ms var(--ease),background-color 140ms var(--ease),color 140ms var(--ease)}
+.panel .chip-remove{display:grid;flex:none;place-items:center;width:20px;height:20px;padding:0;border:0;border-radius:var(--radius-pill);background:transparent;color:var(--tertiary);cursor:pointer;opacity:.7;transition:opacity 140ms var(--ease-out),background-color 140ms var(--ease-out),color 140ms var(--ease-out)}
 .panel .chip:hover .chip-remove{opacity:1}
 .panel .chip-remove:hover{background:var(--hover);color:var(--ink)}
 .panel .chip-remove:disabled{display:none}
-.panel .tokens.locked .chip{padding-right:9px}
+.panel .tokens.locked .chip,.panel .chip.fixed{padding-right:9px}
+
+.panel .description{display:block;width:100%;min-height:64px;max-height:200px;margin:6px 0 0;padding:10px;border:0;border-radius:12px;background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);font-size:var(--text-md);line-height:1.5;resize:none;outline:none;transition:background-color 260ms var(--ease-out),box-shadow 380ms var(--ease-spring);animation:prism-drop 240ms var(--ease-spring) both}
+.panel .description[hidden]{display:none}
+.panel .description::placeholder{color:var(--tertiary);opacity:1}
+.panel .description:hover:not(:focus){box-shadow:inset 0 0 0 1px var(--line)}
+.panel .description:focus{background:var(--lift);box-shadow:var(--raised)}
+.panel .description:read-only{background:transparent}
+.panel .add-description{display:inline-flex;align-items:center;gap:5px}
+.panel .add-description[hidden]{display:none}
 
 .panel .avatar{display:grid;flex:none;place-items:center;width:var(--size);height:var(--size);border-radius:50%;background:hsl(var(--hue) 32% 27%);box-shadow:0 0 0 1px var(--hairline);color:hsl(var(--hue) 70% 86%);font-size:calc(var(--size) * .4);font-weight:500;line-height:1;user-select:none}
 @media (prefers-color-scheme:light){.panel .avatar{background:hsl(var(--hue) 70% 88%);color:hsl(var(--hue) 38% 30%)}}
 
-.panel .suggest{margin-top:6px;padding:4px;border-radius:calc(var(--r-panel) - 8px);background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);transform-origin:top center;animation:prism-drop 240ms var(--spring) both}
+.panel .suggest{margin-top:6px;padding:4px;border-radius:12px;background:var(--highlight);box-shadow:inset 0 0 0 1px var(--hairline);transform-origin:top center;animation:prism-drop 240ms var(--ease-spring) both}
 .panel .suggest[hidden]{display:none}
 .panel .options{max-height:212px;margin:0;padding:0;overflow:auto;list-style:none;scrollbar-width:none}
 .panel .options:empty{display:none}
-.panel .option{display:flex;align-items:center;gap:9px;height:34px;padding:0 8px;border-radius:8px;color:var(--ink-2);cursor:pointer;user-select:none;transition:background-color 120ms var(--ease),box-shadow 120ms var(--ease),color 120ms var(--ease)}
+.panel .option{display:flex;align-items:center;gap:9px;height:34px;padding:0 8px;border-radius:8px;color:var(--secondary);cursor:pointer;user-select:none;transition:background-color 120ms var(--ease-out),box-shadow 120ms var(--ease-out),color 120ms var(--ease-out)}
 .panel .option[aria-selected="true"]{background:var(--lift);box-shadow:var(--raised);color:var(--ink)}
-.panel .option-glyph{display:grid;flex:none;place-items:center;width:20px;height:20px;color:var(--ink-3)}
+.panel .option-glyph{display:grid;flex:none;place-items:center;width:20px;height:20px;color:var(--tertiary)}
 .panel .option[aria-selected="true"] .option-glyph{color:var(--ink)}
 .panel .option-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.panel .option-meta{flex:none;color:var(--ink-3);font-size:11px}
+.panel .option-meta{flex:none;color:var(--tertiary);font-size:var(--text-xs)}
 .panel .option.create .option-label b{color:var(--ink);font-weight:500}
-.panel .note{margin:0;padding:6px 8px 4px;color:var(--ink-3);font-size:12px}
+.panel .note{margin:0;padding:6px 8px 4px;color:var(--tertiary);font-size:var(--text-sm)}
 .panel .note:empty{display:none}
 
-.panel .status{margin:0;padding:10px 8px 0;color:var(--ink-2);font-size:12px;animation:prism-fade 200ms var(--ease) both}
+.panel .status{margin:0;padding:10px 8px 0;color:var(--secondary);font-size:var(--text-sm);animation:prism-fade 200ms var(--ease-out) both}
 .panel .status:empty{display:none}
 .panel .status.error{color:var(--danger)}
 
 .panel .footer{position:relative;display:flex;align-items:center;gap:6px;margin-top:10px;padding:8px 0 0}
 .panel .footer::before{content:"";position:absolute;top:0;right:8px;left:8px;border-top:1px solid var(--hairline)}
-.panel .quiet{height:32px;padding:0 12px;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink-2);font-size:12px;cursor:pointer;transition:background-color 140ms var(--ease),box-shadow 140ms var(--ease),color 140ms var(--ease),transform 240ms var(--spring)}
+.panel .quiet{height:32px;padding:0 12px;border:0;border-radius:var(--radius-pill);background:transparent;color:var(--secondary);font-size:var(--text-sm);cursor:pointer;transition:background-color 140ms var(--ease-out),box-shadow 140ms var(--ease-out),color 140ms var(--ease-out),transform 240ms var(--ease-spring)}
 .panel .quiet:hover{background:var(--lift);box-shadow:var(--raised);color:var(--ink)}
 .panel .quiet:active{transform:scale(.96)}
-.panel .hint{display:flex;gap:3px;margin-left:auto;color:var(--ink-3);font-size:10.5px}
+.panel .hint{display:flex;gap:3px;margin-left:auto;color:var(--tertiary);font-size:10.5px}
 .panel .hint kbd{display:inline-grid;place-items:center;min-width:14px;height:18px;padding:0 1px;border:0;background:none;font:inherit;line-height:18px}
-.panel .primary{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:76px;height:32px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--accent-ink);font-size:12px;font-weight:500;cursor:pointer;transition:transform 260ms var(--spring),opacity 160ms var(--ease),box-shadow 160ms var(--ease)}
+.panel .primary{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:76px;height:32px;padding:0 14px;border:0;border-radius:var(--radius-pill);background:var(--accent);box-shadow:inset 0 1px 0 color-mix(in srgb,white 22%,transparent),0 4px 14px var(--shadow-soft);color:var(--on-accent);font-size:var(--text-sm);font-weight:500;cursor:pointer;transition:transform 260ms var(--ease-spring),opacity 160ms var(--ease-out),box-shadow 160ms var(--ease-out)}
 .panel .primary:active:not(:disabled){transform:scale(.96);transition-duration:100ms}
 .panel .primary:disabled{cursor:default}
 .panel .primary:disabled:not(.is-saving):not(.is-saved){opacity:.4;box-shadow:none}
@@ -88,8 +95,8 @@ const formCss = `${themeCss}
 .panel .spinner{width:12px;height:12px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:prism-spin 700ms linear infinite}
 .panel .btn-icon svg{display:none}
 .panel .is-saved .spinner{display:none}
-.panel .is-saved .btn-icon svg{display:block;animation:prism-pop 360ms var(--spring) both}
-.panel .is-saved{animation:prism-saved 420ms var(--spring)}
+.panel .is-saved .btn-icon svg{display:block;animation:prism-pop 360ms var(--ease-spring) both}
+.panel .is-saved{animation:prism-saved 420ms var(--ease-spring)}
 
 .panel button:focus-visible,.option:focus-visible{outline:2px solid var(--ring);outline-offset:1px}
 
@@ -168,7 +175,7 @@ export async function renderCaptureForm(
 	capture: Capture,
 	onDismiss?: () => void,
 	compact = false,
-	options: { favicon?: string } = {}
+	options: { favicon?: string; tabId?: number } = {}
 ) {
 	const style = document.createElement('style');
 	style.textContent = formCss;
@@ -210,6 +217,28 @@ export async function renderCaptureForm(
 	const dismissButton = panel.querySelector<HTMLButtonElement>('[data-dismiss]')!;
 	const submit = panel.querySelector<HTMLButtonElement>('button[type="submit"]')!;
 	const submitLabel = submit.querySelector<HTMLElement>('.btn-label')!;
+	const description = panel.querySelector<HTMLTextAreaElement>('.description')!;
+	const addDescription = panel.querySelector<HTMLButtonElement>('.add-description')!;
+	// The in-page panel follows the synced theme itself; the popup does it for its document.
+	const stopLook = root instanceof ShadowRoot ? followLook(root) : undefined;
+
+	// Rarely used, so it stays a quiet button until asked for, or until a highlight fills it.
+	function growDescription() {
+		description.style.height = 'auto';
+		description.style.height = `${description.scrollHeight}px`;
+	}
+	function openDescription(focus: boolean) {
+		description.hidden = false;
+		addDescription.hidden = true;
+		growDescription();
+		if (focus) description.focus();
+	}
+	description.addEventListener('input', growDescription);
+	addDescription.addEventListener('click', () => openDescription(true));
+	if (capture.description) {
+		description.value = capture.description.slice(0, 10000);
+		openDescription(false);
+	}
 
 	const hostname = new URL(capture.url).hostname.replace(/^www\./, '');
 	panel.querySelector<HTMLElement>('.site-host')!.textContent = hostname;
@@ -254,6 +283,8 @@ export async function renderCaptureForm(
 			label ?? { idle: 'Save', saving: 'Saving', queued: 'Queued', saved: 'Saved' }[next];
 		const locked = next !== 'idle';
 		title.readOnly = locked;
+		description.readOnly = locked;
+		addDescription.disabled = locked;
 		tokenInput.disabled = locked || !catalogReady;
 		tokensEl.classList.toggle('locked', locked);
 		for (const remove of tokensEl.querySelectorAll<HTMLButtonElement>('.chip-remove'))
@@ -261,8 +292,23 @@ export async function renderCaptureForm(
 		if (locked) closeList();
 	}
 
+	// Highlights are always filed under #highlight; the chip shows it and can't be removed.
+	if (capture.highlight) {
+		const chip = document.createElement('span');
+		chip.className = 'chip fixed';
+		chip.title = 'Highlights are saved to #highlight';
+		const chipGlyph = document.createElement('span');
+		chipGlyph.className = 'chip-glyph';
+		chipGlyph.innerHTML = icons.highlight;
+		const label = document.createElement('span');
+		label.className = 'chip-label';
+		label.textContent = 'highlight';
+		chip.append(chipGlyph, label);
+		tokensEl.insertBefore(chip, tokenInput);
+	}
+
 	function renderTokens() {
-		for (const chip of tokensEl.querySelectorAll('.chip')) chip.remove();
+		for (const chip of tokensEl.querySelectorAll('.chip:not(.fixed)')) chip.remove();
 		for (const token of tokens) {
 			const chip = document.createElement('span');
 			chip.className = `chip${token.kind === 'person' ? ' person' : ''}${tokenKey(token) === lastAddedKey ? ' enter' : ''}`;
@@ -330,7 +376,9 @@ export async function renderCaptureForm(
 		const query = (mode === 'all' ? raw : raw.slice(1)).trim().toLocaleLowerCase();
 		if (!catalogReady || !tokenFocused || state !== 'idle' || (mode === 'all' && !query))
 			return closeList();
-		const tagIds = new Set(tokens.flatMap((token) => (token.kind === 'tag' ? [token.item.id] : [])));
+		const tagIds = new Set(
+			tokens.flatMap((token) => (token.kind === 'tag' ? [token.item.id] : []))
+		);
 		// Names already on this bookmark, chosen or about to be created.
 		const takenNames = new Set(
 			tokens.flatMap((token) => (token.kind === 'person' ? [] : [fold(token.item.name)]))
@@ -370,7 +418,8 @@ export async function renderCaptureForm(
 				noteText = catalog.people.length ? 'No matching people.' : 'No people in Prism yet.';
 			else if (typed && (exists || takenNames.has(fold(typed))))
 				noteText = `#${typed} is already added.`;
-			else if (!typed) noteText = catalog.tags.length ? 'All tags are added.' : 'Type a name to create a tag.';
+			else if (!typed)
+				noteText = catalog.tags.length ? 'All tags are added.' : 'Type a name to create a tag.';
 		}
 		if (!suggestions.length && !noteText) return closeList();
 		optionsEl.replaceChildren();
@@ -569,6 +618,7 @@ export async function renderCaptureForm(
 	const dispose = () => {
 		clearTimeout(queuedTimer);
 		clearTimeout(closeTimer);
+		stopLook?.();
 		browser.runtime.onMessage.removeListener(onSaveResult);
 	};
 	root.addEventListener('prism-dispose', dispose, { once: true });
@@ -587,6 +637,7 @@ export async function renderCaptureForm(
 		const newTags = tokens.flatMap((token) =>
 			token.kind === 'new-tag' ? [{ id: token.item.id, name: token.item.name }] : []
 		);
+		const descriptionValue = description.value.trim().slice(0, 10000);
 		const operationId = crypto.randomUUID();
 		const input: SaveInput = {
 			protocolVersion: 1,
@@ -599,14 +650,20 @@ export async function renderCaptureForm(
 				url: capture.url,
 				tagIds: tokens.flatMap((token) => (token.kind === 'tag' ? [token.item.id] : [])),
 				...(newTags.length ? { newTags } : {}),
-				...(person ? { person: { id: person.item.id } } : {})
+				...(person ? { person: { id: person.item.id } } : {}),
+				...(descriptionValue ? { description: descriptionValue } : {}),
+				...(capture.highlight ? { highlight: capture.highlight } : {})
 			}
 		};
 		activeOperationId = operationId;
 		setState('saving');
 		setStatus('');
 		try {
-			const result = await message<{ queued?: boolean; error?: string }>({ type: 'save', input });
+			const result = await message<{ queued?: boolean; error?: string }>({
+				type: 'save',
+				input,
+				pageTabId: options.tabId
+			});
 			if (result?.error) throw new Error(result.error);
 			if (!result?.queued) throw new Error('Prism could not queue this bookmark.');
 			if ((state as SaveState) !== 'saving') return; // A save-result already arrived.

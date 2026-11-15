@@ -1,10 +1,19 @@
 import { browser, type Browser } from 'wxt/browser';
 import { browserId } from './platform';
-import type { Catalog, ExtensionMessage, SaveInput } from './protocol';
-import { getPairingOrigin } from './protocol';
+import type { Catalog, ExtensionMessage, Highlight, SaveInput } from './protocol';
+import { getPairingOrigin, highlightOrigins, showHighlightsKey } from './protocol';
+import { catalogKey } from './theme';
 
-type Connection = { origin: string; token: string; connectionId: string };
-type PendingSave = { connectionId: string; input: SaveInput; createdAt: number; tabId?: number };
+type Connection = { origin: string; token: string; connectionId: string; name?: string };
+type PendingSave = {
+	connectionId: string;
+	input: SaveInput;
+	createdAt: number;
+	/** The tab that asked, for its save result. */
+	tabId?: number;
+	/** The tab showing the page, to repaint its highlights. */
+	pageTabId?: number;
+};
 type CachedCatalog = {
 	connectionId: string;
 	origin: string;
@@ -12,10 +21,23 @@ type CachedCatalog = {
 	catalog: Catalog;
 };
 const connectionKey = 'prismConnection';
-const catalogKey = 'prismCatalog';
 const outboxKey = 'prismSaveOutbox';
 const outboxAlarm = 'prism-save-outbox';
+const highlightsScriptId = 'prism-highlights';
+const selectionMenuId = 'prism-add-selection';
+// A stored catalog older than this is refreshed in the background when a page asks about it.
+const catalogMaxAge = 30 * 60_000;
 let catalogRefresh: { connectionId: string; promise: Promise<Catalog> } | undefined;
+/** Highlights per page (URL hash), kept while the background is awake. */
+const highlightCache = new Map<string, { at: number; highlights: Highlight[] }>();
+/** A selection picked with the context menu, waiting for the popup it opened. */
+let pendingSelection:
+	| {
+			tabId: number;
+			at: number;
+			result: Promise<{ description: string; highlight?: Highlight } | null>;
+	  }
+	| undefined;
 let flushingOutbox = false;
 let outboxUpdate: Promise<unknown> = Promise.resolve();
 
@@ -120,12 +142,14 @@ function reportSave(
 	result: { status?: 'accepted' | 'already_exists'; error?: string }
 ) {
 	if (tabId === undefined) return;
-	void browser.tabs.sendMessage(tabId, {
-		type: 'save-result',
-		operationId,
-		status: result.status,
-		error: result.error
-	} satisfies ExtensionMessage).catch(() => {});
+	void browser.tabs
+		.sendMessage(tabId, {
+			type: 'save-result',
+			operationId,
+			status: result.status,
+			error: result.error
+		} satisfies ExtensionMessage)
+		.catch(() => {});
 }
 
 async function flushOutbox() {
@@ -156,8 +180,17 @@ async function flushOutbox() {
 				reportSave(item.tabId, item.input.operationId, {
 					status: result.status === 'already_exists' ? 'already_exists' : 'accepted'
 				});
-				// Tags made by this save belong in the catalog for the next one.
-				if (item.input.command.newTags?.length) void refreshCatalog(connection).catch(() => {});
+				// Tags made by this save, and the page's highlights, belong in the catalog.
+				if (item.input.command.newTags?.length || item.input.command.highlight)
+					void refreshCatalog(connection).catch(() => {});
+				if (item.input.command.highlight) {
+					highlightCache.clear();
+					const pageTabId = item.pageTabId ?? item.tabId;
+					if (pageTabId !== undefined)
+						void browser.tabs
+							.sendMessage(pageTabId, { type: 'highlights-changed' } satisfies ExtensionMessage)
+							.catch(() => {});
+				}
 			} catch (error) {
 				const status = error instanceof ApiRequestError ? error.status : undefined;
 				const deniedPermission = (error as Error).message.includes('Grant Prism site access again');
@@ -180,6 +213,78 @@ async function flushOutbox() {
 	}
 }
 
+/**
+ * Highlights saved on the page with one of these URL hashes. Pages not in the catalog's list
+ * are answered here without asking Prism, so browsing elsewhere stays on this device.
+ */
+async function pageHighlights(connection: Connection, urlHashes: string[]): Promise<Highlight[]> {
+	const stored = await browser.storage.local.get(catalogKey);
+	const cache = stored[catalogKey] as CachedCatalog | undefined;
+	const current = cache?.connectionId === connection.connectionId ? cache : undefined;
+	if (!current || Date.now() - current.fetchedAt > catalogMaxAge)
+		void refreshCatalog(connection).catch(() => {});
+	const listed = new Set(current?.catalog.highlightedUrls ?? []);
+	const hash = urlHashes.find((candidate) => listed.has(candidate));
+	if (!hash) return [];
+	const cached = highlightCache.get(hash);
+	if (cached && Date.now() - cached.at < 5 * 60_000) return cached.highlights;
+	const { highlights } = await api<{ highlights: Highlight[] }>(
+		connection,
+		`/api/v1/extension/highlights?urlHash=${hash}`
+	);
+	highlightCache.set(hash, { at: Date.now(), highlights });
+	return highlights;
+}
+
+/** Registers the page script that paints highlights when the setting is on and access allows. */
+async function syncHighlightsScript() {
+	const stored = await browser.storage.local.get(showHighlightsKey);
+	const wanted =
+		stored[showHighlightsKey] === true &&
+		(await browser.permissions.contains({ origins: highlightOrigins }));
+	const registered = await browser.scripting.getRegisteredContentScripts({
+		ids: [highlightsScriptId]
+	});
+	if (wanted && !registered.length)
+		await browser.scripting.registerContentScripts([
+			{
+				id: highlightsScriptId,
+				matches: highlightOrigins,
+				js: ['/highlights.js'],
+				runAt: 'document_idle',
+				persistAcrossSessions: true
+			}
+		]);
+	else if (!wanted && registered.length)
+		await browser.scripting.unregisterContentScripts({ ids: [highlightsScriptId] });
+}
+
+/**
+ * "Add to Prism" on a selection: read it in the page and open the popup, which picks it up.
+ * Both start in the click handler itself, with nothing awaited first, because opening the popup
+ * needs the user's gesture and Firefox forgets it after the first await.
+ */
+function addSelection(info: Browser.contextMenus.OnClickData, tab?: Browser.tabs.Tab) {
+	if (info.menuItemId !== selectionMenuId || tab?.id === undefined) return;
+	const tabId = tab.id;
+	const fallback = info.selectionText ? { description: info.selectionText.trim() } : null;
+	const result = browser.scripting
+		.executeScript({
+			target: { tabId, frameIds: [info.frameId ?? 0] },
+			files: ['/selection.js']
+		})
+		.then(
+			(results) =>
+				(results[0]?.result as { description: string; highlight?: Highlight } | null) ?? fallback
+		)
+		.catch(() => fallback);
+	pendingSelection = { tabId, at: Date.now(), result };
+	browser.action.openPopup().catch(() => {
+		// No popup without a focused window; the badge says the selection is waiting.
+		void browser.action.setBadgeText({ tabId, text: '1' }).catch(() => {});
+	});
+}
+
 async function handleMessage(
 	message: ExtensionMessage,
 	sender: Browser.runtime.MessageSender
@@ -187,7 +292,9 @@ async function handleMessage(
 	try {
 		if (message.type === 'connection') {
 			const current = await getConnection();
-			return current ? { connected: true, origin: current.origin } : { connected: false };
+			return current
+				? { connected: true, origin: current.origin, name: current.name }
+				: { connected: false };
 		}
 		if (message.type === 'pair') {
 			const origin = getPairingOrigin(message.code);
@@ -198,25 +305,55 @@ async function handleMessage(
 				cache: 'no-store',
 				credentials: 'omit',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code: message.code.trim(), browser: browserId })
+				body: JSON.stringify({ code: message.code.trim(), browser: browserId, name: message.name })
 			});
 			const body = await response.json().catch(() => ({}));
 			if (!response.ok)
 				throw new Error(body.message ?? 'Pairing failed. Generate a fresh code on Prism.');
 			await browser.storage.local.set({
-				[connectionKey]: { origin, token: body.token, connectionId: body.connectionId }
+				[connectionKey]: {
+					origin,
+					token: body.token,
+					connectionId: body.connectionId,
+					name: message.name
+				} satisfies Connection
 			});
 			await browser.storage.local.remove(catalogKey);
+			highlightCache.clear();
 			void flushOutbox();
-			return { connected: true, origin };
+			return { connected: true, origin, name: message.name };
 		}
 		if (message.type === 'disconnect') {
 			await browser.storage.local.remove([connectionKey, catalogKey]);
+			highlightCache.clear();
 			return { disconnected: true };
+		}
+		if (message.type === 'take-highlight') {
+			const pending = pendingSelection;
+			if (!pending || pending.tabId !== message.tabId || Date.now() - pending.at > 120_000)
+				return { selection: null };
+			pendingSelection = undefined;
+			void browser.action.setBadgeText({ tabId: pending.tabId, text: '' }).catch(() => {});
+			return { selection: await pending.result };
+		}
+		if (message.type === 'set-show-highlights') {
+			await browser.storage.local.set({ [showHighlightsKey]: message.enabled });
+			await syncHighlightsScript();
+			return { enabled: message.enabled };
 		}
 		const connection = await getConnection();
 		if (!connection) throw new Error('Connect the extension from Prism’s Account panel first.');
 		if (message.type === 'catalog') return await getCatalog(connection, message.fresh);
+		if (message.type === 'highlights')
+			return { highlights: await pageHighlights(connection, message.urlHashes) };
+		if (message.type === 'rename') {
+			const { name } = await api<{ name: string }>(connection, '/api/v1/extension/connection', {
+				method: 'PATCH',
+				body: JSON.stringify({ name: message.name })
+			});
+			await browser.storage.local.set({ [connectionKey]: { ...connection, name } });
+			return { name };
+		}
 		if (message.type === 'save') {
 			await updateOutbox((pending) =>
 				pending.some((item) => item.input.operationId === message.input.operationId)
@@ -227,7 +364,8 @@ async function handleMessage(
 								connectionId: connection.connectionId,
 								input: message.input,
 								createdAt: Date.now(),
-								tabId: sender.tab?.id
+								tabId: sender.tab?.id,
+								pageTabId: sender.tab?.id ?? message.pageTabId
 							}
 						]
 			);
@@ -251,6 +389,21 @@ export function startBackground() {
 		if (alarm.name === outboxAlarm) void flushOutbox();
 	});
 	browser.runtime.onStartup.addListener(() => void flushOutbox());
+	// Menus are recreated on every start; Firefox doesn't keep them for event pages.
+	void browser.contextMenus
+		.removeAll()
+		.then(() =>
+			browser.contextMenus.create({
+				id: selectionMenuId,
+				title: 'Add to Prism',
+				contexts: ['selection']
+			})
+		)
+		.catch(() => {});
+	browser.contextMenus.onClicked.addListener(addSelection);
+	// Access to sites can be withdrawn in the browser's settings; the script follows.
+	browser.permissions.onRemoved.addListener(() => void syncHighlightsScript().catch(() => {}));
+	void syncHighlightsScript().catch(() => {});
 	browser.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
 		void handleMessage(message, sender).then(sendResponse);
 		return true;

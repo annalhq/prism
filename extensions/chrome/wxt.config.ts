@@ -11,7 +11,7 @@ export default defineConfig({
 	},
 	manifest: {
 		...baseManifest,
-		// Service-worker `alarms`, `optional_host_permissions` and promise-based APIs need 116+.
-		minimum_chrome_version: '116'
+		// `action.openPopup` (the context menu's "Add to Prism") needs 127+.
+		minimum_chrome_version: '127'
 	}
 });

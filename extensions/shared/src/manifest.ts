@@ -8,8 +8,8 @@ const xHosts = ['https://x.com/*', 'https://twitter.com/*'];
 /** Manifest fields shared by every browser. Each package adds its browser-specific keys. */
 export const baseManifest = {
 	name: 'Prism',
-	description: 'Save pages and X posts to your Prism library.',
-	permissions: ['storage', 'activeTab', 'alarms'],
+	description: 'Save pages, highlights and X posts to your Prism library.',
+	permissions: ['storage', 'activeTab', 'alarms', 'contextMenus', 'scripting'],
 	host_permissions: xHosts,
 	optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
 	web_accessible_resources: [

@@ -1,5 +1,6 @@
 import { renderCaptureForm } from '../capture-form';
 import type { Capture } from '../protocol';
+import { currentScheme } from '../theme';
 // The web app's spring: quick to start, settling softly with no overshoot.
 const spring = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
@@ -43,8 +44,8 @@ class CapturePanel {
 	};
 
 	async open(anchor: HTMLElement, capture: Capture, onSaved: () => void) {
+		const light = (await currentScheme().catch(() => 'dark')) === 'light';
 		this.close();
-		const light = matchMedia('(prefers-color-scheme: light)').matches;
 		const host = document.createElement('div');
 		host.dataset.prismPopover = 'true';
 		host.style.cssText = `position:fixed;z-index:2147483647;max-height:calc(100vh - 20px);overflow:auto;border-radius:20px;transform-origin:top right;filter:${
@@ -83,7 +84,9 @@ class CapturePanel {
 		} catch (error) {
 			const status = document.createElement('p');
 			status.textContent = (error as Error).message;
-			status.style.cssText = `margin:0;padding:14px 16px;border:1px solid ${light ? '#26251e1a' : '#303030'};border-radius:20px;background:${light ? '#f2f1ed' : '#1a1a1a'};color:${light ? '#cf2d56' : '#f2a6a0'};font:13px/1.45 "STK Bureau Sans",system-ui,sans-serif`;
+			// The form's styles are in the shadow root by now, so the theme's tokens apply.
+			status.style.cssText =
+				'margin:0;padding:14px 16px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--danger);font:var(--text-md)/1.45 var(--font-sans)';
 			shadow.append(status);
 		}
 	}
