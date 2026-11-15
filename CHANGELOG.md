@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.1](https://github.com/annalhq/prism/compare/v0.3.0...v0.3.1) (2026-11-15)
+
+### Features
+
+* **api:** extension highlights, descriptions, connection names and theme sync ([6181282](https://github.com/annalhq/prism/commit/61812828a6dcff9da5caf1093d80e76f647870ea)), references [#highlight](https://github.com/annalhq/prism/issues/highlight)
+* **extension:** sync Prism theme, highlights, and settings ([68cdbd6](https://github.com/annalhq/prism/commit/68cdbd69a37284d78fbf305dfe2874d90e8a41e1))
+
+### Bug Fixes
+
+* decouple folder states from sidebar and tag view ([c0aca37](https://github.com/annalhq/prism/commit/c0aca37237af40350754f043d4e5aeddbf1b828b))
+
 ## [0.3.0](https://github.com/annalhq/prism/compare/v0.2.1...v0.3.0) (2026-11-14)
 
 ### ⚠ BREAKING CHANGES
