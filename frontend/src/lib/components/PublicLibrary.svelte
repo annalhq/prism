@@ -268,7 +268,9 @@
 						{:else if person}<PostCard
 								{item}
 								readonly
-								note={notePreview(noteBodies.get(String(item.id)) ?? '')}
+								note={notePreview(
+									noteBodies.get(String(item.id)) ?? String(item.description ?? '')
+								)}
 								onEdit={noop}
 								onAction={noop}
 								onOpen={noop}
@@ -277,7 +279,9 @@
 						{:else}<BookmarkCard
 								{item}
 								readonly
-								note={notePreview(noteBodies.get(String(item.id)) ?? '')}
+								note={notePreview(
+									noteBodies.get(String(item.id)) ?? String(item.description ?? '')
+								)}
 								onEdit={noop}
 								onAction={noop}
 								onOpen={noop}

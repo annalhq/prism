@@ -1325,7 +1325,9 @@
 									{item}
 									people={profileSlug ? [] : (peopleOnPost.get(String(item.id)) ?? [])}
 									{feedback}
-									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
+									note={notePreview(
+										noteBodies.get(String(item.id)) ?? String(item.description ?? '')
+									)}
 									onDisconnect={profileSlug && connectedIds.includes(String(item.id))
 										? () =>
 												void disconnectContent(String(item.id)).catch((e) => feedback(e.message))
@@ -1341,7 +1343,9 @@
 							{:else}<BookmarkCard
 									{item}
 									{feedback}
-									note={notePreview(noteBodies.get(String(item.id)) ?? '')}
+									note={notePreview(
+										noteBodies.get(String(item.id)) ?? String(item.description ?? '')
+									)}
 									selected={selected?.id === item.id}
 									marked={markedSet.has(String(item.id))}
 									onMove={() => openMove([String(item.id)])}
