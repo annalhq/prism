@@ -8,15 +8,14 @@
 	"palette": {
 		"background": "#282828",
 		"foreground": "#EBDBB2",
-		"accent": "#FABD2F",
+		"accent": "#D79921",
 		"danger": "#FB4934",
 		"warning": "#FE8019"
 	},
 	"colors": {
-		"surface": "#32302F",
-		"field": "#3C3836",
-		"elevated": "#3C3836",
-		"line": "#504945",
+		"surface": "#212121",
+		"line": "#665C54",
+		"switch-off": "#665C54",
 		"on-accent": "#282828"
 	}
 }

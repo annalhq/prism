@@ -1,0 +1,20 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "IV Spade",
+	"author": "monkeytype",
+	"scheme": "dark",
+	"palette": {
+		"background": "#0C0C0C",
+		"foreground": "#D3C2C3",
+		"accent": "#B7976A",
+		"danger": "#9D7B7D"
+	},
+	"colors": {
+		"surface": "#121212",
+		"line": "#404040",
+		"switch-off": "#404040",
+		"on-accent": "#0C0C0C"
+	}
+}

@@ -1,0 +1,20 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Dark Note",
+	"author": "monkeytype",
+	"scheme": "dark",
+	"palette": {
+		"background": "#1F1F1F",
+		"foreground": "#D2DFF4",
+		"accent": "#F2C17B",
+		"danger": "#FF0000"
+	},
+	"colors": {
+		"surface": "#141414",
+		"line": "#768F95",
+		"switch-off": "#768F95",
+		"on-accent": "#1F1F1F"
+	}
+}

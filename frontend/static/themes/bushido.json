@@ -1,0 +1,21 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Bushido",
+	"author": "monkeytype",
+	"scheme": "dark",
+	"palette": {
+		"background": "#242933",
+		"foreground": "#F6F0E9",
+		"accent": "#EC4C56",
+		"danger": "#EC4C56",
+		"warning": "#ECDC4C"
+	},
+	"colors": {
+		"surface": "#1C222D",
+		"line": "#596172",
+		"switch-off": "#596172",
+		"on-accent": "#242933"
+	}
+}

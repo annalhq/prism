@@ -1,0 +1,20 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Peach Blossom",
+	"author": "monkeytype",
+	"scheme": "dark",
+	"palette": {
+		"background": "#292929",
+		"foreground": "#FECEA8",
+		"accent": "#99B898",
+		"danger": "#FF6961"
+	},
+	"colors": {
+		"surface": "#2A363B",
+		"line": "#616161",
+		"switch-off": "#616161",
+		"on-accent": "#292929"
+	}
+}

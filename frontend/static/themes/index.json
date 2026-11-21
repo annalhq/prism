@@ -30,7 +30,7 @@
 			"swatch": {
 				"canvas": "#282828",
 				"ink": "#EBDBB2",
-				"accent": "#FABD2F"
+				"accent": "#D79921"
 			}
 		},
 		{
@@ -64,6 +64,72 @@
 				"canvas": "#EFF1F5",
 				"ink": "#4C4F69",
 				"accent": "#8839EF"
+			}
+		},
+		{
+			"file": "bushido.json",
+			"name": "Bushido",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#242933",
+				"ink": "#F6F0E9",
+				"accent": "#EC4C56"
+			}
+		},
+		{
+			"file": "carbon.json",
+			"name": "Carbon",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#313131",
+				"ink": "#F5E6C8",
+				"accent": "#F66E0D"
+			}
+		},
+		{
+			"file": "dark-note.json",
+			"name": "Dark Note",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#1F1F1F",
+				"ink": "#D2DFF4",
+				"accent": "#F2C17B"
+			}
+		},
+		{
+			"file": "iv-spade.json",
+			"name": "IV Spade",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#0C0C0C",
+				"ink": "#D3C2C3",
+				"accent": "#B7976A"
+			}
+		},
+		{
+			"file": "olivia.json",
+			"name": "Olivia",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#1C1B1D",
+				"ink": "#F2EFED",
+				"accent": "#DEAF9D"
+			}
+		},
+		{
+			"file": "peach-blossom.json",
+			"name": "Peach Blossom",
+			"kind": "theme",
+			"scheme": "dark",
+			"swatch": {
+				"canvas": "#292929",
+				"ink": "#FECEA8",
+				"accent": "#99B898"
 			}
 		},
 		{

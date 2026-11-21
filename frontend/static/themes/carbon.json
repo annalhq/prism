@@ -1,0 +1,20 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Carbon",
+	"author": "monkeytype",
+	"scheme": "dark",
+	"palette": {
+		"background": "#313131",
+		"foreground": "#F5E6C8",
+		"accent": "#F66E0D",
+		"danger": "#E72D2D"
+	},
+	"colors": {
+		"surface": "#2B2B2B",
+		"line": "#616161",
+		"switch-off": "#616161",
+		"on-accent": "#313131"
+	}
+}

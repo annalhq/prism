@@ -1,0 +1,20 @@
+{
+	"$schema": "/themes/theme.schema.json",
+	"prism": 1,
+	"kind": "theme",
+	"name": "Olivia",
+	"author": "monkeytype",
+	"scheme": "dark",
+	"palette": {
+		"background": "#1C1B1D",
+		"foreground": "#F2EFED",
+		"accent": "#DEAF9D",
+		"danger": "#BF616A"
+	},
+	"colors": {
+		"surface": "#262223",
+		"line": "#4E3E3E",
+		"switch-off": "#4E3E3E",
+		"on-accent": "#1C1B1D"
+	}
+}

@@ -6,7 +6,7 @@ Two themes are built in: **Zen dark** (the default) and **Zen light**.
 
 ## Install
 
-- **Gallery**: Settings → Appearance → _More themes_. Includes Kanagawa, Gruvbox and Catppuccin, plus a few modules. A gallery file is downloaded once, when you install it.
+- **Gallery**: Settings → Appearance → _More themes_. Includes Kanagawa, Gruvbox, Catppuccin, Bushido, Carbon, Dark Note, IV Spade, Olivia and Peach Blossom, plus a few modules. A gallery file is downloaded once, when you install it.
 - **Your own file**: _Add theme or module_, or drop one or more `.json` files onto the Appearance pane. Installing a file with the same kind and name as an installed one replaces it.
 - **Manage**: click a theme to use it. Right-click a theme or module to export or remove it, or to move a module up or down. Use a module's switch to turn it on or off.
 
