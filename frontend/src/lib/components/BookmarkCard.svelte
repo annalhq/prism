@@ -16,7 +16,8 @@
 		FolderInput as FolderInputIcon,
 		ChevronRight as ChevronRightIcon,
 		NotebookText as NoteIcon,
-		Rabbit as RabbitIcon
+		Rabbit as RabbitIcon,
+		Highlighter as HighlighterIcon
 	} from '@lucide/svelte';
 	/* eslint-disable svelte/no-navigation-without-resolve -- Bookmarks open validated external HTTP source URLs. */
 	import { Collapsible, ContextMenu } from 'bits-ui';
@@ -26,6 +27,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import StashTree from './stash/StashTree.svelte';
 	import { branchKeys, countLinks, parseStash } from '#lib/domain/stash.js';
+	import { paragraphs, type Passage } from '#lib/client/highlights.svelte.js';
 	import {
 		bookmarkDomain,
 		bookmarkSource,
@@ -36,6 +38,7 @@
 	let {
 		item,
 		note = '',
+		passages = [],
 		selected = false,
 		marked = false,
 		readonly = false,
@@ -48,6 +51,8 @@
 	}: {
 		item: Row;
 		note?: string;
+		// Passages highlighted on the page: the row unfolds to them as a plain list.
+		passages?: Passage[];
 		selected?: boolean;
 		// Part of a visual-mode run.
 		marked?: boolean;
@@ -62,7 +67,8 @@
 	} = $props();
 	let offset = $state(0),
 		menuOpen = $state(false);
-	const hasNote = $derived(note.trim().length > 0);
+	const highlighted = $derived(passages.length > 0);
+	const hasNote = $derived(note.trim().length > 0 || highlighted);
 	// A rabbit hole's note is its trail: shown as the tree, every folder open, not as prose.
 	const stash = $derived(item.kind === 'stash');
 	const trail = $derived(stash ? parseStash(note) : []);
@@ -82,7 +88,7 @@
 	let opened = false;
 	const noteHtml = $derived.by(() => {
 		if (expanded) opened = true;
-		return opened && hasNote && !stash ? renderNotePreview(note) : '';
+		return opened && note.trim() && !stash ? renderNotePreview(note) : '';
 	});
 	$effect(() => {
 		if (!menuOpen) return;
@@ -218,6 +224,11 @@
 				rel="noopener noreferrer"
 				onclick={toggleFromTitle}>{item.title}</a
 			>{:else}<button class="bookmark-title" onclick={toggleFromButton}>{item.title}</button>{/if}
+		{#if highlighted}<span
+				class="later-badge highlight-badge"
+				title={`${passages.length} ${passages.length === 1 ? 'highlight' : 'highlights'}`}
+				><HighlighterIcon /><span class="sr-only">Highlights</span></span
+			>{/if}
 		{#if isReadLater(item)}<span class="later-badge" title="Read later"
 				><Clock3Icon /><span class="sr-only">Read later</span></span
 			>{/if}
@@ -323,6 +334,11 @@
 			{#if stash && trail.length}<div class="stash-preview">
 					<StashTree nodes={trail} open={trailOpen} readonly limit={8} />
 				</div>{:else if hasNote}<div class="note-prose">
+					{#if highlighted}<ul class="highlight-entries">
+							{#each passages as passage (passage.id)}<li>
+									{paragraphs(passage.text).join(' ')}
+								</li>{/each}
+						</ul>{/if}
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -- Sanitised by the note renderers. -->
 					{@html noteHtml}
 				</div>{/if}

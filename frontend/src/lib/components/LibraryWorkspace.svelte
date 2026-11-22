@@ -36,6 +36,15 @@
 	import TokenInput from './ui/TokenInput.svelte';
 	import Toast, { type Notice } from './ui/Toast.svelte';
 	import BookmarkCard from './BookmarkCard.svelte';
+	import HighlightsView from './HighlightsView.svelte';
+	import {
+		highlightPreference,
+		highlightTagId,
+		isHighlightEntry,
+		loadHighlights,
+		passagesFromDescription,
+		type Passage
+	} from '#lib/client/highlights.svelte.js';
 	import PostCard, { type PostPerson } from './PostCard.svelte';
 	import { formatPersonLinks, parsePersonLinks } from '#lib/domain/person-links.js';
 	import { notePreview } from '#lib/client/reference-edits.js';
@@ -241,6 +250,37 @@
 			library?.list<Row>('notes').map((n) => [String(n.entityId), String(n.bodyMarkdown)]) ?? []
 		);
 	});
+	// Highlights: the passages saved from pages live outside the replica, so they are read
+	// from the server when a list that shows them is open, and again when the library changes.
+	const highlightTag = $derived(highlightTagId(tags));
+	const highlightView = $derived(!!highlightTag && view === `tag:${highlightTag}`);
+	let savedPassages = $state.raw<Map<string, Passage[]> | null>(null);
+	$effect(() => {
+		void contentVersion;
+		if (!libraryReady || !highlightTag || view === 'tags' || view === 'people') return;
+		const controller = new AbortController();
+		// Coalesce bursts of changes (a sync, a bulk edit) into one read.
+		const timer = setTimeout(() => {
+			loadHighlights(controller.signal)
+				.then((value) => (savedPassages = value))
+				.catch(() => {
+					/* Offline or signed out: passages fall back to the description. */
+				});
+		}, 250);
+		return () => {
+			clearTimeout(timer);
+			controller.abort();
+		};
+	});
+	function passagesOf(item: Row): Passage[] {
+		const id = String(item.id);
+		const saved = savedPassages?.get(id);
+		if (saved?.length) return saved;
+		if (!isHighlightEntry(item, highlightTag)) return [];
+		return passagesFromDescription(id, String(item.description ?? ''));
+	}
+	// The reader's own note. A highlight entry's description is its passages, so it isn't one.
+	const ownNote = (item: Row) => noteBodies.get(String(item.id)) ?? '';
 	const selected = $derived.by(() => {
 		const id = page.url.searchParams.get('item'),
 			kind = page.url.searchParams.get('kind');
@@ -354,6 +394,15 @@
 		await goto(url, { reset: false });
 	}
 	let query = $derived(page.url.searchParams.get('q') ?? '');
+	// All bookmarks can leave highlight entries out (Settings → Library). A search still finds them.
+	const hidingHighlights = $derived(
+		highlightPreference.hideInAll && !!highlightTag && view === 'all' && !query
+	);
+	const listed = $derived(
+		hidingHighlights
+			? results.items.filter((item) => !isHighlightEntry(item, highlightTag))
+			: results.items
+	);
 	let content: HTMLElement | undefined = $state();
 	// On mobile the search field is at the bottom, so ranked results read upward from it.
 	const bottomUp = $derived(mobile && !!query && view !== 'people' && !profileSlug);
@@ -525,7 +574,7 @@
 				shelves.trash++;
 				continue;
 			}
-			shelves.all++;
+			if (!(highlightPreference.hideInAll && isHighlightEntry(row, highlightTag))) shelves.all++;
 			if (isReadLater(row)) shelves.later++;
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- Scratch set for one row.
 			const inFolders = new Set<string>();
@@ -1278,7 +1327,13 @@
 							onclick={() => (sort = sort === 'title' ? 'newest' : 'title')}
 							aria-label="Sort by title">Title{sort === 'title' ? ' ↑' : ''}</button
 						>
-						{#if query}<span class="muted">{results.items.length} found</span>{/if}
+						{#if query}<span class="muted">{results.items.length} found</span
+							>{:else if hidingHighlights && listed.length < results.items.length}<button
+								class="hidden-highlights"
+								title="Highlight entries are hidden here. Show them in Settings → Library."
+								onclick={() => void navigate(null, `tag:${highlightTag}`)}
+								>{results.items.length - listed.length} hidden in #highlight</button
+							>{/if}
 						<button
 							class="list-shortcuts"
 							aria-label="Keyboard shortcuts"
@@ -1309,11 +1364,21 @@
 					class:post-feed={feedMode}
 					class:people-list={view === 'people' && !feedMode}
 					class:searching={!!query}
+					class:reading-list={highlightView}
 				>
 					{#if profileSlug && !person}<p class="panel-message">
 							This person is unavailable.
-						</p>{:else}
-						{#each results.items.slice(0, limit) as item (String(item.id))}
+						</p>{:else if highlightView && listed.length}<HighlightsView
+							items={listed.slice(0, limit)}
+							{passagesOf}
+							noteOf={ownNote}
+							selectedId={selected?.id ?? null}
+							marked={markedSet}
+							{feedback}
+							onEdit={(item) => void navigate({ kind: 'bookmark', id: String(item.id) })}
+							onOpen={(item) => void library?.save({ type: 'activity.open', id: String(item.id) })}
+						/>{:else}
+						{#each listed.slice(0, limit) as item (String(item.id))}
 							{#if item.entityKind === 'person'}<PersonRow
 									person={item}
 									handle={handleOf(String(item.id))}
@@ -1340,11 +1405,14 @@
 									onAction={(action) => void bookmarkAction(item, action)}
 									onOpen={() => void library?.save({ type: 'activity.open', id: String(item.id) })}
 								/>
-							{:else}<BookmarkCard
+							{:else}{@const passages = passagesOf(item)}<BookmarkCard
 									{item}
 									{feedback}
+									{passages}
 									note={notePreview(
-										noteBodies.get(String(item.id)) ?? String(item.description ?? '')
+										passages.length
+											? ownNote(item)
+											: (noteBodies.get(String(item.id)) ?? String(item.description ?? ''))
 									)}
 									selected={selected?.id === item.id}
 									marked={markedSet.has(String(item.id))}
@@ -1389,7 +1457,7 @@
 								</section>{/if}{/each}{/if}
 				</div>
 
-				{#if results.items.length > limit}<button class="load-more" onclick={() => (limit += 100)}
+				{#if listed.length > limit}<button class="load-more" onclick={() => (limit += 100)}
 						>Show more</button
 					>{/if}
 			{/if}

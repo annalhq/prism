@@ -10,6 +10,7 @@
 		setSquareCorners
 	} from '#lib/client/theme.svelte.js';
 	import ThemeSettings from './settings/ThemeSettings.svelte';
+	import { highlightPreference, setHighlightsHiddenInAll } from '#lib/client/highlights.svelte.js';
 	import { resolve } from '$app/paths';
 	import {
 		Volume2,
@@ -43,7 +44,8 @@
 		Copy,
 		Globe,
 		Puzzle,
-		Wrench
+		Wrench,
+		Highlighter
 	} from '@lucide/svelte';
 	import type { LibraryClient, LibraryState } from '#lib/client/vault/library.js';
 	import { syncSummary } from '#lib/client/sync-status.js';
@@ -543,6 +545,25 @@
 									</div>
 								</section>
 							{:else if section === 'library'}
+								<section class="settings-group">
+									<h3>Highlights</h3>
+									<div class="settings-card">
+										<button
+											class="settings-row"
+											role="switch"
+											aria-checked={!highlightPreference.hideInAll}
+											onclick={() => setHighlightsHiddenInAll(!highlightPreference.hideInAll)}
+											><Highlighter class="settings-glyph" /><span class="settings-text"
+												><strong>Highlights in All bookmarks</strong><small
+													>Off keeps passages saved from pages to #highlight and search</small
+												></span
+											><span
+												class="preference-switch"
+												class:enabled={!highlightPreference.hideInAll}><span></span></span
+											></button
+										>
+									</div>
+								</section>
 								<section class="settings-group">
 									<div class="settings-group-head">
 										<h3>Tags</h3>
