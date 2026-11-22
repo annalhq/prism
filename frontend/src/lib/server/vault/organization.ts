@@ -8,13 +8,25 @@ import {
 } from '#lib/domain/organization.js';
 import type { Change, Revision, Sequence, TaxonomyProjection } from '#lib/domain/contracts.js';
 import type { Transaction } from '../db/connection.js';
-import { bookmarks, collections, entities, entityTags, tagFolders, tags } from '../db/schema.js';
+import {
+	bookmarks,
+	collections,
+	entities,
+	entityTags,
+	spaces,
+	tagFolders,
+	tags
+} from '../db/schema.js';
 import { requireEntity } from './entities.js';
 import { entityMetadataChange } from './projections.js';
 import { reject } from './rejections.js';
 
 export function taxonomyProjection(
-	row: typeof tags.$inferSelect | typeof collections.$inferSelect | typeof tagFolders.$inferSelect
+	row:
+		| typeof tags.$inferSelect
+		| typeof collections.$inferSelect
+		| typeof tagFolders.$inferSelect
+		| typeof spaces.$inferSelect
 ): TaxonomyProjection {
 	return {
 		id: row.id,
@@ -22,6 +34,8 @@ export function taxonomyProjection(
 		normalizedName: row.normalizedName,
 		...('position' in row ? { position: row.position } : {}),
 		...('isPrivate' in row ? { isPrivate: row.isPrivate, folderId: row.folderId } : {}),
+		...('spaceId' in row ? { spaceId: row.spaceId } : {}),
+		...('hue' in row ? { hue: row.hue } : {}),
 		revision: String(row.revision) as Revision,
 		lastSeq: String(row.lastSeq) as Sequence,
 		deletedAt: row.deletedAt?.toISOString() ?? null,
@@ -36,9 +50,15 @@ export async function changeTaxonomy(
 	seq: bigint,
 	now: Date
 ): Promise<Change[]> {
-	const kind = command.type.split('.')[0] as 'tag' | 'collection' | 'folder';
+	const kind = command.type.split('.')[0] as 'tag' | 'collection' | 'folder' | 'space';
 	const isTag = kind === 'tag';
-	const table = isTag ? tags : kind === 'folder' ? tagFolders : collections;
+	const table = isTag
+		? tags
+		: kind === 'folder'
+			? tagFolders
+			: kind === 'space'
+				? spaces
+				: collections;
 	const identity = and(eq(table.vaultId, vaultId), eq(table.id, command.id));
 	const [current] = await tx.select().from(table).where(identity);
 	const create = command.type.endsWith('.create');
@@ -64,9 +84,21 @@ export async function changeTaxonomy(
 			reject('not_found', 'This folder was not found.', { id: command.folderId });
 	}
 	if (
+		(command.type === 'tag.space' || command.type === 'folder.space') &&
+		command.spaceId !== null
+	) {
+		const [space] = await tx
+			.select({ deletedAt: spaces.deletedAt })
+			.from(spaces)
+			.where(and(eq(spaces.vaultId, vaultId), eq(spaces.id, command.spaceId)));
+		if (!space || space.deletedAt)
+			reject('not_found', 'This space was not found.', { id: command.spaceId });
+	}
+	if (
 		command.type === 'tag.move' ||
 		command.type === 'tag.privacy' ||
-		command.type === 'tag.folder'
+		command.type === 'tag.folder' ||
+		command.type === 'tag.space'
 	) {
 		const [moved] = await tx
 			.update(tags)
@@ -75,7 +107,9 @@ export async function changeTaxonomy(
 					? { isPrivate: command.isPrivate }
 					: command.type === 'tag.folder'
 						? { folderId: command.folderId }
-						: { position: command.position }),
+						: 'spaceId' in command
+							? { spaceId: command.spaceId }
+							: { position: command.position }),
 				revision: current!.revision + 1n,
 				lastSeq: seq,
 				updatedAt: now
@@ -84,11 +118,11 @@ export async function changeTaxonomy(
 			.returning();
 		return [{ type: 'tag.upsert', tag: taxonomyProjection(moved) }];
 	}
-	if (command.type === 'folder.move') {
+	if (command.type === 'folder.move' || command.type === 'folder.space') {
 		const [moved] = await tx
 			.update(tagFolders)
 			.set({
-				position: command.position,
+				...('position' in command ? { position: command.position } : { spaceId: command.spaceId }),
 				revision: current!.revision + 1n,
 				lastSeq: seq,
 				updatedAt: now
@@ -96,6 +130,19 @@ export async function changeTaxonomy(
 			.where(and(eq(tagFolders.vaultId, vaultId), eq(tagFolders.id, command.id)))
 			.returning();
 		return [{ type: 'folder.upsert', folder: taxonomyProjection(moved) }];
+	}
+	if (command.type === 'space.move' || command.type === 'space.hue') {
+		const [moved] = await tx
+			.update(spaces)
+			.set({
+				...('hue' in command ? { hue: command.hue } : { position: command.position }),
+				revision: current!.revision + 1n,
+				lastSeq: seq,
+				updatedAt: now
+			})
+			.where(and(eq(spaces.vaultId, vaultId), eq(spaces.id, command.id)))
+			.returning();
+		return [{ type: 'space.upsert', space: taxonomyProjection(moved) }];
 	}
 	const deleting = command.type.endsWith('.delete');
 	// A folder is only a shell: deleting it releases its tags, which keep every bookmark.
@@ -112,7 +159,34 @@ export async function changeTaxonomy(
 					.where(and(eq(tags.vaultId, vaultId), eq(tags.folderId, command.id)))
 					.returning()
 			: [];
-	if (deleting && kind !== 'folder') {
+	// Deleting a space sends its folders and loose tags back to Home.
+	const releasedFolders =
+		command.type === 'space.delete'
+			? await tx
+					.update(tagFolders)
+					.set({
+						spaceId: null,
+						revision: sql`${tagFolders.revision} + 1`,
+						lastSeq: seq,
+						updatedAt: now
+					})
+					.where(and(eq(tagFolders.vaultId, vaultId), eq(tagFolders.spaceId, command.id)))
+					.returning()
+			: [];
+	if (command.type === 'space.delete')
+		released.push(
+			...(await tx
+				.update(tags)
+				.set({
+					spaceId: null,
+					revision: sql`${tags.revision} + 1`,
+					lastSeq: seq,
+					updatedAt: now
+				})
+				.where(and(eq(tags.vaultId, vaultId), eq(tags.spaceId, command.id)))
+				.returning())
+		);
+	if (deleting && kind !== 'folder' && kind !== 'space') {
 		const used = isTag
 			? await tx
 					.select({ id: entityTags.entityId })
@@ -178,11 +252,17 @@ export async function changeTaxonomy(
 	const projection = taxonomyProjection(saved);
 	return [
 		...released.map((tag): Change => ({ type: 'tag.upsert', tag: taxonomyProjection(tag) })),
+		...releasedFolders.map((folder): Change => ({
+			type: 'folder.upsert',
+			folder: taxonomyProjection(folder)
+		})),
 		isTag
 			? { type: 'tag.upsert', tag: projection }
 			: kind === 'folder'
 				? { type: 'folder.upsert', folder: projection }
-				: { type: 'collection.upsert', collection: projection }
+				: kind === 'space'
+					? { type: 'space.upsert', space: projection }
+					: { type: 'collection.upsert', collection: projection }
 	];
 }
 

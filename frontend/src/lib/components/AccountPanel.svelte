@@ -10,6 +10,15 @@
 		setSquareCorners
 	} from '#lib/client/theme.svelte.js';
 	import ThemeSettings from './settings/ThemeSettings.svelte';
+	import {
+		MAX_QUAD,
+		SIDEBAR_VIEWS,
+		toggleQuadView,
+		setSidebarMode,
+		sidebarPreference,
+		type SidebarView
+	} from '#lib/client/sidebar.svelte.js';
+	import { highlightTagId } from '#lib/client/highlights.svelte.js';
 	import { highlightPreference, setHighlightsHiddenInAll } from '#lib/client/highlights.svelte.js';
 	import { resolve } from '$app/paths';
 	import {
@@ -45,7 +54,11 @@
 		Globe,
 		Puzzle,
 		Wrench,
-		Highlighter
+		Highlighter,
+		Bookmark,
+		Clock3,
+		Users,
+		Trash2
 	} from '@lucide/svelte';
 	import type { LibraryClient, LibraryState } from '#lib/client/vault/library.js';
 	import { syncSummary } from '#lib/client/sync-status.js';
@@ -87,6 +100,14 @@
 		onMaintenance: () => void;
 	} = $props();
 	type Section = 'general' | 'appearance' | 'extension' | 'library' | 'account';
+	const TILE_META: Record<SidebarView, { label: string; icon: typeof Bookmark }> = {
+		all: { label: 'All bookmarks', icon: Bookmark },
+		later: { label: 'Read later', icon: Clock3 },
+		people: { label: 'People', icon: Users },
+		trash: { label: 'Trash', icon: Trash2 },
+		highlights: { label: 'Highlights', icon: Highlighter }
+	};
+	const hasHighlightTag = $derived(!!highlightTagId(tags));
 	// On a phone the sections are a list you drill into; `drilled` is whether one is open.
 	// On wider screens the rail and the open section sit side by side.
 	let section = $state<Section>('general'),
@@ -455,6 +476,74 @@
 											>
 										</div>
 									</section>{/if}
+								{#if themePage === 'main'}<section class="settings-group">
+										<h3>Sidebar</h3>
+										<div class="settings-card">
+											<div class="settings-row sidebar-layout-row">
+												<span class="settings-text"
+													><strong>Layout</strong><small
+														>{sidebarPreference.mode === 'quad'
+															? 'Four views as tiles, then spaces and tags'
+															: 'Your views as rows, then spaces and tags'}</small
+													></span
+												>
+												<div
+													class="sidebar-layout-choice"
+													role="radiogroup"
+													aria-label="Sidebar layout"
+												>
+													<button
+														role="radio"
+														aria-checked={sidebarPreference.mode === 'list'}
+														title="List"
+														onclick={() => setSidebarMode('list')}
+														><span class="layout-sketch list" aria-hidden="true"
+															><i></i><i></i><i></i></span
+														><span>List</span></button
+													><button
+														role="radio"
+														aria-checked={sidebarPreference.mode === 'quad'}
+														title="Quad"
+														onclick={() => setSidebarMode('quad')}
+														><span class="layout-sketch quad" aria-hidden="true"
+															><i></i><i></i><i></i><i></i></span
+														><span>Quad</span></button
+													>
+												</div>
+											</div>
+											{#if sidebarPreference.mode === 'quad'}<div
+													class="settings-row quad-picker"
+													role="group"
+													aria-label="Quad tiles"
+												>
+													<span class="settings-text"
+														><strong>Tiles</strong><small>Up to four, shown in this order</small
+														></span
+													>
+													<div class="quad-chips">
+														{#each SIDEBAR_VIEWS as id (id)}
+															{@const meta = TILE_META[id]}
+															{@const on = sidebarPreference.quad.includes(id)}
+															<button
+																class="folder-chip quad-chip"
+																aria-pressed={on}
+																title={id === 'highlights' && !hasHighlightTag
+																	? 'Shows once a highlight is saved to #highlight'
+																	: meta.label}
+																disabled={on
+																	? sidebarPreference.quad.length === 1
+																	: sidebarPreference.quad.length >= MAX_QUAD}
+																onclick={() => toggleQuadView(id)}
+																><meta.icon
+																/>{meta.label}{#if id === 'highlights' && !hasHighlightTag}<small
+																		>needs #highlight</small
+																	>{/if}</button
+															>
+														{/each}
+													</div>
+												</div>{/if}
+										</div>
+									</section>{/if}
 							{:else if section === 'extension'}
 								<section class="settings-group">
 									<p class="settings-lede">
@@ -558,8 +647,8 @@
 													>Off keeps passages saved from pages to #highlight and search</small
 												></span
 											><span
-												class="preference-switch"
-												class:enabled={!highlightPreference.hideInAll}><span></span></span
+												class={['preference-switch', !highlightPreference.hideInAll && 'enabled']}
+												><span></span></span
 											></button
 										>
 									</div>

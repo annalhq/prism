@@ -107,7 +107,7 @@ export async function moveTag(
 	ordered: Row[],
 	id: string,
 	toIndex: number,
-	table: 'tags' | 'folders' | 'themes' = 'tags'
+	table: 'tags' | 'folders' | 'themes' | 'spaces' = 'tags'
 ): Promise<void> {
 	const from = ordered.findIndex((t) => t.id === id);
 	if (from < 0) return;
@@ -129,7 +129,14 @@ export async function moveTag(
 	for (const [row, key] of updates) {
 		const current = library.get<Row>(table, String(row.id)) ?? row;
 		const result = await library.save({
-			type: table === 'tags' ? 'tag.move' : table === 'folders' ? 'folder.move' : 'theme.move',
+			type:
+				table === 'tags'
+					? 'tag.move'
+					: table === 'folders'
+						? 'folder.move'
+						: table === 'spaces'
+							? 'space.move'
+							: 'theme.move',
 			id: String(row.id),
 			expectedRevision: String(current.revision) as Revision,
 			position: key
@@ -165,6 +172,11 @@ export async function fileTags(
 	for (const id of tagIds) {
 		const current = library.get<Row>('tags', id);
 		if (!current || (current.folderId ?? null) === folderId) continue;
+		// A tag taken out of a folder stays in the space it was showing in.
+		const leaving =
+			folderId === null && typeof current.folderId === 'string'
+				? library.get<Row>('folders', current.folderId)
+				: undefined;
 		const result = await library.save({
 			type: 'tag.folder',
 			id,
@@ -172,6 +184,29 @@ export async function fileTags(
 			folderId
 		});
 		if (result.status === 'rejected') throw new Error(result.message ?? 'Could not file this tag.');
+		if (leaving && !leaving.deletedAt)
+			await placeInSpace(library, 'tags', [id], spaceIdOf(leaving));
+	}
+}
+const spaceIdOf = (row: Row | undefined): string | null =>
+	typeof row?.spaceId === 'string' ? row.spaceId : null;
+/** Shows folders or loose tags in a space, or back in Home with null. Skips rows already there. */
+export async function placeInSpace(
+	library: LibraryClient,
+	table: 'tags' | 'folders',
+	ids: string[],
+	spaceId: string | null
+): Promise<void> {
+	for (const id of ids) {
+		const current = library.get<Row>(table, id);
+		if (!current || spaceIdOf(current) === spaceId) continue;
+		const result = await library.save({
+			type: table === 'tags' ? 'tag.space' : 'folder.space',
+			id,
+			expectedRevision: String(current.revision) as Revision,
+			spaceId
+		});
+		if (result.status === 'rejected') throw new Error(result.message ?? 'Could not move to space.');
 	}
 }
 export function tagNames(input: string): string[] {
@@ -295,6 +330,16 @@ export function groupTags(tags: Row[], folders: Row[]): { groups: FolderGroup[];
 		groups: folders.map((folder) => ({ folder, tags: groups.get(String(folder.id))! })),
 		loose
 	};
+}
+/**
+ * The space showing a folder or tag, or '' for Home. A tag in a folder follows the folder; a
+ * space that is gone (deleted, or not yet synced) counts as Home.
+ */
+export function spaceOf(row: Row, folders: Row[], spaces: Row[]): string {
+	const folder =
+		typeof row.folderId === 'string' ? folders.find((f) => f.id === row.folderId) : undefined;
+	const id = spaceIdOf(folder ?? row);
+	return id && spaces.some((s) => s.id === id) ? id : '';
 }
 /** The folder a tag sits in, or '' when it is loose. */
 export function folderOf(tag: Row, folders: Row[]): string {

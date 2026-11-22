@@ -114,7 +114,8 @@ function readPackage(input: unknown): Tables {
 	}
 	return tables;
 }
-type CopyTable = 'bookmarks' | 'people' | 'personas' | 'tags' | 'collections' | 'folders';
+type CopyTable =
+	'bookmarks' | 'people' | 'personas' | 'tags' | 'collections' | 'folders' | 'spaces';
 function createCommand(table: CopyTable, row: Row, id: string): Command {
 	const raw =
 		table === 'bookmarks'
@@ -142,7 +143,9 @@ function createCommand(table: CopyTable, row: Row, id: string): Command {
 									? 'tag.create'
 									: table === 'folders'
 										? 'folder.create'
-										: 'collection.create',
+										: table === 'spaces'
+											? 'space.create'
+											: 'collection.create',
 							id,
 							name: row.name
 						};
@@ -167,7 +170,8 @@ export function previewImport(input: unknown): ImportPreview {
 			'personas',
 			'tags',
 			'collections',
-			'folders'
+			'folders',
+			'spaces'
 		] as const)
 			for (const row of tables[table]) {
 				const id = uuid(row.id);
@@ -196,11 +200,14 @@ export function previewImport(input: unknown): ImportPreview {
 				if (ids.has(key)) throw new Error(`Duplicate ${table} identity ${key}.`);
 				ids.add(key);
 				if (
-					['bookmarks', 'people', 'personas', 'tags', 'collections', 'folders'].includes(table) &&
+					['bookmarks', 'people', 'personas', 'tags', 'collections', 'folders', 'spaces'].includes(
+						table
+					) &&
 					!row.purgedAt
 				) {
 					createCommand(table as CopyTable, row, key);
 					if (table === 'tags' && row.folderId != null) uuid(row.folderId);
+					if ((table === 'tags' || table === 'folders') && row.spaceId != null) uuid(row.spaceId);
 					if (
 						'tagIds' in row &&
 						(!Array.isArray(row.tagIds) ||
@@ -388,8 +395,8 @@ export async function importLibrary(
 		const privacyOf = new Map(
 			client.list<Row>('tags').map((row) => [str(row, 'id'), row.isPrivate === true])
 		);
-		// Folders first, so new tags can be filed into them as they are created.
-		for (const table of ['folders', 'tags', 'collections'] as const) {
+		// Spaces, then folders, so new folders and tags can be placed as they are created.
+		for (const table of ['spaces', 'folders', 'tags', 'collections'] as const) {
 			const existing = new Map(
 				client
 					.list<Row>(table)
@@ -437,8 +444,35 @@ export async function importLibrary(
 							{
 								type: 'tag.folder',
 								id,
-								expectedRevision: String(revision) as Revision,
+								expectedRevision: String(revision++) as Revision,
 								folderId: folder
+							},
+							old,
+							table
+						);
+					if (table === 'spaces' && typeof row.hue === 'number')
+						await send(
+							{
+								type: 'space.hue',
+								id,
+								expectedRevision: String(revision++) as Revision,
+								hue: row.hue
+							},
+							old,
+							table
+						);
+					// Likewise only a folder or tag created here is placed in a space.
+					const space =
+						(table === 'tags' || table === 'folders') && typeof row.spaceId === 'string'
+							? result.idMap[row.spaceId]
+							: undefined;
+					if (space)
+						await send(
+							{
+								type: table === 'tags' ? 'tag.space' : 'folder.space',
+								id,
+								expectedRevision: String(revision) as Revision,
+								spaceId: space
 							},
 							old,
 							table

@@ -120,6 +120,7 @@ export type Change =
 	| { type: 'tag.upsert'; tag: TaxonomyProjection }
 	| { type: 'collection.upsert'; collection: TaxonomyProjection }
 	| { type: 'folder.upsert'; folder: TaxonomyProjection }
+	| { type: 'space.upsert'; space: TaxonomyProjection }
 	| { type: 'saved-search.upsert'; savedSearch: SavedSearchProjection }
 	| { type: 'activity.upsert'; activity: ActivityProjection }
 	| { type: 'person.upsert'; person: import('./people.js').PersonProjection }
@@ -148,12 +149,16 @@ export type TaxonomyProjection = {
 	id: string;
 	name: string;
 	normalizedName: string;
-	/** Tags and folders: fractional sort key, null until the user reorders them. */
+	/** Tags, folders and spaces: fractional sort key, null until the user reorders them. */
 	position?: string | null;
 	/** Tags only: hidden from the public view, with everything carrying the tag. */
 	isPrivate?: boolean;
 	/** Tags only: the folder grouping this tag, or null when loose. */
 	folderId?: string | null;
+	/** Tags and folders: the sidebar space showing them, or null for Home. */
+	spaceId?: string | null;
+	/** Spaces only: the chosen OKLCH hue, or null to derive one from the name. */
+	hue?: number | null;
 	revision: Revision;
 	lastSeq: Sequence;
 	deletedAt: string | null;

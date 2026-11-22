@@ -1676,7 +1676,7 @@ kbd {
 	font-variant-numeric: tabular-nums;
 }
 .sidebar-group {
-	margin-top: 26px;
+	margin-top: 6px;
 }
 .sidebar-section-heading {
 	display: flex;
@@ -1771,6 +1771,451 @@ kbd {
 /* The faded tags group keeps its space; collapsed, the list must not scroll into it. */
 .collapsed .sidebar-navigation {
 	overflow-y: hidden;
+}
+
+/* Sidebar sections: views, a hairline, then spaces and tags, then the footer. */
+.sidebar-divider {
+	margin: 10px 10px 8px 11px;
+	border: 0;
+	border-top: 1px solid var(--hairline);
+}
+/* Quad layout: up to four views as icon tiles; names live in the tooltip. */
+.quad-grid {
+	position: relative;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px;
+	margin-bottom: 2px;
+}
+.collapsed .quad-grid {
+	grid-template-columns: 1fr;
+}
+.quad-tile {
+	position: relative;
+	display: grid;
+	place-items: center;
+	height: 44px;
+	border-radius: var(--radius-control);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	color: var(--secondary);
+	transition:
+		background-color 160ms ease,
+		box-shadow 200ms var(--ease-out),
+		color 140ms ease,
+		scale 220ms var(--ease-spring);
+}
+.quad-tile > svg {
+	width: 18px;
+	height: 18px;
+}
+.quad-count {
+	position: absolute;
+	top: 5px;
+	right: 7px;
+	color: var(--tertiary);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+}
+@media (hover: hover) {
+	.quad-tile:hover:not(.active) {
+		background: var(--hover);
+		color: var(--ink);
+	}
+}
+.quad-tile:active {
+	scale: 0.97;
+}
+.quad-tile.active {
+	background: var(--surface);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.quad-indicator {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: var(--quad-w, 0);
+	height: var(--quad-h, 0);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	box-shadow: var(--raised);
+	opacity: 0;
+	pointer-events: none;
+	translate: var(--quad-x, 0) var(--quad-y, 0);
+	transition:
+		translate 340ms cubic-bezier(0.34, 1.2, 0.5, 1),
+		width 220ms var(--ease-out),
+		height 220ms var(--ease-out),
+		opacity 160ms ease;
+}
+.quad-grid:is([data-indicator='on'], [data-indicator='arriving']) .quad-indicator {
+	opacity: 1;
+}
+/* First placement lands without sliding in from the corner. */
+.quad-grid[data-indicator='arriving'] .quad-indicator {
+	transition: none;
+}
+/* With the indicator up, the current tile drops its own tab and sits above the indicator. */
+.quad-grid:is([data-indicator='on'], [data-indicator='arriving']) .quad-tile.active {
+	background: none;
+	box-shadow: none;
+}
+.quad-tile {
+	z-index: 1;
+}
+.quad-tile:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 1px var(--line);
+}
+/* Collapsed, the tiles become plain icon rows; only the current one keeps its tab. */
+.collapsed .quad-tile:not(.active) {
+	background: none;
+	box-shadow: none;
+}
+.collapsed .quad-tile {
+	height: 34px;
+}
+.collapsed .quad-count {
+	display: none;
+}
+@media (hover: hover) {
+	.collapsed .quad-tile:not(.active):hover {
+		background: var(--highlight);
+	}
+}
+/* An odd tile out spans the row instead of leaving a hole. */
+.quad-grid > .quad-tile:last-of-type:nth-of-type(odd) {
+	grid-column: 1 / -1;
+}
+.quad-chip:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+/* Footer: Settings, and Trash as a quiet icon beside it. */
+.sidebar-footer {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 8px;
+}
+.sidebar-footer::before {
+	content: '';
+	position: absolute;
+	top: -5px;
+	right: 10px;
+	left: 11px;
+	border-top: 1px solid var(--hairline);
+}
+.sidebar-footer .sidebar-account.account-button {
+	flex: 1;
+	margin: 0;
+}
+.sidebar-footer .sidebar-account.account-button::before {
+	display: none;
+}
+.sidebar-trash {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	color: var(--tertiary);
+}
+.sidebar-trash svg {
+	width: 16px;
+	height: 16px;
+}
+.sidebar-trash.active {
+	background: var(--surface);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.collapsed .sidebar-footer {
+	flex-direction: column;
+	align-items: stretch;
+}
+.collapsed .sidebar-trash {
+	align-self: center;
+}
+@media (prefers-reduced-motion: reduce) {
+	.quad-tile,
+	.quad-indicator {
+		transition: none;
+	}
+}
+/* Settings → Appearance → Sidebar */
+.sidebar-layout-choice {
+	display: inline-flex;
+	flex-shrink: 0;
+	gap: 2px;
+	margin-left: auto;
+	padding: 3px;
+	border-radius: var(--radius-control);
+	background: var(--highlight);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.sidebar-layout-choice button {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	height: 30px;
+	padding: 0 10px 0 8px;
+	border-radius: calc(var(--radius-control) - 3px);
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+	transition:
+		background-color 160ms ease,
+		box-shadow 200ms var(--ease-out),
+		color 140ms ease;
+}
+.sidebar-layout-choice button[aria-checked='true'] {
+	background: var(--surface);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.layout-sketch {
+	display: grid;
+	gap: 2px;
+	width: 14px;
+}
+.layout-sketch i {
+	display: block;
+	height: 3px;
+	border-radius: 1px;
+	background: currentColor;
+	opacity: 0.7;
+}
+.layout-sketch.quad {
+	grid-template-columns: 1fr 1fr;
+}
+.layout-sketch.quad i {
+	height: 5px;
+}
+.quad-picker {
+	flex-wrap: wrap;
+}
+.quad-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	width: 100%;
+	padding-bottom: 4px;
+}
+
+/* Spaces. Colour stays on the chips so rows look the same in every space. */
+.sidebar-shelf {
+	translate: var(--swipe, 0px) 0;
+	transition: translate 380ms var(--ease-spring);
+}
+.sidebar-empty-action {
+	color: var(--secondary);
+	text-decoration: underline;
+	text-decoration-color: var(--line);
+	text-underline-offset: 3px;
+}
+.sidebar-empty-action:hover {
+	color: var(--ink);
+}
+.space-bar {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	min-height: 32px;
+	margin: 0 0 6px;
+	padding: 3px 2px;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.space-bar::-webkit-scrollbar {
+	display: none;
+}
+.space-tab-slot {
+	display: contents;
+}
+.space-tab {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 0;
+	height: 28px;
+	padding: 0 4px;
+	border-radius: var(--radius-pill);
+	color: var(--secondary);
+	font-size: var(--text-sm);
+	white-space: nowrap;
+	transition:
+		background-color 200ms var(--ease-out),
+		box-shadow 200ms var(--ease-out),
+		color 160ms ease,
+		gap 320ms var(--ease-spring),
+		padding 320ms var(--ease-spring);
+}
+.space-chip {
+	display: inline-grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: color-mix(in oklab, var(--space-color) 22%, transparent);
+	color: color-mix(in oklab, var(--space-color) 70%, var(--ink));
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	font-weight: 600;
+	line-height: 1;
+	transition:
+		background-color 200ms ease,
+		color 200ms ease,
+		scale 260ms var(--ease-spring);
+}
+.space-chip svg {
+	width: 11px;
+	height: 11px;
+}
+.space-name {
+	max-width: 0;
+	overflow: hidden;
+	opacity: 0;
+	text-overflow: ellipsis;
+	transition:
+		max-width 340ms var(--ease-spring),
+		opacity 200ms var(--ease-out);
+}
+@media (hover: hover) {
+	.space-tab:not(.active):hover .space-chip {
+		background: color-mix(in oklab, var(--space-color) 34%, transparent);
+		scale: 1.08;
+	}
+}
+.space-tab.active {
+	gap: 7px;
+	padding: 0 11px 0 4px;
+	background: var(--surface);
+	box-shadow: var(--raised);
+	color: var(--ink);
+}
+.space-tab.active .space-chip {
+	background: var(--space-color);
+	color: var(--canvas);
+}
+.space-tab.active .space-name {
+	max-width: 120px;
+	opacity: 1;
+}
+.space-tab:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 1px var(--line);
+}
+.space-tab.drop-target .space-chip {
+	background: var(--space-color);
+	color: var(--canvas);
+	scale: 1.2;
+}
+.space-add {
+	display: inline-grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	margin-left: 2px;
+	border-radius: 50%;
+	color: var(--tertiary);
+	opacity: 0;
+	transition:
+		opacity 150ms ease,
+		background-color 120ms ease,
+		color 120ms ease;
+}
+.space-add svg {
+	width: 14px;
+	height: 14px;
+}
+.library-sidebar:hover .space-add,
+.space-add:focus-visible {
+	opacity: 1;
+}
+.space-add:hover {
+	background: var(--hover);
+	color: var(--ink);
+}
+.collapsed .space-bar {
+	pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.sidebar-shelf,
+	.space-tab,
+	.space-name,
+	.space-chip {
+		transition: none;
+	}
+}
+/* Space sheet */
+.space-chip-large {
+	width: 22px;
+	height: 22px;
+	background: var(--space-color);
+	color: var(--canvas);
+	font-size: 11px;
+}
+.space-hue {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 14px;
+}
+.space-hue-label {
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+}
+.space-hue input[type='range'] {
+	flex: 1;
+	height: 10px;
+	margin: 0;
+	border-radius: var(--radius-pill);
+	background: var(--hue-track);
+	appearance: none;
+	cursor: pointer;
+}
+.space-hue input[type='range']::-webkit-slider-thumb {
+	width: 18px;
+	height: 18px;
+	border: 3px solid var(--canvas);
+	border-radius: 50%;
+	background: var(--space-color);
+	box-shadow:
+		0 0 0 1px var(--line),
+		0 1px 3px var(--shadow-soft);
+	appearance: none;
+}
+.space-hue input[type='range']::-moz-range-thumb {
+	width: 12px;
+	height: 12px;
+	border: 3px solid var(--canvas);
+	border-radius: 50%;
+	background: var(--space-color);
+	box-shadow:
+		0 0 0 1px var(--line),
+		0 1px 3px var(--shadow-soft);
+}
+.space-hue input[type='range']:focus-visible {
+	outline: 2px solid var(--line);
+	outline-offset: 3px;
+}
+.space-hue-auto {
+	padding: 3px 9px;
+	border-radius: var(--radius-pill);
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+	box-shadow: inset 0 0 0 1px var(--line);
+}
+.space-hue-auto[aria-pressed='true'] {
+	background: var(--surface);
+	color: var(--ink);
+}
+.space-hue-auto:hover {
+	color: var(--ink);
 }
 
 /* Folder glyph: the shut and open folders are stacked in one box and cross-faded, so opening
@@ -3119,12 +3564,7 @@ kbd {
 	color: var(--ink);
 }
 
-/* Highlights -------------------------------------------------------------
- * Passages saved from pages. In lists a highlight entry stays one quiet row with a marker
- * glyph, and unfolds to its passages as a plain list. The #highlight tag reads them instead:
- * one card per page, its passages set in the serif like a commonplace book, each one marked
- * by a faint wash under the text.
- */
+/* Highlights ------------------------------------------------------------- */
 .highlight-badge svg {
 	color: color-mix(in srgb, var(--warning) 70%, var(--tertiary));
 }

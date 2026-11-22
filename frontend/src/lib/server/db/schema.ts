@@ -10,6 +10,7 @@ import {
 	pgEnum,
 	pgTable,
 	primaryKey,
+	smallint,
 	text,
 	timestamp,
 	unique,
@@ -136,6 +137,42 @@ export const collections = pgTable(
 	]
 );
 
+// Spaces arrange folders and loose tags into sidebar shelves; a filed tag follows its folder.
+// Null space_id means Home, and deleting a space releases what it held.
+export const spaces = pgTable(
+	'spaces',
+	{
+		vaultId: uuid('vault_id')
+			.notNull()
+			.references(() => vaults.id),
+		id: uuid('id').notNull(),
+		name: text('name').notNull(),
+		normalizedName: text('normalized_name').notNull(),
+		position: text('position'),
+		// The space's colour as an OKLCH hue in degrees; null derives one from the name.
+		hue: smallint('hue'),
+		...lifecycle(),
+		...revisions()
+	},
+	(t) => [
+		...revisionChecks(t),
+		...lifecycleChecks(t),
+		primaryKey({ columns: [t.vaultId, t.id] }),
+		check('space_hue_valid', sql`${t.hue} IS NULL OR ${t.hue} BETWEEN 0 AND 359`),
+		check(
+			'space_position_valid',
+			sql`${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$'`
+		),
+		uniqueIndex('space_name_unique')
+			.on(t.vaultId, t.normalizedName)
+			.where(sql`${t.deletedAt} IS NULL`),
+		check(
+			'space_name_length',
+			sql`char_length(${t.name}) BETWEEN 1 AND 64 AND char_length(${t.normalizedName}) BETWEEN 1 AND 256`
+		)
+	]
+);
+
 // Folders are a thin shell over tags: they group tags and nothing else. Bookmarks still live
 // on tags; a tag has at most one folder, and deleting a folder releases its tags.
 export const tagFolders = pgTable(
@@ -149,6 +186,8 @@ export const tagFolders = pgTable(
 		normalizedName: text('normalized_name').notNull(),
 		// Fractional sort key, as for tags; null folders follow the ordered ones.
 		position: text('position'),
+		// The space showing this folder and its tags; null is Home.
+		spaceId: uuid('space_id'),
 		...lifecycle(),
 		...revisions()
 	},
@@ -156,6 +195,11 @@ export const tagFolders = pgTable(
 		...revisionChecks(t),
 		...lifecycleChecks(t),
 		primaryKey({ columns: [t.vaultId, t.id] }),
+		foreignKey({
+			columns: [t.vaultId, t.spaceId],
+			foreignColumns: [spaces.vaultId, spaces.id]
+		}),
+		index('tag_folder_space_members').on(t.vaultId, t.spaceId),
 		check(
 			'tag_folder_position_valid',
 			sql`${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$'`
@@ -185,6 +229,8 @@ export const tags = pgTable(
 		isPrivate: boolean('is_private').notNull().default(false),
 		// The folder holding this tag in the sidebar; null leaves it loose.
 		folderId: uuid('folder_id'),
+		// The space showing this tag while it is loose; a filed tag follows its folder.
+		spaceId: uuid('space_id'),
 		...lifecycle(),
 		...revisions()
 	},
@@ -197,6 +243,11 @@ export const tags = pgTable(
 			foreignColumns: [tagFolders.vaultId, tagFolders.id]
 		}),
 		index('tag_folder_members').on(t.vaultId, t.folderId),
+		foreignKey({
+			columns: [t.vaultId, t.spaceId],
+			foreignColumns: [spaces.vaultId, spaces.id]
+		}),
+		index('tag_space_members').on(t.vaultId, t.spaceId),
 		check(
 			'tag_position_valid',
 			sql`${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$'`

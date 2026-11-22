@@ -9,8 +9,32 @@
 		PanelRight,
 		Plus,
 		Settings2,
-		Eye
+		Eye,
+		Pencil,
+		Trash2 as DeleteIcon,
+		ChevronLeft,
+		ChevronRight,
+		House,
+		Layers,
+		Highlighter
 	} from '@lucide/svelte';
+	import { highlightTagId } from '#lib/client/highlights.svelte.js';
+	import {
+		LIST_VIEWS,
+		quadViews,
+		sidebarPreference,
+		type SidebarView
+	} from '#lib/client/sidebar.svelte.js';
+	import { ContextMenu } from 'bits-ui';
+	import { fly } from 'svelte/transition';
+	import { spaceOf } from '#lib/client/workflows.js';
+	import {
+		activeSpace,
+		restoreSpace,
+		showSpace,
+		spaceColor,
+		spaceInitial
+	} from '#lib/client/spaces.svelte.js';
 	import type { Attachment } from 'svelte/attachments';
 	import { onMount, tick, untrack } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -28,6 +52,7 @@
 		view,
 		tags,
 		folders = [],
+		spaces = [],
 		collapsed = $bindable(false),
 		home,
 		counts,
@@ -38,12 +63,17 @@
 		onReorderFolder,
 		onFile,
 		onEditFolder,
-		onCreateIn
+		onCreateIn,
+		onEditSpace,
+		onPlace,
+		onReorderSpace
 	}: {
 		view: string;
 		tags: Row[];
 		// Folders only group tags; a tag in no folder is listed loose, after them.
 		folders?: Row[];
+		// Shelves of tags, one showing at a time; none means one plain list.
+		spaces?: Row[];
 		collapsed?: boolean;
 		home?: '/' | '/public';
 		// Item counts beside each view and tag; absent until the library has loaded.
@@ -66,8 +96,108 @@
 		// and a new tag started inside it.
 		onEditFolder?: (folder: Row, intent?: 'delete') => void;
 		onCreateIn?: (folder: Row) => void;
+		// Space sheet (null creates one), dropping onto a space, and reordering spaces.
+		onEditSpace?: (space: Row | null, intent?: 'delete') => void;
+		onPlace?: (kind: 'tag' | 'folder', id: string, spaceId: string | null) => void | Promise<void>;
+		onReorderSpace?: (id: string, toIndex: number) => void | Promise<void>;
 	} = $props();
-	const grouped = $derived(groupTags(tags, folders));
+	// The space showing: Home ('') unless the remembered one still exists.
+	const spaceId = $derived(spaces.some((s) => s.id === activeSpace.id) ? activeSpace.id : '');
+	const shelf = $derived([{ id: '', name: 'Home' } as Row, ...spaces]);
+	const shelfIndex = $derived(shelf.findIndex((s) => String(s.id) === spaceId));
+	// Many spaces scroll the switcher sideways; the current one is kept in view.
+	function followActive(current: string): Attachment<HTMLElement> {
+		return (bar) => {
+			void current;
+			bar
+				.querySelector('.space-tab.active')
+				?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+		};
+	}
+	// Only this space's folders and loose tags; a tag inside a folder goes where its folder goes.
+	const spaceFolders = $derived(folders.filter((f) => spaceOf(f, folders, spaces) === spaceId));
+	const spaceTags = $derived(tags.filter((t) => spaceOf(t, folders, spaces) === spaceId));
+	const grouped = $derived(groupTags(spaceTags, spaceFolders));
+	// 1 slides the next shelf in from the right, -1 from the left.
+	let direction = $state(1);
+	function switchTo(id: string) {
+		if (id === spaceId) return;
+		const to = shelf.findIndex((s) => String(s.id) === id);
+		direction = to >= shelfIndex ? 1 : -1;
+		showSpace(id);
+	}
+	function step(by: number) {
+		const next = shelf[shelfIndex + by];
+		if (next) switchTo(String(next.id));
+	}
+	onMount(restoreSpace);
+	// Opening a tag kept in another space brings that space forward, so the row is in view.
+	$effect(() => {
+		if (!view.startsWith('tag:')) return;
+		const tag = untrack(() => tags.find((t) => t.id === view.slice(4)));
+		if (!tag) return;
+		const home = untrack(() => spaceOf(tag, folders, spaces));
+		if (home !== untrack(() => spaceId)) untrack(() => switchTo(home));
+	});
+	// A sideways two-finger swipe switches spaces; one gesture, momentum included, is one step.
+	const swipe: Attachment<HTMLElement> = (node) => {
+		let travelled = 0,
+			spent = false,
+			idle = 0;
+		const settle = () => {
+			travelled = 0;
+			spent = false;
+			node.style.setProperty('--swipe', '0px');
+		};
+		const wheel = (event: WheelEvent) => {
+			if (collapsed || spaces.length === 0 || Math.abs(event.deltaX) <= Math.abs(event.deltaY))
+				return;
+			event.preventDefault();
+			clearTimeout(idle);
+			idle = window.setTimeout(settle, 160);
+			if (spent) return;
+			travelled += event.deltaX;
+			const edge = !shelf[shelfIndex + Math.sign(travelled)];
+			const lean = Math.max(-32, Math.min(32, -travelled * (edge ? 0.12 : 0.3)));
+			node.style.setProperty('--swipe', `${lean}px`);
+			if (!edge && Math.abs(travelled) > 90) {
+				spent = true;
+				node.style.setProperty('--swipe', '0px');
+				step(Math.sign(travelled));
+			}
+		};
+		node.addEventListener('wheel', wheel, { passive: false });
+		return () => {
+			clearTimeout(idle);
+			node.removeEventListener('wheel', wheel);
+		};
+	};
+	// A tag or folder dragged onto a space in the switcher goes to that space.
+	let spaceTarget = $state<string | null>(null);
+	function overSpace(event: DragEvent, id: string) {
+		if (!onPlace || !accept(event)) return;
+		spaceTarget = id === spaceId ? null : id;
+	}
+	async function dropOnSpace(event: DragEvent, id: string) {
+		const current = drag;
+		event.preventDefault();
+		drag = null;
+		target = null;
+		preview = null;
+		spaceTarget = null;
+		if (!current || !onPlace || id === spaceId) return;
+		await onPlace(current.kind, current.id, id || null);
+	}
+	function spaceKeys(event: KeyboardEvent) {
+		if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+		event.preventDefault();
+		step(event.key === 'ArrowLeft' ? -1 : 1);
+		void tick().then(() =>
+			document
+				.querySelector<HTMLElement>('.library-sidebar .space-tab[aria-selected="true"]')
+				?.focus()
+		);
+	}
 	// While dragging, `preview` is the dragged row's list (its group's tags, or the folders) as it
 	// would be if dropped now, so neighbours slide aside under the pointer instead of jumping on
 	// drop. A tag dragged over another group targets it instead: `target` is that folder, or ''
@@ -112,6 +242,7 @@
 	function start(event: DragEvent, kind: 'tag' | 'folder', row: Row, group = '') {
 		drag = { kind, id: String(row.id), group };
 		preview = kind === 'tag' ? ids(groupRows(group)) : ids(grouped.groups.map((g) => g.folder));
+		spaceTarget = null;
 		target = null;
 		if (event.dataTransfer) {
 			event.dataTransfer.effectAllowed = 'move';
@@ -163,6 +294,14 @@
 		if (order[at + 1]) return rest.indexOf(order[at + 1]);
 		return null;
 	}
+	/** Where folder `id` lands among every folder (without it) for its place in `order`. */
+	function folderIndex(id: string, order: string[]): number | null {
+		const at = order.indexOf(id);
+		const rest = ids(folders).filter((x) => x !== id);
+		if (order[at - 1]) return rest.indexOf(order[at - 1]) + 1;
+		if (order[at + 1]) return rest.indexOf(order[at + 1]);
+		return null;
+	}
 	async function finishDrag() {
 		const current = drag,
 			order = preview,
@@ -177,8 +316,8 @@
 		try {
 			if (current.kind === 'tag' && into !== null) await onFile?.(current.id, into || null);
 			else if (current.kind === 'folder') {
-				const index = order.indexOf(current.id);
-				if (index !== folders.findIndex((f) => f.id === current.id))
+				const index = folderIndex(current.id, order);
+				if (order.join() !== ids(spaceFolders).join() && index !== null)
 					await onReorderFolder?.(current.id, index);
 			} else if (order.join() !== ids(groupRows(current.group)).join()) {
 				// Keep the previewed order until the saved one arrives, so nothing snaps back.
@@ -193,6 +332,7 @@
 	function cancelDrag() {
 		drag = null;
 		target = null;
+		spaceTarget = null;
 		if (!committing) preview = null;
 	}
 	const arrow = (event: KeyboardEvent) =>
@@ -219,21 +359,37 @@
 		const step = arrow(event);
 		if (!onReorderFolder || !step) return;
 		event.preventDefault();
-		const index = folders.findIndex((f) => f.id === id);
-		const next = index + step;
-		if (index === -1 || next < 0 || next >= folders.length) return;
-		await onReorderFolder(id, next);
+		const order = ids(spaceFolders);
+		const index = order.indexOf(id);
+		if (index === -1 || !order[index + step]) return;
+		order.splice(index, 1);
+		order.splice(index + step, 0, id);
+		const to = folderIndex(id, order);
+		if (to !== null) await onReorderFolder(id, to);
 		await tick();
 		document.querySelector<HTMLElement>(`.library-sidebar [data-folder-id="${id}"]`)?.focus();
 	}
+	// Highlights opens the #highlight tag, when there is one.
+	const highlightTag = $derived(highlightTagId(tags));
+	const VIEW_META: Record<SidebarView, { label: string; icon: typeof Bookmark }> = {
+		all: { label: 'All bookmarks', icon: Bookmark },
+		later: { label: 'Read later', icon: Clock3 },
+		people: { label: 'People', icon: Users },
+		trash: { label: 'Trash', icon: Trash2 },
+		highlights: { label: 'Highlights', icon: Highlighter }
+	};
+	const viewTarget = (id: SidebarView) =>
+		id === 'highlights' ? (highlightTag ? `tag:${highlightTag}` : null) : id;
+	const entry = (id: SidebarView) => ({ id: viewTarget(id), ...VIEW_META[id] });
+	// Quad is the owner's layout; read-only sidebars (the public page) keep the plain list.
+	const quad = $derived(!!onCreate && sidebarPreference.mode === 'quad');
 	const views = $derived(
-		[
-			{ id: 'all', label: 'All bookmarks', icon: Bookmark },
-			{ id: 'later', label: 'Read later', icon: Clock3 },
-			{ id: 'people', label: 'People', icon: Users },
-			{ id: 'trash', label: 'Trash', icon: Trash2 }
-		].filter((item) => onCreate || item.id !== 'trash')
+		(quad ? quadViews() : LIST_VIEWS)
+			.map(entry)
+			.filter((item): item is typeof item & { id: string } => item.id !== null)
 	);
+	// Trash sits in the footer unless it is one of the quad tiles.
+	const footerTrash = $derived(!!onCreate && !(quad && sidebarPreference.quad.includes('trash')));
 	onMount(() => {
 		try {
 			const preference = localStorage.getItem('prism:sidebar');
@@ -320,6 +476,39 @@
 			};
 		};
 	}
+	// The quad's current-tile tab, gliding between tiles. Appears in place, then slides.
+	function quadIndicator(current: string, order: string): Attachment<HTMLElement> {
+		return (grid) => {
+			void current;
+			void order;
+			let frame = 0;
+			const place = () => {
+				cancelAnimationFrame(frame);
+				frame = requestAnimationFrame(() => {
+					const tile = grid.querySelector<HTMLElement>('.quad-tile[aria-current="page"]');
+					if (!tile?.offsetWidth) {
+						grid.dataset.indicator = 'off';
+						return;
+					}
+					if (grid.dataset.indicator !== 'on') {
+						grid.dataset.indicator = 'arriving';
+						requestAnimationFrame(() => (grid.dataset.indicator = 'on'));
+					}
+					grid.style.setProperty('--quad-x', `${tile.offsetLeft}px`);
+					grid.style.setProperty('--quad-y', `${tile.offsetTop}px`);
+					grid.style.setProperty('--quad-w', `${tile.offsetWidth}px`);
+					grid.style.setProperty('--quad-h', `${tile.offsetHeight}px`);
+				});
+			};
+			place();
+			const observer = new ResizeObserver(place);
+			observer.observe(grid);
+			return () => {
+				cancelAnimationFrame(frame);
+				observer.disconnect();
+			};
+		};
+	}
 	export async function focusNavigation() {
 		if (collapsed) toggle();
 		await tick();
@@ -366,9 +555,12 @@
 	<nav
 		class="sidebar-navigation"
 		aria-label="Library"
+		{@attach swipe}
 		{@attach highlight(
 			view,
 			[
+				spaceId,
+				quad ? quadViews().join() : 'list',
 				...shownFolders.map((g) => `${g.folder.id}:${ids(g.tags)}`),
 				ids(grouped.loose),
 				[...folderState.closed]
@@ -377,15 +569,33 @@
 		)}
 	>
 		<span class="sidebar-indicator" aria-hidden="true"></span>
-		{#each views as item (item.id)}<button
-				class={['sidebar-link', view === item.id && 'active']}
-				aria-current={view === item.id ? 'page' : undefined}
-				title={item.label}
-				onclick={() => onSelect(item.id)}
-				><item.icon /><span class="sidebar-label">{item.label}</span>{#if countOf(item.id)}<small
-						class="sidebar-count sidebar-label">{countOf(item.id)}</small
-					>{/if}</button
-			>{/each}
+		{#if quad}<div
+				class="quad-grid"
+				role="group"
+				aria-label="Views"
+				{@attach quadIndicator(view, views.map((v) => v.id).join())}
+			>
+				<span class="quad-indicator" aria-hidden="true"></span>
+				{#each views as item (item.id)}<button
+						class={['quad-tile', view === item.id && 'active']}
+						aria-current={view === item.id ? 'page' : undefined}
+						aria-label={item.label}
+						title={countOf(item.id) ? `${item.label} · ${countOf(item.id)}` : item.label}
+						onclick={() => onSelect(item.id)}
+						><item.icon />{#if countOf(item.id)}<small class="quad-count sidebar-label"
+								>{countOf(item.id)}</small
+							>{/if}</button
+					>{/each}
+			</div>{:else}{#each views as item (item.id)}<button
+					class={['sidebar-link', view === item.id && 'active']}
+					aria-current={view === item.id ? 'page' : undefined}
+					title={item.label}
+					onclick={() => onSelect(item.id)}
+					><item.icon /><span class="sidebar-label">{item.label}</span>{#if countOf(item.id)}<small
+							class="sidebar-count sidebar-label">{countOf(item.id)}</small
+						>{/if}</button
+				>{/each}{/if}
+		<hr class="sidebar-divider" />
 		<!-- Drops anywhere in the group, including gaps between rows, commit the preview. -->
 		<section
 			class="sidebar-group"
@@ -400,6 +610,70 @@
 				void finishDrag();
 			}}
 		>
+			{#if spaces.length}<div
+					class="space-bar sidebar-label"
+					role="tablist"
+					aria-label="Spaces · swipe sideways over the list to switch"
+					tabindex="-1"
+					onkeydown={spaceKeys}
+					{@attach followActive(spaceId)}
+				>
+					{#each shelf as entry, index (String(entry.id))}
+						{@const id = String(entry.id)}
+						{@const selected = id === spaceId}
+						{#snippet tab()}<button
+								class={['space-tab', selected && 'active', spaceTarget === id && 'drop-target']}
+								role="tab"
+								aria-selected={selected}
+								tabindex={selected ? 0 : -1}
+								title={selected
+									? String(entry.name)
+									: `${entry.name} · drop a tag or folder to move it here`}
+								style:--space-color={spaceColor(entry)}
+								ondragenter={(event) => overSpace(event, id)}
+								ondragover={(event) => overSpace(event, id)}
+								ondragleave={() => {
+									if (spaceTarget === id) spaceTarget = null;
+								}}
+								ondrop={(event) => void dropOnSpace(event, id)}
+								onclick={() => switchTo(id)}
+								><span class="space-chip" aria-hidden="true"
+									>{#if id}{spaceInitial(entry.name)}{:else}<House />{/if}</span
+								><span class="space-name">{entry.name}</span></button
+							>{/snippet}
+						{#if id && onEditSpace}<ContextMenu.Root
+								><ContextMenu.Trigger class="space-tab-slot">{@render tab()}</ContextMenu.Trigger
+								><ContextMenu.Portal
+									><ContextMenu.Content class="menu-content" collisionPadding={12}>
+										<ContextMenu.Item class="menu-item" onSelect={() => onEditSpace(entry)}
+											><Pencil /><span>Edit space</span></ContextMenu.Item
+										>
+										{#if onReorderSpace && index > 1}<ContextMenu.Item
+												class="menu-item"
+												onSelect={() => onReorderSpace(id, index - 2)}
+												><ChevronLeft /><span>Move left</span></ContextMenu.Item
+											>{/if}
+										{#if onReorderSpace && index < spaces.length}<ContextMenu.Item
+												class="menu-item"
+												onSelect={() => onReorderSpace(id, index)}
+												><ChevronRight /><span>Move right</span></ContextMenu.Item
+											>{/if}
+										<ContextMenu.Separator class="menu-separator" /><ContextMenu.Item
+											class="menu-item danger-text"
+											onSelect={() => onEditSpace(entry, 'delete')}
+											><DeleteIcon /><span>Delete</span></ContextMenu.Item
+										>
+									</ContextMenu.Content></ContextMenu.Portal
+								></ContextMenu.Root
+							>{:else}<span class="space-tab-slot">{@render tab()}</span>{/if}
+					{/each}
+					{#if onEditSpace}<button
+							class="space-add"
+							aria-label="New space"
+							title="New space"
+							onclick={() => onEditSpace(null)}><Plus /></button
+						>{/if}
+				</div>{/if}
 			<div class="sidebar-section-heading">
 				<button
 					class={['sidebar-heading-link', view === 'tags' && 'active']}
@@ -407,7 +681,12 @@
 					title="Explore all tags"
 					onclick={() => onSelect('tags')}>Tags</button
 				><span class="sidebar-heading-actions"
-					>{#if onCreate}<button
+					>{#if onEditSpace && !spaces.length}<button
+							class="icon-button"
+							aria-label="New space"
+							title="New space · split your tags into shelves you swipe between"
+							onclick={() => onEditSpace(null)}><Layers /></button
+						>{/if}{#if onCreate}<button
 							class="icon-button"
 							aria-label="Add tag or folder"
 							title="Add tag · end with / for a folder"
@@ -415,85 +694,106 @@
 						>{/if}</span
 				>
 			</div>
-			{#each shownFolders as group (String(group.folder.id))}
-				{@const id = String(group.folder.id)}
-				{@const open = isOpen(id)}
-				<div
-					class={['sidebar-folder', drag?.kind === 'folder' && drag.id === id && 'dragging']}
-					animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
+			{#key spaceId}<div
+					class="sidebar-shelf"
+					in:fly={{
+						x: 18 * direction,
+						duration: prefersReducedMotion.current ? 0 : 260,
+						opacity: 0
+					}}
 				>
-					{#snippet head()}<button
-							class="sidebar-link sidebar-folder-toggle"
-							aria-expanded={open}
-							aria-keyshortcuts={onReorderFolder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
-							title={onReorderFolder
-								? `${group.folder.name} · drag or Alt+↑/↓ to reorder`
-								: String(group.folder.name)}
-							data-folder-id={id}
-							draggable={!!onReorderFolder && !collapsed}
-							ondragstart={(event) => start(event, 'folder', group.folder)}
-							ondragend={cancelDrag}
-							onkeydown={(event) => void nudgeFolder(event, id)}
-							onclick={() => folderState.setOpen(id, !open)}
-							><FolderGlyph open={open || target === id} /><span class="sidebar-label"
-								>{group.folder.name}</span
-							>{#if counts?.folders?.[id]}<small class="sidebar-count sidebar-label"
-									>{counts.folders[id]}</small
-								>{/if}</button
-						>{/snippet}
-					{#if onEditFolder}<FolderMenu
-							folder={group.folder}
-							onEdit={onEditFolder}
-							{onCreateIn}
-							class={['sidebar-folder-head', target === id && 'drop-target']}
-							ondragenter={(event) => overFolder(event, id)}
-							ondragover={(event) => overFolder(event, id)}>{@render head()}</FolderMenu
-						>{:else}<div
-							class="sidebar-folder-head"
-							role="presentation"
-							ondragenter={(event) => overFolder(event, id)}
-							ondragover={(event) => overFolder(event, id)}
+					{#each shownFolders as group (String(group.folder.id))}
+						{@const id = String(group.folder.id)}
+						{@const open = isOpen(id)}
+						<div
+							class={['sidebar-folder', drag?.kind === 'folder' && drag.id === id && 'dragging']}
+							animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
 						>
-							{@render head()}
-						</div>{/if}
-					<div class="sidebar-folder-tags" data-open={open} inert={!open}>
-						<div>
-							{#each shownTags(id, group.tags) as row (String(row.id))}<div
-									class="sidebar-tag-slot"
-									animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
+							{#snippet head()}<button
+									class="sidebar-link sidebar-folder-toggle"
+									aria-expanded={open}
+									aria-keyshortcuts={onReorderFolder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
+									title={onReorderFolder
+										? `${group.folder.name} · drag or Alt+↑/↓ to reorder`
+										: String(group.folder.name)}
+									data-folder-id={id}
+									draggable={!!onReorderFolder && !collapsed}
+									ondragstart={(event) => start(event, 'folder', group.folder)}
+									ondragend={cancelDrag}
+									onkeydown={(event) => void nudgeFolder(event, id)}
+									onclick={() => folderState.setOpen(id, !open)}
+									><FolderGlyph open={open || target === id} /><span class="sidebar-label"
+										>{group.folder.name}</span
+									>{#if counts?.folders?.[id]}<small class="sidebar-count sidebar-label"
+											>{counts.folders[id]}</small
+										>{/if}</button
+								>{/snippet}
+							{#if onEditFolder}<FolderMenu
+									folder={group.folder}
+									onEdit={onEditFolder}
+									{onCreateIn}
+									class={['sidebar-folder-head', target === id && 'drop-target']}
+									ondragenter={(event) => overFolder(event, id)}
+									ondragover={(event) => overFolder(event, id)}>{@render head()}</FolderMenu
+								>{:else}<div
+									class="sidebar-folder-head"
+									role="presentation"
+									ondragenter={(event) => overFolder(event, id)}
+									ondragover={(event) => overFolder(event, id)}
 								>
-									{@render tagRow(row, id)}
-								</div>{:else}<p class="sidebar-folder-empty">
-									{onFile ? 'Drag tags here' : 'Empty'}
-								</p>{/each}
+									{@render head()}
+								</div>{/if}
+							<div class="sidebar-folder-tags" data-open={open} inert={!open}>
+								<div>
+									{#each shownTags(id, group.tags) as row (String(row.id))}<div
+											class="sidebar-tag-slot"
+											animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
+										>
+											{@render tagRow(row, id)}
+										</div>{:else}<p class="sidebar-folder-empty">
+											{onFile ? 'Drag tags here' : 'Empty'}
+										</p>{/each}
+								</div>
+							</div>
 						</div>
-					</div>
-				</div>
-			{/each}
-			{#if drag?.kind === 'tag' && drag.group}<div
-					class={['sidebar-unfile', target === '' && 'drop-target']}
-					role="presentation"
-					ondragenter={overLoose}
-					ondragover={overLoose}
-				>
-					Drop here to take out of the folder
-				</div>{/if}
-			{#each shownTags('', grouped.loose) as row (String(row.id))}<div
-					class="sidebar-tag-slot"
-					animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
-				>
-					{@render tagRow(row, '')}
-				</div>{:else}{#if !folders.length}<p class="sidebar-empty">
-						A little room to organize.
-					</p>{/if}{/each}
+					{/each}
+					{#if drag?.kind === 'tag' && drag.group}<div
+							class={['sidebar-unfile', target === '' && 'drop-target']}
+							role="presentation"
+							ondragenter={overLoose}
+							ondragover={overLoose}
+						>
+							Drop here to take out of the folder
+						</div>{/if}
+					{#each shownTags('', grouped.loose) as row (String(row.id))}<div
+							class="sidebar-tag-slot"
+							animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
+						>
+							{@render tagRow(row, '')}
+						</div>{:else}{#if !grouped.groups.length}{#if spaceId}<p class="sidebar-empty">
+									Nothing here yet. Drag a tag or folder onto this space's chip{#if onEditSpace}, or <button
+											class="sidebar-empty-action"
+											onclick={() => onEditSpace(spaces.find((x) => x.id === spaceId) ?? null)}
+											>choose what it shows</button
+										>{/if}.
+								</p>{:else}<p class="sidebar-empty">A little room to organize.</p>{/if}{/if}{/each}
+				</div>{/key}
 		</section>
 	</nav>
-	{#if onAccount}<button
-			class="sidebar-link sidebar-account account-button"
-			title="Settings · ,"
-			onclick={onAccount}
-			data-cuelume-open><Settings2 /><span class="sidebar-label">Settings</span></button
-		>{:else}<p class="sidebar-link sidebar-account sidebar-readonly" title="View only">
+	{#if onAccount}<div class="sidebar-footer">
+			<button
+				class="sidebar-link sidebar-account account-button"
+				title="Settings · ,"
+				onclick={onAccount}
+				data-cuelume-open><Settings2 /><span class="sidebar-label">Settings</span></button
+			>{#if footerTrash}<button
+					class={['icon-button sidebar-trash', view === 'trash' && 'active']}
+					aria-label="Trash"
+					aria-current={view === 'trash' ? 'page' : undefined}
+					title={countOf('trash') ? `Trash · ${countOf('trash')}` : 'Trash'}
+					onclick={() => onSelect('trash')}><Trash2 /></button
+				>{/if}
+		</div>{:else}<p class="sidebar-link sidebar-account sidebar-readonly" title="View only">
 			<Eye /><span class="sidebar-label">View only</span>
 		</p>{/if}
 </aside>

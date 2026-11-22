@@ -58,6 +58,7 @@
 		isReadLater,
 		parseTagPath,
 		moveTag,
+		placeInSpace,
 		planMove,
 		personLinksIndex,
 		personSlug,
@@ -90,6 +91,8 @@
 	import LibraryInspector from './LibraryInspector.svelte';
 	import TagsExplorer from './TagsExplorer.svelte';
 	import FolderSheet from './FolderSheet.svelte';
+	import SpaceSheet from './SpaceSheet.svelte';
+	import { activeSpace, showSpace } from '#lib/client/spaces.svelte.js';
 	import FolderGlyph from './ui/FolderGlyph.svelte';
 	import { folderOf, sidebarFolders } from '#lib/client/folders.svelte.js';
 	import { syncAppearance } from '#lib/client/appearance.svelte.js';
@@ -196,6 +199,38 @@
 		void version;
 		return sortByPosition(library?.list<Row>('folders').filter((r) => !r.deletedAt) ?? []);
 	});
+	const spaces = $derived.by(() => {
+		void version;
+		return sortByPosition(library?.list<Row>('spaces').filter((r) => !r.deletedAt) ?? []);
+	});
+	// The space showing in the sidebar, if it still exists; new tags and folders land there.
+	const currentSpace = $derived(spaces.some((s) => s.id === activeSpace.id) ? activeSpace.id : '');
+	let spaceSheet = $state(false),
+		spaceEditing = $state<Row | null>(null),
+		spaceDelete = $state(false);
+	function editSpace(space: Row | null, intent?: 'delete') {
+		spaceEditing = space;
+		spaceDelete = intent === 'delete';
+		spaceSheet = true;
+	}
+	async function placeInCurrentSpace(table: 'tags' | 'folders', id: string) {
+		if (library && currentSpace) await placeInSpace(library, table, [id], currentSpace);
+	}
+	// Dropped on a space in the sidebar. A tag leaves its folder, which stays where it is.
+	async function place(kind: 'tag' | 'folder', id: string, spaceId: string | null) {
+		if (!library) return;
+		try {
+			if (kind === 'tag') await fileTags(library, [id], null);
+			await placeInSpace(library, kind === 'tag' ? 'tags' : 'folders', [id], spaceId);
+			const row = library.get<Row>(kind === 'tag' ? 'tags' : 'folders', id);
+			const space = spaceId ? spaces.find((s) => s.id === spaceId)?.name : 'Home';
+			cue('success');
+			feedback(`${kind === 'tag' ? '#' : ''}${row?.name ?? kind} moved to ${space}.`);
+		} catch (e) {
+			cue('error');
+			feedback((e as Error).message);
+		}
+	}
 	// The folder sheet edits one folder; new folders come from the new-tag popup (`name/`).
 	let folderSheet = $state(false),
 		folderEditing = $state<Row | null>(null),
@@ -906,6 +941,7 @@
 			folderId = crypto.randomUUID();
 			const made = await library.save({ type: 'folder.create', id: folderId, name: plan.folder });
 			if (made.status === 'rejected') throw new Error(made.message ?? 'Could not make the folder.');
+			await placeInCurrentSpace('folders', folderId);
 		}
 		// Show where the tag went.
 		if (folderId) sidebarFolders.setOpen(folderId, true);
@@ -919,6 +955,7 @@
 		if (!plan.tagRow) {
 			const made = await library.save({ type: 'tag.create', id: tagId, name: plan.tag });
 			if (made.status === 'rejected') throw new Error(made.message ?? 'Could not save.');
+			if (!folderId) await placeInCurrentSpace('tags', tagId);
 		}
 		if (folderId) await fileTags(library, [tagId], folderId);
 		creating = false;
@@ -1183,6 +1220,7 @@
 		view={profileSlug ? 'people' : view}
 		{tags}
 		{folders}
+		{spaces}
 		counts={status?.ready ? shelfStats : undefined}
 		bind:collapsed={sidebarCollapsed}
 		onSelect={(value) => void navigate(null, value)}
@@ -1209,6 +1247,17 @@
 		onFile={fileTag}
 		onEditFolder={editFolder}
 		onCreateIn={(folder) => create('tag', `${folder.name}/`)}
+		onEditSpace={editSpace}
+		onPlace={place}
+		onReorderSpace={async (id, toIndex) => {
+			if (!library) return;
+			try {
+				await moveTag(library, spaces, id, toIndex, 'spaces');
+			} catch (e) {
+				cue('error');
+				feedback((e as Error).message);
+			}
+		}}
 	/>
 	<main id="library-main" class="library-main" tabindex="-1">
 		<h1 class="view-title" class:inline-heading={!!profileSlug || view === 'tags'}>{title}</h1>
@@ -1360,11 +1409,13 @@
 				{#if results.error}<p class="notice inset" role="alert">{results.error}</p>{/if}
 
 				<div
-					class="bookmark-list"
-					class:post-feed={feedMode}
-					class:people-list={view === 'people' && !feedMode}
-					class:searching={!!query}
-					class:reading-list={highlightView}
+					class={[
+						'bookmark-list',
+						feedMode && 'post-feed',
+						view === 'people' && !feedMode && 'people-list',
+						query && 'searching',
+						highlightView && 'reading-list'
+					]}
 				>
 					{#if profileSlug && !person}<p class="panel-message">
 							This person is unavailable.
@@ -1677,6 +1728,21 @@
 		}}
 		onError={() => cue('error')}
 	/>{/if}
+<SpaceSheet
+	bind:open={spaceSheet}
+	space={spaceEditing}
+	armDelete={spaceDelete}
+	{spaces}
+	{tags}
+	{folders}
+	{library}
+	onSaved={(message, id) => {
+		cue('success');
+		feedback(message);
+		if (id && !spaceEditing) showSpace(id);
+	}}
+	onError={() => cue('error')}
+/>
 <MovePalette
 	bind:open={moveOpen}
 	count={moving.length}

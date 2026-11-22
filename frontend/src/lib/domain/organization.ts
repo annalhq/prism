@@ -10,22 +10,40 @@ import { keys, object, revision, text, uuid, ValidationError } from './validatio
 
 export const MAX_ENTITY_TAGS = 50;
 export type TaxonomyCommand =
-	| { type: 'tag.create' | 'collection.create' | 'folder.create'; id: string; name: string }
 	| {
-			type: 'tag.rename' | 'collection.rename' | 'folder.rename';
+			type: 'tag.create' | 'collection.create' | 'folder.create' | 'space.create';
+			id: string;
+			name: string;
+	  }
+	| {
+			type: 'tag.rename' | 'collection.rename' | 'folder.rename' | 'space.rename';
 			id: string;
 			expectedRevision: Revision;
 			name: string;
 	  }
 	| {
-			type: 'tag.delete' | 'collection.delete' | 'folder.delete';
+			type: 'tag.delete' | 'collection.delete' | 'folder.delete' | 'space.delete';
 			id: string;
 			expectedRevision: Revision;
 	  }
-	| { type: 'tag.move' | 'folder.move'; id: string; expectedRevision: Revision; position: string }
+	| {
+			type: 'tag.move' | 'folder.move' | 'space.move';
+			id: string;
+			expectedRevision: Revision;
+			position: string;
+	  }
 	| { type: 'tag.privacy'; id: string; expectedRevision: Revision; isPrivate: boolean }
 	// Files a tag into a folder, or back out of every folder with null.
-	| { type: 'tag.folder'; id: string; expectedRevision: Revision; folderId: string | null };
+	| { type: 'tag.folder'; id: string; expectedRevision: Revision; folderId: string | null }
+	// A space's colour as an OKLCH hue in degrees, or null to derive it from the name.
+	| { type: 'space.hue'; id: string; expectedRevision: Revision; hue: number | null }
+	// Shows a loose tag or a folder in a space, or back in Home with null.
+	| {
+			type: 'tag.space' | 'folder.space';
+			id: string;
+			expectedRevision: Revision;
+			spaceId: string | null;
+	  };
 export type TagMembershipCommand = { type: 'tag.add' | 'tag.remove'; id: string; tagId: string };
 export type BookmarkOrganization = {
 	collectionId?: string | null;
@@ -64,6 +82,13 @@ export const ORGANIZATION_COMMAND_TYPES = [
 	'folder.rename',
 	'folder.delete',
 	'folder.move',
+	'tag.space',
+	'folder.space',
+	'space.create',
+	'space.rename',
+	'space.delete',
+	'space.move',
+	'space.hue',
 	'collection.create',
 	'collection.rename',
 	'collection.delete',
@@ -170,11 +195,13 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 		case 'tag.create':
 		case 'collection.create':
 		case 'folder.create':
+		case 'space.create':
 			keys(c, ['type', 'id', 'name']);
 			return { type: c.type, id, name: normalizeOrganizationName(c.name).name };
 		case 'tag.rename':
 		case 'collection.rename':
 		case 'folder.rename':
+		case 'space.rename':
 			keys(c, ['type', 'id', 'name', 'expectedRevision']);
 			return {
 				type: c.type,
@@ -185,10 +212,12 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 		case 'tag.delete':
 		case 'collection.delete':
 		case 'folder.delete':
+		case 'space.delete':
 			keys(c, ['type', 'id', 'expectedRevision']);
 			return { type: c.type, id, expectedRevision: revision(c.expectedRevision) };
 		case 'tag.move':
 		case 'folder.move':
+		case 'space.move':
 			keys(c, ['type', 'id', 'expectedRevision', 'position']);
 			return {
 				type: c.type,
@@ -213,6 +242,25 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 				id,
 				expectedRevision: revision(c.expectedRevision),
 				folderId: c.folderId === null ? null : uuid(c.folderId)
+			};
+		case 'space.hue':
+			keys(c, ['type', 'id', 'expectedRevision', 'hue']);
+			if (c.hue !== null && (!Number.isInteger(c.hue) || Number(c.hue) < 0 || Number(c.hue) > 359))
+				throw new ValidationError('A space hue is a whole number of degrees from 0 to 359.');
+			return {
+				type: c.type,
+				id,
+				expectedRevision: revision(c.expectedRevision),
+				hue: c.hue === null ? null : Number(c.hue)
+			};
+		case 'tag.space':
+		case 'folder.space':
+			keys(c, ['type', 'id', 'expectedRevision', 'spaceId']);
+			return {
+				type: c.type,
+				id,
+				expectedRevision: revision(c.expectedRevision),
+				spaceId: c.spaceId === null ? null : uuid(c.spaceId)
 			};
 		case 'tag.add':
 		case 'tag.remove':

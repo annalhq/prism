@@ -7,9 +7,11 @@
 	import { initializeSounds } from '#lib/client/sounds.svelte.js';
 	import { initializeTheme } from '#lib/client/theme.svelte.js';
 	import { initializeHighlightPreference } from '#lib/client/highlights.svelte.js';
+	import { initializeSidebarPreference } from '#lib/client/sidebar.svelte.js';
 	onMount(initializeTheme);
 	onMount(initializeSounds);
 	onMount(initializeHighlightPreference);
+	onMount(initializeSidebarPreference);
 	let { children } = $props();
 	// Between the landing and the sign-in pages the content crossfades over the one shared
 	// gradient, instead of one page vanishing and the next appearing. Browsers without view

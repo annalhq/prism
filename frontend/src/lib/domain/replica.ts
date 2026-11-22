@@ -19,7 +19,8 @@ export const REPLICA_TABLES = [
 	// Append only: bootstrap continuations reference tables by index.
 	'folders',
 	'themes',
-	'appearance'
+	'appearance',
+	'spaces'
 ] as const;
 export type ReplicaTable = (typeof REPLICA_TABLES)[number];
 export type ReplicaRecord = {
