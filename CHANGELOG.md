@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.3](https://github.com/annalhq/prism/compare/v0.3.2...v0.3.3) (2026-11-22)
+
+### Features
+
+* **library:** reading view for highlights ([0332465](https://github.com/annalhq/prism/commit/0332465ba324e7cf8a738bc771191139237a5d2d)), references [#highlight](https://github.com/annalhq/prism/issues/highlight)
+* **sidebar:** spaces and a quad layout ([0e88fd8](https://github.com/annalhq/prism/commit/0e88fd8175e55cd35cd81b485d6348f073326242))
+
+### Bug Fixes
+
+* **library:** fall back to bookmark description when note is missing ([37b8b9e](https://github.com/annalhq/prism/commit/37b8b9e5a09c7f195c20dce43d911df4dcb2e4f0))
+
+### Refactoring
+
+* **highlights:** use class arrays and stable paragraph keys ([197ef66](https://github.com/annalhq/prism/commit/197ef66bb191fd1dbbbb9858b5ca1d2d0bca3fba))
+
+### Styling
+
+* **ui:** more themes ([a6184b7](https://github.com/annalhq/prism/commit/a6184b77e71f339b81bac11922a2c408db105eaa))
+
 ## [0.3.2](https://github.com/annalhq/prism/compare/v0.3.1...v0.3.2) (2026-11-15)
 
 ### Bug Fixes
