@@ -45,7 +45,12 @@
 	const entries = $derived(
 		items.map((item) => {
 			const source = bookmarkSource(item);
-			return { item, id: String(item.id), source, passages: passagesOf(item) };
+			// A passage's text never changes, so a paragraph's place in it is a stable key.
+			const passages = passagesOf(item).map((passage) => ({
+				...passage,
+				parts: paragraphs(passage.text).map((text, n) => ({ key: `${passage.id}:${n}`, text }))
+			}));
+			return { item, id: String(item.id), source, passages };
 		})
 	);
 	const total = $derived(entries.reduce((sum, entry) => sum + entry.passages.length, 0));
@@ -87,9 +92,11 @@
 	{@const shown = folded ? passages.slice(0, FOLDED) : passages}
 	{@const note = noteOf(item).trim()}
 	<article
-		class="bookmark-gesture reading-card"
-		class:selected={selectedId === id}
-		class:marked={marked.has(id)}
+		class={[
+			'bookmark-gesture reading-card',
+			selectedId === id && 'selected',
+			marked.has(id) && 'marked'
+		]}
 		data-bookmark-id={id}
 		aria-labelledby={`reading-${id}`}
 	>
@@ -138,9 +145,7 @@
 					<span class="passage-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span
 					>
 					<blockquote class="passage-text">
-						{#each paragraphs(passage.text) as paragraph, i (i)}<p>
-								<mark>{paragraph}</mark>
-							</p>{/each}
+						{#each passage.parts as part (part.key)}<p><mark>{part.text}</mark></p>{/each}
 					</blockquote>
 					<span class="passage-tools">
 						{#if passage.createdAt}<time datetime={passage.createdAt}>{day(passage.createdAt)}</time
