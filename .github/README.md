@@ -4,8 +4,6 @@
 
 # Prism
 
-**A quiet place for everything you keep.**
-
 Save links, notes and the people behind them in one private, self-hosted library.
 
 [![Version](https://img.shields.io/badge/version-0.3.0-e87924?style=flat-square)](https://github.com/annalhq/prism/releases)
@@ -148,6 +146,11 @@ Releases follow Conventional Commits; see the [changelog](../CHANGELOG.md).
 
 Bug reports, ideas and pull requests are welcome. [Open an issue](https://github.com/annalhq/prism/issues) to report a bug or discuss a larger change, and run `bun run check` and `bun run lint` before sending a pull request.
 
+## Acknowledgements
+
+- Logo by [@bymyno\_](https://www.instagram.com/bymyno_/).
+- Space icons are hand-drawn crayon stickers from [Trazo](https://trazo.akoder.xyz) ([`trazo-stickers`](https://github.com/AdityaKodez/trazo)) by Aditya Ojha, used under the MIT License.
+
 ## License
 
 [MIT](../LICENSE)
@@ -162,7 +165,5 @@ Bug reports, ideas and pull requests are welcome. [Open an issue](https://github
 </picture>
 
 **A quiet place for everything you keep.**
-
-<sub>Logo by [@bymyno_](https://www.instagram.com/bymyno_/)</sub>
 
 </div>
