@@ -1522,7 +1522,8 @@ kbd {
 	flex-direction: column;
 	width: 236px;
 	padding: 14px 10px 6px 14px;
-	overflow: hidden;
+	/* clip, not hidden: a hidden box can still be scrolled by script and shift its contents. */
+	overflow: clip;
 	transition: width var(--sidebar-motion);
 }
 /* Collapsing only narrows the column: icons keep their place and labels fade, nothing reflows. */

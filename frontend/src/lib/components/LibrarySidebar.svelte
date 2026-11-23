@@ -113,8 +113,18 @@
 		return (bar) => {
 			void current;
 			void order;
+			// Keep the current tab in view by scrolling the strip alone. scrollIntoView would also
+			// scroll the sidebar's overflow-hidden ancestors, shifting every icon when collapsed.
 			const tab = bar.querySelector<HTMLElement>('.space-tab.active');
-			tab?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+			if (tab && !untrack(() => collapsed)) {
+				const left = tab.offsetLeft,
+					right = left + tab.offsetWidth;
+				if (left < bar.scrollLeft || right > bar.scrollLeft + bar.clientWidth)
+					bar.scrollTo({
+						left: left < bar.scrollLeft ? left : right - bar.clientWidth,
+						behavior: 'smooth'
+					});
+			}
 			const set = (x: number, w: number) => {
 				pill = { x, w };
 				bar.style.setProperty('--pill-x', `${x}px`);
