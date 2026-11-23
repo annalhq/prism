@@ -331,15 +331,47 @@ export function groupTags(tags: Row[], folders: Row[]): { groups: FolderGroup[];
 		loose
 	};
 }
+/** The space holding everything not placed elsewhere: the flagged one, else the first. */
+export function defaultSpaceId(spaces: Row[]): string {
+	return String((spaces.find((s) => s.isDefault === true) ?? spaces[0])?.id ?? '');
+}
 /**
- * The space showing a folder or tag, or '' for Home. A tag in a folder follows the folder; a
- * space that is gone (deleted, or not yet synced) counts as Home.
+ * The space showing a folder or tag, or '' when there are no spaces. A tag in a folder follows
+ * the folder; anything unplaced, or placed in a space that is gone, shows in the default space.
  */
 export function spaceOf(row: Row, folders: Row[], spaces: Row[]): string {
 	const folder =
 		typeof row.folderId === 'string' ? folders.find((f) => f.id === row.folderId) : undefined;
 	const id = spaceIdOf(folder ?? row);
-	return id && spaces.some((s) => s.id === id) ? id : '';
+	return id && spaces.some((s) => s.id === id) ? id : defaultSpaceId(spaces);
+}
+/** Makes `id` the default space. */
+export async function setDefaultSpace(library: LibraryClient, id: string): Promise<void> {
+	const current = library.get<Row>('spaces', id);
+	if (!current || current.isDefault === true) return;
+	const result = await library.save({
+		type: 'space.default',
+		id,
+		expectedRevision: String(current.revision) as Revision
+	});
+	if (result.status === 'rejected') throw new Error(result.message ?? 'Could not set the default.');
+}
+/**
+ * Spaces always have a default to hold what isn't placed anywhere. Without one (the first
+ * space, or a library from before defaults), a "Home" space is made default and put first.
+ */
+export async function ensureDefaultSpace(library: LibraryClient, spaces: Row[]): Promise<void> {
+	if (spaces.some((s) => s.isDefault === true)) return;
+	const named = spaces.find(
+		(s) => normalizeOrganizationName(String(s.name)).normalizedName === 'home'
+	);
+	if (named) return setDefaultSpace(library, String(named.id));
+	const id = crypto.randomUUID();
+	const made = await library.save({ type: 'space.create', id, name: 'Home' });
+	if (made.status === 'rejected') throw new Error(made.message ?? 'Could not make Home.');
+	const home = library.get<Row>('spaces', id) ?? { id };
+	await setDefaultSpace(library, id);
+	if (spaces.length) await moveTag(library, [...spaces, home], id, 0, 'spaces');
 }
 /** The folder a tag sits in, or '' when it is loose. */
 export function folderOf(tag: Row, folders: Row[]): string {

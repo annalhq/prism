@@ -1,0 +1,2 @@
+ALTER TABLE "spaces" ADD COLUMN "is_default" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "space_default_unique" ON "spaces" USING btree ("vault_id") WHERE "spaces"."is_default" AND "spaces"."deleted_at" IS NULL;

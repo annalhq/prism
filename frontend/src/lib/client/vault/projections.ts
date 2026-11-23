@@ -151,6 +151,7 @@ export function overlay(records: Records, command: Command): void {
 	else if (action === 'folder') value.folderId = c.folderId;
 	else if (action === 'space' && kind !== 'space') value.spaceId = c.spaceId;
 	else if (action === 'icon') value.icon = c.icon;
+	else if (action === 'default') value.isDefault = true;
 	else if (action === 'toggle') value.enabled = c.enabled;
 	else if (action === 'set') value.activeTheme = c.activeTheme;
 	else if (action === 'replace')

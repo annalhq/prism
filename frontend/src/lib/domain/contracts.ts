@@ -159,6 +159,8 @@ export type TaxonomyProjection = {
 	spaceId?: string | null;
 	/** Spaces only: the sticker id shown beside the name, or null. */
 	icon?: string | null;
+	/** Spaces only: holds every folder and loose tag not placed in another space. */
+	isDefault?: boolean;
 	revision: Revision;
 	lastSeq: Sequence;
 	deletedAt: string | null;

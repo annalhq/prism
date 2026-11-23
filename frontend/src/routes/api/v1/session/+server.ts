@@ -34,6 +34,7 @@ export const GET: RequestHandler = async (event) => {
 			'space.delete',
 			'space.move',
 			'space.icon',
+			'space.default',
 			'theme.create',
 			'theme.update',
 			'theme.delete',

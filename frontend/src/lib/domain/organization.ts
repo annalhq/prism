@@ -35,6 +35,8 @@ export type TaxonomyCommand =
 	| { type: 'tag.privacy'; id: string; expectedRevision: Revision; isPrivate: boolean }
 	// Files a tag into a folder, or back out of every folder with null.
 	| { type: 'tag.folder'; id: string; expectedRevision: Revision; folderId: string | null }
+	// Makes this the space holding everything not placed elsewhere.
+	| { type: 'space.default'; id: string; expectedRevision: Revision }
 	// A sticker id shown beside a space's name, or null for the name alone.
 	| { type: 'space.icon'; id: string; expectedRevision: Revision; icon: string | null }
 	// Shows a loose tag or a folder in a space, or back in Home with null.
@@ -89,6 +91,7 @@ export const ORGANIZATION_COMMAND_TYPES = [
 	'space.delete',
 	'space.move',
 	'space.icon',
+	'space.default',
 	'collection.create',
 	'collection.rename',
 	'collection.delete',
@@ -214,6 +217,7 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 		case 'collection.delete':
 		case 'folder.delete':
 		case 'space.delete':
+		case 'space.default':
 			keys(c, ['type', 'id', 'expectedRevision']);
 			return { type: c.type, id, expectedRevision: revision(c.expectedRevision) };
 		case 'tag.move':

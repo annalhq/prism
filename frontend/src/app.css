@@ -1213,7 +1213,11 @@ kbd {
 	width: 14px;
 	height: 14px;
 }
-.name-sheet-delete:hover {
+.name-sheet-delete:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+.name-sheet-delete:hover:not(:disabled) {
 	background: color-mix(in srgb, var(--danger) 10%, transparent);
 	color: var(--danger);
 }
@@ -2005,9 +2009,36 @@ kbd {
 }
 
 /* Spaces */
-.sidebar-shelf {
-	translate: var(--swipe, 0px) 0;
-	transition: translate 380ms var(--ease-spring);
+/* The shelves scroll natively side by side and snap one per space; script only sets the
+   height so it matches the shelf in view. */
+.shelf-scroller {
+	display: flex;
+	align-items: flex-start;
+	overflow-x: auto;
+	overflow-y: hidden;
+	overscroll-behavior-x: contain;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+}
+.shelf-scroller::-webkit-scrollbar {
+	display: none;
+}
+.shelf-scroller > .sidebar-shelf {
+	flex: 0 0 100%;
+	min-width: 0;
+	scroll-snap-align: start;
+	scroll-snap-stop: always;
+}
+.shelf-copy-tag {
+	padding-left: 29px;
+}
+/* While the shelf moves, the current row carries its own tab instead of the gliding one. */
+.sidebar-navigation:has(.shelf-scroller.moving .sidebar-link.active) .sidebar-indicator {
+	opacity: 0;
+}
+.shelf-scroller.moving .sidebar-link.active {
+	background: var(--surface);
+	box-shadow: var(--raised);
 }
 .sidebar-empty-action {
 	color: var(--secondary);
@@ -2019,6 +2050,7 @@ kbd {
 	color: var(--ink);
 }
 .space-bar {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 3px;
@@ -2031,10 +2063,23 @@ kbd {
 .space-bar::-webkit-scrollbar {
 	display: none;
 }
+.space-tab-cell {
+	display: flex;
+	flex-shrink: 0;
+}
 .space-tab-slot {
 	display: contents;
 }
-/* Every tab is the same height; icons sit in a fixed 18px box so stickers, the Home glyph and
+.space-tab {
+	position: relative;
+	z-index: 1;
+	cursor: pointer;
+}
+.space-tab.dragging {
+	opacity: 0.5;
+	cursor: grabbing;
+}
+/* Every tab is the same height; icons sit in a fixed 18px box so stickers and
    text-only names share one baseline. Inactive icon tabs show the icon alone. */
 .space-tab {
 	display: inline-flex;
@@ -2055,8 +2100,7 @@ kbd {
 		gap 320ms var(--ease-spring),
 		padding 320ms var(--ease-spring);
 }
-.space-tab > .sticker,
-.space-tab > .space-home {
+.space-tab > .sticker {
 	display: block;
 	flex-shrink: 0;
 	width: 18px;
@@ -2072,10 +2116,6 @@ kbd {
 .space-tab.has-icon:not(.active) > .sticker {
 	opacity: 0.75;
 	filter: saturate(0.7);
-}
-.space-tab > .space-home {
-	padding: 2px;
-	stroke-width: 2;
 }
 .space-tab.has-icon .space-name {
 	max-width: 0;
@@ -2102,6 +2142,29 @@ kbd {
 	box-shadow: var(--raised);
 	color: var(--ink);
 }
+/* The gliding pill behind the current tab; while it's up, the tab draws no box of its own. */
+.space-pill {
+	position: absolute;
+	top: 3px;
+	left: 0;
+	width: var(--pill-w, 0);
+	height: 28px;
+	border-radius: var(--radius-pill);
+	background: var(--surface);
+	box-shadow: var(--raised);
+	opacity: 0;
+	pointer-events: none;
+	translate: var(--pill-x, 0) 0;
+	transition: opacity 160ms ease;
+}
+.space-bar[data-pill='on'] .space-pill {
+	opacity: 1;
+}
+.space-bar[data-pill='on'] .space-tab.active {
+	background: none;
+	box-shadow: none;
+}
+
 .space-tab.has-icon.active {
 	gap: 6px;
 	padding: 0 10px 0 6px;
@@ -2163,6 +2226,10 @@ kbd {
 	}
 }
 /* Space sheet */
+.space-default-note {
+	color: var(--tertiary);
+	font-weight: 400;
+}
 .space-name-field {
 	gap: 10px;
 	padding-left: 10px;

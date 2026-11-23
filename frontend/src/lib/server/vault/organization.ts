@@ -35,7 +35,7 @@ export function taxonomyProjection(
 		...('position' in row ? { position: row.position } : {}),
 		...('isPrivate' in row ? { isPrivate: row.isPrivate, folderId: row.folderId } : {}),
 		...('spaceId' in row ? { spaceId: row.spaceId } : {}),
-		...('icon' in row ? { icon: row.icon } : {}),
+		...('icon' in row ? { icon: row.icon, isDefault: row.isDefault } : {}),
 		revision: String(row.revision) as Revision,
 		lastSeq: String(row.lastSeq) as Sequence,
 		deletedAt: row.deletedAt?.toISOString() ?? null,
@@ -130,6 +130,41 @@ export async function changeTaxonomy(
 			.where(and(eq(tagFolders.vaultId, vaultId), eq(tagFolders.id, command.id)))
 			.returning();
 		return [{ type: 'folder.upsert', folder: taxonomyProjection(moved) }];
+	}
+	if (command.type === 'space.default') {
+		// One default per vault: the flag moves here from wherever it was.
+		const previous = await tx
+			.update(spaces)
+			.set({
+				isDefault: false,
+				revision: sql`${spaces.revision} + 1`,
+				lastSeq: seq,
+				updatedAt: now
+			})
+			.where(
+				and(eq(spaces.vaultId, vaultId), eq(spaces.isDefault, true), ne(spaces.id, command.id))
+			)
+			.returning();
+		const [chosen] = await tx
+			.update(spaces)
+			.set({ isDefault: true, revision: current!.revision + 1n, lastSeq: seq, updatedAt: now })
+			.where(and(eq(spaces.vaultId, vaultId), eq(spaces.id, command.id)))
+			.returning();
+		return [...previous, chosen].map((space): Change => ({
+			type: 'space.upsert',
+			space: taxonomyProjection(space)
+		}));
+	}
+	if (command.type === 'space.delete' && 'isDefault' in current! && current.isDefault) {
+		const [other] = await tx
+			.select({ id: spaces.id })
+			.from(spaces)
+			.where(and(eq(spaces.vaultId, vaultId), isNull(spaces.deletedAt), ne(spaces.id, command.id)))
+			.limit(1);
+		if (other)
+			reject('in_use', 'Make another space the default before deleting this one.', {
+				id: command.id
+			});
 	}
 	if (command.type === 'space.move' || command.type === 'space.icon') {
 		const [moved] = await tx

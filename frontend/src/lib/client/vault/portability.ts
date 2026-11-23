@@ -450,6 +450,12 @@ export async function importLibrary(
 							old,
 							table
 						);
+					if (table === 'spaces' && row.isDefault === true)
+						await send(
+							{ type: 'space.default', id, expectedRevision: String(revision++) as Revision },
+							old,
+							table
+						);
 					if (table === 'spaces' && typeof row.icon === 'string')
 						await send(
 							{

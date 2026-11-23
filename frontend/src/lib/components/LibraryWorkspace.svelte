@@ -57,8 +57,11 @@
 		fileTags,
 		isReadLater,
 		parseTagPath,
+		defaultSpaceId,
+		ensureDefaultSpace,
 		moveTag,
 		placeInSpace,
+		setDefaultSpace,
 		planMove,
 		personLinksIndex,
 		personSlug,
@@ -213,8 +216,10 @@
 		spaceDelete = intent === 'delete';
 		spaceSheet = true;
 	}
+	// In the default space new items stay unplaced, so they follow the default if it moves.
 	async function placeInCurrentSpace(table: 'tags' | 'folders', id: string) {
-		if (library && currentSpace) await placeInSpace(library, table, [id], currentSpace);
+		if (library && currentSpace && currentSpace !== defaultSpaceId(spaces))
+			await placeInSpace(library, table, [id], currentSpace);
 	}
 	// Dropped on a space in the sidebar. A tag leaves its folder, which stays where it is.
 	async function place(kind: 'tag' | 'folder', id: string, spaceId: string | null) {
@@ -223,9 +228,29 @@
 			if (kind === 'tag') await fileTags(library, [id], null);
 			await placeInSpace(library, kind === 'tag' ? 'tags' : 'folders', [id], spaceId);
 			const row = library.get<Row>(kind === 'tag' ? 'tags' : 'folders', id);
-			const space = spaceId ? spaces.find((s) => s.id === spaceId)?.name : 'Home';
+			const space = spaces.find((s) => s.id === spaceId)?.name ?? 'the default space';
 			cue('success');
 			feedback(`${kind === 'tag' ? '#' : ''}${row?.name ?? kind} moved to ${space}.`);
+		} catch (e) {
+			cue('error');
+			feedback((e as Error).message);
+		}
+	}
+	// Libraries with spaces from before defaults get a default Home once, holding what was
+	// unplaced, so nothing appears to move.
+	let defaultChecked = false;
+	$effect(() => {
+		if (!library || !libraryReady || defaultChecked || !spaces.length) return;
+		defaultChecked = true;
+		if (!spaces.some((s) => s.isDefault === true))
+			void ensureDefaultSpace(library, spaces).catch((e: Error) => feedback(e.message));
+	});
+	async function makeDefault(id: string) {
+		if (!library) return;
+		try {
+			await setDefaultSpace(library, id);
+			cue('success');
+			feedback(`${spaces.find((s) => s.id === id)?.name ?? 'Space'} is now the default space.`);
 		} catch (e) {
 			cue('error');
 			feedback((e as Error).message);
@@ -1248,6 +1273,7 @@
 		onEditFolder={editFolder}
 		onCreateIn={(folder) => create('tag', `${folder.name}/`)}
 		onEditSpace={editSpace}
+		onSetDefault={makeDefault}
 		onPlace={place}
 		onReorderSpace={async (id, toIndex) => {
 			if (!library) return;

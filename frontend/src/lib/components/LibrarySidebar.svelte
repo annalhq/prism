@@ -14,9 +14,9 @@
 		Trash2 as DeleteIcon,
 		ChevronLeft,
 		ChevronRight,
-		House,
 		Layers,
-		Highlighter
+		Highlighter,
+		Star
 	} from '@lucide/svelte';
 	import { highlightTagId } from '#lib/client/highlights.svelte.js';
 	import {
@@ -26,8 +26,7 @@
 		type SidebarView
 	} from '#lib/client/sidebar.svelte.js';
 	import { ContextMenu } from 'bits-ui';
-	import { fly } from 'svelte/transition';
-	import { spaceOf } from '#lib/client/workflows.js';
+	import { defaultSpaceId, spaceOf } from '#lib/client/workflows.js';
 	import { activeSpace, restoreSpace, showSpace } from '#lib/client/spaces.svelte.js';
 	import { ensureStickers, stickers } from '#lib/client/stickers.svelte.js';
 	import Sticker from './ui/Sticker.svelte';
@@ -41,7 +40,8 @@
 	import {
 		folderOf,
 		groupTags,
-		sidebarFolders as folderState
+		sidebarFolders as folderState,
+		type FolderGroup
 	} from '#lib/client/folders.svelte.js';
 	type Row = Record<string, unknown>;
 	let {
@@ -62,7 +62,8 @@
 		onCreateIn,
 		onEditSpace,
 		onPlace,
-		onReorderSpace
+		onReorderSpace,
+		onSetDefault
 	}: {
 		view: string;
 		tags: Row[];
@@ -96,35 +97,174 @@
 		onEditSpace?: (space: Row | null, intent?: 'delete') => void;
 		onPlace?: (kind: 'tag' | 'folder', id: string, spaceId: string | null) => void | Promise<void>;
 		onReorderSpace?: (id: string, toIndex: number) => void | Promise<void>;
+		onSetDefault?: (id: string) => void | Promise<void>;
 	} = $props();
-	// The space showing: Home ('') unless the remembered one still exists.
-	const spaceId = $derived(spaces.some((s) => s.id === activeSpace.id) ? activeSpace.id : '');
-	const shelf = $derived([{ id: '', name: 'Home' } as Row, ...spaces]);
-	const shelfIndex = $derived(shelf.findIndex((s) => String(s.id) === spaceId));
+	// The space showing: the remembered one if it still exists, else the default.
+	const defaultId = $derived(defaultSpaceId(spaces));
+	const spaceId = $derived(
+		spaces.some((s) => s.id === activeSpace.id) ? activeSpace.id : defaultId
+	);
+	const shelfIndex = $derived(spaces.findIndex((s) => String(s.id) === spaceId));
 	// Many spaces scroll the switcher sideways; the current one is kept in view.
-	function followActive(current: string): Attachment<HTMLElement> {
+	// One pill glides to the current tab. The tab widens as its name appears, so the pill eases
+	// from where it was toward the tab's live box each frame, landing exactly on it.
+	let pill: { x: number; w: number } | null = null;
+	function spaceTabs(current: string, order: string): Attachment<HTMLElement> {
 		return (bar) => {
 			void current;
-			bar
-				.querySelector('.space-tab.active')
-				?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+			void order;
+			const tab = bar.querySelector<HTMLElement>('.space-tab.active');
+			tab?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+			const set = (x: number, w: number) => {
+				pill = { x, w };
+				bar.style.setProperty('--pill-x', `${x}px`);
+				bar.style.setProperty('--pill-w', `${w}px`);
+			};
+			let frame = 0;
+			const from = pill,
+				start = performance.now(),
+				duration = prefersReducedMotion.current ? 0 : 360;
+			const step = () => {
+				const box = bar.querySelector<HTMLElement>('.space-tab.active');
+				if (!box?.offsetWidth) {
+					bar.dataset.pill = 'off';
+					return;
+				}
+				bar.dataset.pill = 'on';
+				const t = duration ? Math.min(1, (performance.now() - start) / duration) : 1;
+				const eased = 1 - (1 - t) ** 3;
+				const x = box.offsetLeft,
+					w = box.offsetWidth;
+				if (!from || t >= 1) set(x, w);
+				else set(from.x + (x - from.x) * eased, from.w + (w - from.w) * eased);
+				frame = from && t < 1 ? requestAnimationFrame(step) : 0;
+			};
+			step();
+			const observer = new ResizeObserver(() => {
+				if (!frame) step();
+			});
+			observer.observe(bar);
+			return () => {
+				cancelAnimationFrame(frame);
+				observer.disconnect();
+			};
 		};
 	}
 	// Only this space's folders and loose tags; a tag inside a folder goes where its folder goes.
 	const spaceFolders = $derived(folders.filter((f) => spaceOf(f, folders, spaces) === spaceId));
 	const spaceTags = $derived(tags.filter((t) => spaceOf(t, folders, spaces) === spaceId));
 	const grouped = $derived(groupTags(spaceTags, spaceFolders));
-	// 1 slides the next shelf in from the right, -1 from the left.
-	let direction = $state(1);
-	function switchTo(id: string) {
-		if (id === spaceId) return;
-		const to = shelf.findIndex((s) => String(s.id) === id);
-		direction = to >= shelfIndex ? 1 : -1;
-		showSpace(id);
+	// The shelves sit side by side in a native, snapping horizontal scroller, so a two-finger
+	// swipe is the platform's own scroll: momentum, interruption and reversal all just work.
+	// With two or more spaces, a copy of the last sits before the first and a copy of the first
+	// after the last; landing on a copy jumps to the real one, so swiping wraps seamlessly.
+	let scroller = $state<HTMLElement>(),
+		scrolling = $state(false),
+		// The space nearest the middle while scrolling, so the tabs follow the fingers.
+		liveIndex = $state(-1);
+	const loop = $derived(spaces.length > 1);
+	const panelOf = (index: number) => index + (loop ? 1 : 0);
+	const indexOf = (panel: number) => (loop ? (panel - 1 + spaces.length) % spaces.length : panel);
+	const tabId = $derived(liveIndex >= 0 ? String(spaces[liveIndex]?.id ?? spaceId) : spaceId);
+	function scrollToPanel(panel: number) {
+		const el = scroller;
+		if (!el) return;
+		el.scrollTo({
+			left: panel * el.clientWidth,
+			behavior: prefersReducedMotion.current ? 'instant' : 'smooth'
+		});
 	}
-	function step(by: number) {
-		const next = shelf[shelfIndex + by];
-		if (next) switchTo(String(next.id));
+	function shelfScroll(count: number): Attachment<HTMLElement> {
+		return (el) => {
+			void count;
+			let frame = 0,
+				idle = 0;
+			// The scroller is as tall as the shelf in view, blending between two while swiping, and
+			// never shorter than the room left in the sidebar, so swiping below a short list works.
+			const nav = el.closest<HTMLElement>('.sidebar-navigation');
+			const fit = () => {
+				const w = el.clientWidth;
+				if (!w) return;
+				const at = el.scrollLeft / w,
+					i = Math.floor(at);
+				const panels = [...el.children] as HTMLElement[];
+				const a = panels[i]?.offsetHeight ?? 0,
+					b = panels[i + 1]?.offsetHeight ?? a;
+				const room = nav ? nav.clientHeight - el.offsetTop : 0;
+				el.style.height = `${Math.max(room, a + (b - a) * (at - i))}px`;
+			};
+			const settle = () => {
+				clearTimeout(idle);
+				const w = el.clientWidth;
+				if (w) {
+					let panel = Math.round(el.scrollLeft / w);
+					if (loop && (panel === 0 || panel === spaces.length + 1)) {
+						panel = panel === 0 ? spaces.length : 1;
+						el.scrollTo({ left: panel * w, behavior: 'instant' });
+					}
+					const id = String(spaces[indexOf(panel)]?.id ?? '');
+					if (id && id !== spaceId) showSpace(id);
+				}
+				scrolling = false;
+				liveIndex = -1;
+				fit();
+			};
+			const scroll = () => {
+				const w = el.clientWidth;
+				scrolling = true;
+				if (w) liveIndex = indexOf(Math.round(el.scrollLeft / w));
+				cancelAnimationFrame(frame);
+				frame = requestAnimationFrame(fit);
+				// Where scrollend isn't supported, a pause in scrolling stands in for it.
+				clearTimeout(idle);
+				idle = window.setTimeout(settle, 150);
+			};
+			// Only a width change (collapsing, resizing) re-centres the current shelf; height
+			// changes come from fit() itself and from shelves growing, and must not touch scroll.
+			let lastWidth = 0;
+			const resize = () => {
+				const w = el.clientWidth;
+				if (w && w !== lastWidth) {
+					lastWidth = w;
+					el.scrollTo({ left: panelOf(untrack(() => shelfIndex)) * w, behavior: 'instant' });
+				}
+				fit();
+			};
+			// Start on the current shelf without a visible scroll.
+			untrack(resize);
+			const observer = new ResizeObserver(resize);
+			observer.observe(el);
+			if (nav) observer.observe(nav);
+			for (const panel of el.children) observer.observe(panel);
+			el.addEventListener('scroll', scroll, { passive: true });
+			el.addEventListener('scrollend', settle);
+			return () => {
+				cancelAnimationFrame(frame);
+				clearTimeout(idle);
+				observer.disconnect();
+				el.removeEventListener('scroll', scroll);
+				el.removeEventListener('scrollend', settle);
+			};
+		};
+	}
+	// When the space changes from elsewhere (a tab, a key, opening a tag), scroll to it.
+	$effect(() => {
+		const el = scroller,
+			panel = panelOf(shelfIndex);
+		if (!el || shelfIndex < 0 || untrack(() => scrolling)) return;
+		const w = el.clientWidth;
+		if (w && Math.round(el.scrollLeft / w) !== panel) scrollToPanel(panel);
+	});
+	function switchTo(id: string) {
+		const to = spaces.findIndex((s) => s.id === id);
+		if (to >= 0) scrollToPanel(panelOf(to));
+	}
+	// From wherever the scroller is now, so quick presses queue up instead of waiting.
+	function step(by: 1 | -1) {
+		const el = scroller;
+		if (!el?.clientWidth || spaces.length < 2) return;
+		const panel = Math.round(el.scrollLeft / el.clientWidth) + by;
+		scrollToPanel(loop ? panel : Math.max(0, Math.min(spaces.length - 1, panel)));
 	}
 	onMount(restoreSpace);
 	const spaceIcons = $derived(
@@ -139,41 +279,51 @@
 		const tag = untrack(() => tags.find((t) => t.id === view.slice(4)));
 		if (!tag) return;
 		const home = untrack(() => spaceOf(tag, folders, spaces));
-		if (home !== untrack(() => spaceId)) untrack(() => switchTo(home));
+		if (home && home !== untrack(() => spaceId)) showSpace(home);
 	});
-	// A sideways two-finger swipe switches spaces; one gesture, momentum included, is one step.
-	const swipe: Attachment<HTMLElement> = (node) => {
-		let travelled = 0,
-			spent = false,
-			idle = 0;
-		const settle = () => {
-			travelled = 0;
-			spent = false;
-			node.style.setProperty('--swipe', '0px');
-		};
-		const wheel = (event: WheelEvent) => {
-			if (collapsed || spaces.length === 0 || Math.abs(event.deltaX) <= Math.abs(event.deltaY))
-				return;
-			event.preventDefault();
-			clearTimeout(idle);
-			idle = window.setTimeout(settle, 160);
-			if (spent) return;
-			travelled += event.deltaX;
-			const edge = !shelf[shelfIndex + Math.sign(travelled)];
-			const lean = Math.max(-32, Math.min(32, -travelled * (edge ? 0.12 : 0.3)));
-			node.style.setProperty('--swipe', `${lean}px`);
-			if (!edge && Math.abs(travelled) > 90) {
-				spent = true;
-				node.style.setProperty('--swipe', '0px');
-				step(Math.sign(travelled));
-			}
-		};
-		node.addEventListener('wheel', wheel, { passive: false });
-		return () => {
-			clearTimeout(idle);
-			node.removeEventListener('wheel', wheel);
-		};
-	};
+	// A space's folders and loose tags, for the shelves not currently live.
+	function shelfOf(id: string) {
+		return groupTags(
+			tags.filter((t) => spaceOf(t, folders, spaces) === id),
+			folders.filter((f) => spaceOf(f, folders, spaces) === id)
+		);
+	}
+	// Spaces reorder by dragging their tabs along the switcher.
+	let spaceDrag = $state<{ id: string; order: string[] } | null>(null);
+	const tabs = $derived(
+		spaceDrag
+			? spaceDrag.order.map((id) => spaces.find((s) => s.id === id)).filter((s): s is Row => !!s)
+			: spaces
+	);
+	function startSpaceDrag(event: DragEvent, id: string) {
+		spaceDrag = { id, order: spaces.map((s) => String(s.id)) };
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+			event.dataTransfer.setData('text/plain', id);
+		}
+	}
+	function overSpaceTab(event: DragEvent, id: string) {
+		if (!spaceDrag) return overSpace(event, id);
+		event.preventDefault();
+		if (id === spaceDrag.id) return;
+		const from = spaceDrag.order.indexOf(spaceDrag.id),
+			to = spaceDrag.order.indexOf(id);
+		const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const middle = box.left + box.width / 2;
+		if ((from < to && event.clientX < middle) || (from > to && event.clientX > middle)) return;
+		const order = spaceDrag.order.filter((x) => x !== spaceDrag!.id);
+		order.splice(to, 0, spaceDrag.id);
+		spaceDrag = { ...spaceDrag, order };
+	}
+	async function dropSpaceTab(event: DragEvent, id: string) {
+		const current = spaceDrag;
+		if (!current) return dropOnSpace(event, id);
+		event.preventDefault();
+		spaceDrag = null;
+		const index = current.order.indexOf(current.id);
+		if (current.order.join() !== spaces.map((s) => String(s.id)).join())
+			await onReorderSpace?.(current.id, index);
+	}
 	// A tag or folder dragged onto a space in the switcher goes to that space.
 	let spaceTarget = $state<string | null>(null);
 	function overSpace(event: DragEvent, id: string) {
@@ -188,7 +338,7 @@
 		preview = null;
 		spaceTarget = null;
 		if (!current || !onPlace || id === spaceId) return;
-		await onPlace(current.kind, current.id, id || null);
+		await onPlace(current.kind, current.id, id);
 	}
 	function spaceKeys(event: KeyboardEvent) {
 		if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -431,7 +581,8 @@
 					const box = active?.getBoundingClientRect();
 					// Hidden rows (a folded folder, or tags in the collapsed sidebar) carry no highlight.
 					const hidden =
-						active?.closest('[data-open="false"]') || (narrow && active?.closest('.sidebar-group'));
+						active?.closest('[data-open="false"], [inert]') ||
+						(narrow && active?.closest('.sidebar-group'));
 					if (!active || !box?.height || hidden) {
 						nav.dataset.indicator = 'off';
 						return;
@@ -542,6 +693,104 @@
 			>{/if}</button
 	>{/snippet}
 
+{#snippet shelfBody(folderGroups: FolderGroup[], loose: Row[], ownId: string, live: boolean)}
+	{#each folderGroups as group (String(group.folder.id))}
+		{@const id = String(group.folder.id)}
+		{@const open = isOpen(id)}
+		<div
+			class={['sidebar-folder', drag?.kind === 'folder' && drag.id === id && 'dragging']}
+			animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
+		>
+			{#snippet head()}<button
+					class="sidebar-link sidebar-folder-toggle"
+					aria-expanded={open}
+					aria-keyshortcuts={onReorderFolder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
+					title={onReorderFolder
+						? `${group.folder.name} · drag or Alt+↑/↓ to reorder`
+						: String(group.folder.name)}
+					data-folder-id={id}
+					draggable={!!onReorderFolder && !collapsed}
+					ondragstart={(event) => start(event, 'folder', group.folder)}
+					ondragend={cancelDrag}
+					onkeydown={(event) => void nudgeFolder(event, id)}
+					onclick={() => folderState.setOpen(id, !open)}
+					><FolderGlyph open={open || target === id} /><span class="sidebar-label"
+						>{group.folder.name}</span
+					>{#if counts?.folders?.[id]}<small class="sidebar-count sidebar-label"
+							>{counts.folders[id]}</small
+						>{/if}</button
+				>{/snippet}
+			{#if onEditFolder}<FolderMenu
+					folder={group.folder}
+					onEdit={onEditFolder}
+					{onCreateIn}
+					class={['sidebar-folder-head', target === id && 'drop-target']}
+					ondragenter={(event) => overFolder(event, id)}
+					ondragover={(event) => overFolder(event, id)}>{@render head()}</FolderMenu
+				>{:else}<div
+					class="sidebar-folder-head"
+					role="presentation"
+					ondragenter={(event) => overFolder(event, id)}
+					ondragover={(event) => overFolder(event, id)}
+				>
+					{@render head()}
+				</div>{/if}
+			<div class="sidebar-folder-tags" data-open={open} inert={!open}>
+				<div>
+					{#each shownTags(id, group.tags) as row (String(row.id))}<div
+							class="sidebar-tag-slot"
+							animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
+						>
+							{@render tagRow(row, id)}
+						</div>{:else}<p class="sidebar-folder-empty">
+							{onFile ? 'Drag tags here' : 'Empty'}
+						</p>{/each}
+				</div>
+			</div>
+		</div>
+	{/each}
+	{#if live && drag?.kind === 'tag' && drag.group}<div
+			class={['sidebar-unfile', target === '' && 'drop-target']}
+			role="presentation"
+			ondragenter={overLoose}
+			ondragover={overLoose}
+		>
+			Drop here to take out of the folder
+		</div>{/if}
+	{#each shownTags('', loose) as row (String(row.id))}<div
+			class="sidebar-tag-slot"
+			animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
+		>
+			{@render tagRow(row, '')}
+		</div>{:else}{#if !folderGroups.length}{#if ownId}<p class="sidebar-empty">
+					Nothing here yet. Drag a tag or folder onto this space's tab{#if onEditSpace}, or <button
+							class="sidebar-empty-action"
+							onclick={() => onEditSpace(spaces.find((x) => x.id === ownId) ?? null)}
+							>choose what it shows</button
+						>{/if}.
+				</p>{:else}<p class="sidebar-empty">A little room to organize.</p>{/if}{/if}{/each}
+{/snippet}
+
+{#snippet shelfCopy(id: string)}
+	{@const copy = shelfOf(id)}
+	{#each copy.groups as group (String(group.folder.id))}
+		{@const open = isOpen(String(group.folder.id))}
+		<div class="sidebar-folder">
+			<div class="sidebar-folder-head">
+				<span class="sidebar-link sidebar-folder-toggle"
+					><FolderGlyph {open} /><span class="sidebar-label">{group.folder.name}</span></span
+				>
+			</div>
+			{#if open}{#each group.tags as row (String(row.id))}<span class="sidebar-link shelf-copy-tag"
+						><Hash /><span class="sidebar-label">{row.name}</span></span
+					>{/each}{/if}
+		</div>
+	{/each}
+	{#each copy.loose as row (String(row.id))}<span class="sidebar-link"
+			><Hash /><span class="sidebar-label">{row.name}</span></span
+		>{/each}
+{/snippet}
+
 <aside class={['library-sidebar', collapsed && 'collapsed']}>
 	<div class="sidebar-brand">
 		<Brand compact {home} /><span class="sidebar-label">prism</span>
@@ -557,7 +806,6 @@
 	<nav
 		class="sidebar-navigation"
 		aria-label="Library"
-		{@attach swipe}
 		{@attach highlight(
 			view,
 			[
@@ -618,61 +866,81 @@
 					aria-label="Spaces · swipe sideways over the list to switch"
 					tabindex="-1"
 					onkeydown={spaceKeys}
-					{@attach followActive(spaceId)}
+					{@attach spaceTabs(tabId, tabs.map((t) => String(t.id)).join())}
 				>
-					{#each shelf as entry, index (String(entry.id))}
+					<span class="space-pill" aria-hidden="true"></span>
+					{#each tabs as entry, index (String(entry.id))}
 						{@const id = String(entry.id)}
-						{@const selected = id === spaceId}
+						{@const selected = id === tabId}
+						{@const isDefault = id === defaultId}
 						{@const sticker = typeof entry.icon === 'string' ? stickers.get(entry.icon) : undefined}
-						{#snippet tab()}<button
-								class={[
-									'space-tab',
-									(sticker || !id) && 'has-icon',
-									selected && 'active',
-									spaceTarget === id && 'drop-target'
-								]}
-								role="tab"
-								aria-selected={selected}
-								tabindex={selected ? 0 : -1}
-								title={selected
-									? String(entry.name)
-									: `${entry.name} · drop a tag or folder to move it here`}
-								ondragenter={(event) => overSpace(event, id)}
-								ondragover={(event) => overSpace(event, id)}
-								ondragleave={() => {
-									if (spaceTarget === id) spaceTarget = null;
-								}}
-								ondrop={(event) => void dropOnSpace(event, id)}
-								onclick={() => switchTo(id)}
-								>{#if sticker}<Sticker {sticker} />{:else if !id}<House
-										class="space-home"
-									/>{/if}<span class="space-name">{entry.name}</span></button
-							>{/snippet}
-						{#if id && onEditSpace}<ContextMenu.Root
-								><ContextMenu.Trigger class="space-tab-slot">{@render tab()}</ContextMenu.Trigger
-								><ContextMenu.Portal
-									><ContextMenu.Content class="menu-content" collisionPadding={12}>
-										<ContextMenu.Item class="menu-item" onSelect={() => onEditSpace(entry)}
-											><Pencil /><span>Edit space</span></ContextMenu.Item
-										>
-										{#if onReorderSpace && index > 1}<ContextMenu.Item
-												class="menu-item"
-												onSelect={() => onReorderSpace(id, index - 2)}
-												><ChevronLeft /><span>Move left</span></ContextMenu.Item
-											>{/if}
-										{#if onReorderSpace && index < spaces.length}<ContextMenu.Item
-												class="menu-item"
-												onSelect={() => onReorderSpace(id, index)}
-												><ChevronRight /><span>Move right</span></ContextMenu.Item
-											>{/if}
-										<ContextMenu.Separator class="menu-separator" /><ContextMenu.Item
-											class="menu-item danger-text"
-											onSelect={() => onEditSpace(entry, 'delete')}
-											><DeleteIcon /><span>Delete</span></ContextMenu.Item
-										>
-									</ContextMenu.Content></ContextMenu.Portal
-								></ContextMenu.Root
-							>{:else}<span class="space-tab-slot">{@render tab()}</span>{/if}
+
+						<div
+							class="space-tab-cell"
+							animate:flip={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+						>
+							{#snippet tab()}<button
+									class={[
+										'space-tab',
+										sticker && 'has-icon',
+										selected && 'active',
+										spaceTarget === id && 'drop-target',
+										spaceDrag?.id === id && 'dragging'
+									]}
+									role="tab"
+									aria-selected={selected}
+									tabindex={selected ? 0 : -1}
+									title={`${entry.name}${isDefault ? ' · default' : ''}${selected ? '' : ' · drop a tag or folder to move it here'}`}
+									draggable={!!onReorderSpace && !collapsed}
+									ondragstart={(event) => startSpaceDrag(event, id)}
+									ondragend={() => (spaceDrag = null)}
+									ondragenter={(event) => overSpaceTab(event, id)}
+									ondragover={(event) => overSpaceTab(event, id)}
+									ondragleave={() => {
+										if (spaceTarget === id) spaceTarget = null;
+									}}
+									ondrop={(event) => void dropSpaceTab(event, id)}
+									onclick={() => switchTo(id)}
+									>{#if sticker}<Sticker {sticker} />{/if}<span class="space-name"
+										>{entry.name}</span
+									></button
+								>{/snippet}
+							{#if onEditSpace}<ContextMenu.Root
+									><ContextMenu.Trigger class="space-tab-slot">{@render tab()}</ContextMenu.Trigger
+									><ContextMenu.Portal
+										><ContextMenu.Content class="menu-content" collisionPadding={12}>
+											<ContextMenu.Item class="menu-item" onSelect={() => onEditSpace(entry)}
+												><Pencil /><span>Edit space</span></ContextMenu.Item
+											>
+											{#if onSetDefault && !isDefault}<ContextMenu.Item
+													class="menu-item"
+													onSelect={() => onSetDefault(id)}
+													><Star /><span>Make default</span></ContextMenu.Item
+												>{/if}
+											{#if onReorderSpace && index > 0}<ContextMenu.Item
+													class="menu-item"
+													onSelect={() => onReorderSpace(id, index - 1)}
+													><ChevronLeft /><span>Move left</span></ContextMenu.Item
+												>{/if}
+											{#if onReorderSpace && index < spaces.length - 1}<ContextMenu.Item
+													class="menu-item"
+													onSelect={() => onReorderSpace(id, index + 1)}
+													><ChevronRight /><span>Move right</span></ContextMenu.Item
+												>{/if}
+											<ContextMenu.Separator class="menu-separator" /><ContextMenu.Item
+												class="menu-item danger-text"
+												disabled={isDefault && spaces.length > 1}
+												onSelect={() => onEditSpace(entry, 'delete')}
+												><DeleteIcon /><span
+													>{isDefault && spaces.length > 1
+														? 'Default can’t be deleted'
+														: 'Delete'}</span
+												></ContextMenu.Item
+											>
+										</ContextMenu.Content></ContextMenu.Portal
+									></ContextMenu.Root
+								>{:else}<span class="space-tab-slot">{@render tab()}</span>{/if}
+						</div>
 					{/each}
 					{#if onEditSpace}<button
 							class="space-add"
@@ -701,90 +969,34 @@
 						>{/if}</span
 				>
 			</div>
-			{#key spaceId}<div
-					class="sidebar-shelf"
-					in:fly={{
-						x: 18 * direction,
-						duration: prefersReducedMotion.current ? 0 : 260,
-						opacity: 0
-					}}
+			{#if spaces.length}<div
+					class={['shelf-scroller', scrolling && 'moving']}
+					bind:this={scroller}
+					{@attach shelfScroll(spaces.length)}
 				>
-					{#each shownFolders as group (String(group.folder.id))}
-						{@const id = String(group.folder.id)}
-						{@const open = isOpen(id)}
-						<div
-							class={['sidebar-folder', drag?.kind === 'folder' && drag.id === id && 'dragging']}
-							animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
-						>
-							{#snippet head()}<button
-									class="sidebar-link sidebar-folder-toggle"
-									aria-expanded={open}
-									aria-keyshortcuts={onReorderFolder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
-									title={onReorderFolder
-										? `${group.folder.name} · drag or Alt+↑/↓ to reorder`
-										: String(group.folder.name)}
-									data-folder-id={id}
-									draggable={!!onReorderFolder && !collapsed}
-									ondragstart={(event) => start(event, 'folder', group.folder)}
-									ondragend={cancelDrag}
-									onkeydown={(event) => void nudgeFolder(event, id)}
-									onclick={() => folderState.setOpen(id, !open)}
-									><FolderGlyph open={open || target === id} /><span class="sidebar-label"
-										>{group.folder.name}</span
-									>{#if counts?.folders?.[id]}<small class="sidebar-count sidebar-label"
-											>{counts.folders[id]}</small
-										>{/if}</button
-								>{/snippet}
-							{#if onEditFolder}<FolderMenu
-									folder={group.folder}
-									onEdit={onEditFolder}
-									{onCreateIn}
-									class={['sidebar-folder-head', target === id && 'drop-target']}
-									ondragenter={(event) => overFolder(event, id)}
-									ondragover={(event) => overFolder(event, id)}>{@render head()}</FolderMenu
-								>{:else}<div
-									class="sidebar-folder-head"
-									role="presentation"
-									ondragenter={(event) => overFolder(event, id)}
-									ondragover={(event) => overFolder(event, id)}
-								>
-									{@render head()}
-								</div>{/if}
-							<div class="sidebar-folder-tags" data-open={open} inert={!open}>
-								<div>
-									{#each shownTags(id, group.tags) as row (String(row.id))}<div
-											class="sidebar-tag-slot"
-											animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
-										>
-											{@render tagRow(row, id)}
-										</div>{:else}<p class="sidebar-folder-empty">
-											{onFile ? 'Drag tags here' : 'Empty'}
-										</p>{/each}
-								</div>
-							</div>
+					{#if loop}<div class="sidebar-shelf" inert>
+							{@render shelfCopy(String(spaces[spaces.length - 1].id))}
+						</div>{/if}
+					{#each spaces as space (String(space.id))}
+						{@const id = String(space.id)}
+						<div class="sidebar-shelf" inert={id !== spaceId} data-space-id={id}>
+							{#if id === spaceId}{@render shelfBody(
+									shownFolders,
+									grouped.loose,
+									id,
+									true
+								)}{:else}{@const own = shelfOf(id)}{@render shelfBody(
+									own.groups,
+									own.loose,
+									id,
+									false
+								)}{/if}
 						</div>
 					{/each}
-					{#if drag?.kind === 'tag' && drag.group}<div
-							class={['sidebar-unfile', target === '' && 'drop-target']}
-							role="presentation"
-							ondragenter={overLoose}
-							ondragover={overLoose}
-						>
-							Drop here to take out of the folder
+					{#if loop}<div class="sidebar-shelf" inert>
+							{@render shelfCopy(String(spaces[0].id))}
 						</div>{/if}
-					{#each shownTags('', grouped.loose) as row (String(row.id))}<div
-							class="sidebar-tag-slot"
-							animate:flip={{ duration: prefersReducedMotion.current ? 0 : 180 }}
-						>
-							{@render tagRow(row, '')}
-						</div>{:else}{#if !grouped.groups.length}{#if spaceId}<p class="sidebar-empty">
-									Nothing here yet. Drag a tag or folder onto this space's chip{#if onEditSpace}, or <button
-											class="sidebar-empty-action"
-											onclick={() => onEditSpace(spaces.find((x) => x.id === spaceId) ?? null)}
-											>choose what it shows</button
-										>{/if}.
-								</p>{:else}<p class="sidebar-empty">A little room to organize.</p>{/if}{/if}{/each}
-				</div>{/key}
+				</div>{:else}{@render shelfBody(shownFolders, grouped.loose, '', true)}{/if}
 		</section>
 	</nav>
 	{#if onAccount}<div class="sidebar-footer">

@@ -5,7 +5,13 @@
 	import type { Revision } from '#lib/domain/contracts.js';
 	import { normalizeOrganizationName } from '#lib/domain/organization.js';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
-	import { placeInSpace, spaceOf } from '#lib/client/workflows.js';
+	import {
+		defaultSpaceId,
+		ensureDefaultSpace,
+		placeInSpace,
+		setDefaultSpace,
+		spaceOf
+	} from '#lib/client/workflows.js';
 	import {
 		loadCatalog,
 		stickers,
@@ -56,8 +62,11 @@
 		...folders.map((row) => ({ row, key: `folders:${row.id}`, folder: true })),
 		...loose.map((row) => ({ row, key: `tags:${row.id}`, folder: false }))
 	]);
-	const spaceName = (spaceId: string) =>
-		spaceId ? String(spaces.find((s) => s.id === spaceId)?.name ?? '') : 'Home';
+	const spaceName = (spaceId: string) => String(spaces.find((s) => s.id === spaceId)?.name ?? '');
+	const isDefault = $derived(!!id && defaultSpaceId(spaces) === id);
+	const defaultName = $derived(spaceName(defaultSpaceId(spaces)));
+	// The default can't go while other spaces depend on it to hold what's unplaced.
+	const lockedDefault = $derived(isDefault && spaces.length > 1);
 	const members = () =>
 		id
 			? untrack(() => items)
@@ -73,7 +82,7 @@
 			iconFilter = '';
 			chosen = members();
 			filter = '';
-			deleteArmed = armDelete;
+			deleteArmed = armDelete && !lockedDefault;
 			error = '';
 		});
 	});
@@ -86,8 +95,7 @@
 	};
 	const taken = $derived(
 		!!name.trim() &&
-			(normalized(name) === normalized('Home') ||
-				spaces.some((s) => s.id !== id && normalized(String(s.name)) === normalized(name)))
+			spaces.some((s) => s.id !== id && normalized(String(s.name)) === normalized(name))
 	);
 	const needle = $derived(filter.trim().replace(/^#/, '').toLocaleLowerCase());
 	const visible = $derived(
@@ -168,6 +176,11 @@
 			await placeInSpace(library, 'tags', split(added, 'tags'), target);
 			await placeInSpace(library, 'folders', split(removed, 'folders'), null);
 			await placeInSpace(library, 'tags', split(removed, 'tags'), null);
+			if (!space)
+				await ensureDefaultSpace(library, [
+					...spaces,
+					library.get<Row>('spaces', target) ?? { id: target, name }
+				]);
 			open = false;
 			onSaved(space ? 'Space saved.' : `${name.trim()} is ready.`, target);
 		} catch (e) {
@@ -190,7 +203,7 @@
 			if (result.status === 'rejected')
 				throw new Error(result.message ?? 'Could not delete this space.');
 			open = false;
-			onSaved('Space deleted. What it held is back in Home.');
+			onSaved(`Space deleted. What it held is back in ${defaultName}.`);
 		} catch (e) {
 			error = (e as Error).message;
 			onError(error);
@@ -288,7 +301,11 @@
 					{#if taken}<p class="name-sheet-hint exists">A space by that name already exists.</p>{/if}
 					{#if items.length}<div class="folder-sheet-tags" role="group" aria-label="In this space">
 							<div class="folder-sheet-tags-head">
-								<span>Shows</span><small>{chosen.length}</small>
+								<span
+									>Shows{#if isDefault}<span class="space-default-note">
+											· and anything not in another space</span
+										>{/if}</span
+								><small>{chosen.length}</small>
 								{#if items.length > 12}<label class="folder-sheet-filter"
 										><Search /><input
 											bind:value={filter}
@@ -328,7 +345,7 @@
 					{#if error}<p class="form-error" role="alert">{error}</p>{/if}
 					<footer class="name-sheet-actions">
 						{#if deleteArmed && space}<span class="name-sheet-confirm"
-								><span>Delete {space.name}? Its tags go back to Home.</span><button
+								><span>Delete {space.name}? Its tags go back to {defaultName}.</span><button
 									type="button"
 									class="name-sheet-cancel"
 									onclick={() => (deleteArmed = false)}>Keep</button
@@ -341,7 +358,22 @@
 							>{:else}{#if space}<button
 									type="button"
 									class="name-sheet-delete"
+									disabled={lockedDefault}
+									title={lockedDefault ? 'Make another space the default first' : undefined}
 									onclick={() => (deleteArmed = true)}><Trash2 />Delete</button
+								>{/if}{#if space && !isDefault}<button
+									type="button"
+									class="name-sheet-cancel space-make-default"
+									onclick={async () => {
+										if (!library) return;
+										try {
+											await setDefaultSpace(library, id);
+											onSaved(`${space?.name} is now the default space.`);
+										} catch (e) {
+											error = (e as Error).message;
+											onError(error);
+										}
+									}}>Make default</button
 								>{/if}<button
 								type="submit"
 								class="name-sheet-submit"

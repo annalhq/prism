@@ -137,7 +137,7 @@ export const collections = pgTable(
 );
 
 // Spaces arrange folders and loose tags into sidebar shelves; a filed tag follows its folder.
-// Null space_id means Home, and deleting a space releases what it held.
+// Null space_id means the default space, and deleting a space releases what it held to it.
 export const spaces = pgTable(
 	'spaces',
 	{
@@ -150,6 +150,8 @@ export const spaces = pgTable(
 		position: text('position'),
 		// A trazo sticker id drawn beside the name; null shows the name alone.
 		icon: text('icon'),
+		// The space that holds every folder and loose tag not placed in another one.
+		isDefault: boolean('is_default').notNull().default(false),
 		...lifecycle(),
 		...revisions()
 	},
@@ -165,6 +167,9 @@ export const spaces = pgTable(
 			'space_position_valid',
 			sql`${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$'`
 		),
+		uniqueIndex('space_default_unique')
+			.on(t.vaultId)
+			.where(sql`${t.isDefault} AND ${t.deletedAt} IS NULL`),
 		uniqueIndex('space_name_unique')
 			.on(t.vaultId, t.normalizedName)
 			.where(sql`${t.deletedAt} IS NULL`),
