@@ -157,8 +157,8 @@ export type TaxonomyProjection = {
 	folderId?: string | null;
 	/** Tags and folders: the sidebar space showing them, or null for Home. */
 	spaceId?: string | null;
-	/** Spaces only: the chosen OKLCH hue, or null to derive one from the name. */
-	hue?: number | null;
+	/** Spaces only: the sticker id shown beside the name, or null. */
+	icon?: string | null;
 	revision: Revision;
 	lastSeq: Sequence;
 	deletedAt: string | null;

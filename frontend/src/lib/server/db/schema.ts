@@ -10,7 +10,6 @@ import {
 	pgEnum,
 	pgTable,
 	primaryKey,
-	smallint,
 	text,
 	timestamp,
 	unique,
@@ -149,8 +148,8 @@ export const spaces = pgTable(
 		name: text('name').notNull(),
 		normalizedName: text('normalized_name').notNull(),
 		position: text('position'),
-		// The space's colour as an OKLCH hue in degrees; null derives one from the name.
-		hue: smallint('hue'),
+		// A trazo sticker id drawn beside the name; null shows the name alone.
+		icon: text('icon'),
 		...lifecycle(),
 		...revisions()
 	},
@@ -158,7 +157,10 @@ export const spaces = pgTable(
 		...revisionChecks(t),
 		...lifecycleChecks(t),
 		primaryKey({ columns: [t.vaultId, t.id] }),
-		check('space_hue_valid', sql`${t.hue} IS NULL OR ${t.hue} BETWEEN 0 AND 359`),
+		check(
+			'space_icon_valid',
+			sql`${t.icon} IS NULL OR (char_length(${t.icon}) <= 64 AND ${t.icon} ~ '^[a-z0-9]+(-[a-z0-9]+)*$')`
+		),
 		check(
 			'space_position_valid',
 			sql`${t.position} IS NULL OR ${t.position} ~ '^[0-9a-z]{0,127}[1-9a-z]$'`

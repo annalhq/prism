@@ -33,7 +33,7 @@ export const GET: RequestHandler = async (event) => {
 			'space.rename',
 			'space.delete',
 			'space.move',
-			'space.hue',
+			'space.icon',
 			'theme.create',
 			'theme.update',
 			'theme.delete',

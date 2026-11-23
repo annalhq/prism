@@ -1,16 +1,21 @@
 <script lang="ts">
-	import { Check, Search, Trash2, X as XIcon } from '@lucide/svelte';
-	import { Dialog } from 'bits-ui';
+	import { Check, ImagePlus, Search, Trash2, X as XIcon } from '@lucide/svelte';
+	import { Dialog, Popover } from 'bits-ui';
 	import { untrack } from 'svelte';
 	import type { Revision } from '#lib/domain/contracts.js';
 	import { normalizeOrganizationName } from '#lib/domain/organization.js';
 	import type { LibraryClient } from '#lib/client/vault/library.js';
 	import { placeInSpace, spaceOf } from '#lib/client/workflows.js';
-	import { hueColor, spaceHue, spaceInitial } from '#lib/client/spaces.svelte.js';
+	import {
+		loadCatalog,
+		stickers,
+		type Sticker as StickerDef
+	} from '#lib/client/stickers.svelte.js';
 	import FolderGlyph from './ui/FolderGlyph.svelte';
+	import Sticker from './ui/Sticker.svelte';
 
 	type Row = Record<string, unknown>;
-	// Creates or edits a space: its name, colour, and the folders and loose tags it shows.
+	// Creates or edits a space: its name, optional icon, and the folders and loose tags it shows.
 	let {
 		open = $bindable(false),
 		space = null,
@@ -36,8 +41,11 @@
 
 	let name = $state(''),
 		chosen = $state<string[]>([]),
-		// The chosen hue in degrees, or null to keep the one derived from the name.
-		hue = $state<number | null>(null),
+		// A sticker id, or null to show the name alone.
+		icon = $state<string | null>(null),
+		iconsOpen = $state(false),
+		iconFilter = $state(''),
+		catalog = $state.raw<StickerDef[] | null>(null),
 		filter = $state(''),
 		busy = $state(false),
 		deleteArmed = $state(false),
@@ -60,7 +68,9 @@
 		if (!open) return;
 		untrack(() => {
 			name = space ? String(space.name) : '';
-			hue = typeof space?.hue === 'number' ? space.hue : null;
+			icon = typeof space?.icon === 'string' ? space.icon : null;
+			iconsOpen = false;
+			iconFilter = '';
 			chosen = members();
 			filter = '';
 			deleteArmed = armDelete;
@@ -83,17 +93,35 @@
 	const visible = $derived(
 		needle ? items.filter((i) => String(i.row.name).toLocaleLowerCase().includes(needle)) : items
 	);
-	const savedHue = $derived(typeof space?.hue === 'number' ? space.hue : null);
+	const savedIcon = $derived(typeof space?.icon === 'string' ? space.icon : null);
 	const changed = $derived(
 		!space ||
 			name.trim() !== String(space.name) ||
-			hue !== savedHue ||
+			icon !== savedIcon ||
 			[...chosen].sort().join() !== members().sort().join()
 	);
-	// Previews the chosen hue, or the one this name would get.
-	const shownHue = $derived(hue ?? spaceHue({ id: 'preview', name: name.trim() || 'space' })!);
-	const color = $derived(hueColor(shownHue));
-	const HUE_TRACK = `linear-gradient(to right, ${Array.from({ length: 13 }, (_, i) => hueColor(i * 30)).join(', ')})`;
+	const chosenSticker = $derived(
+		icon ? (stickers.get(icon) ?? catalog?.find((s) => s.id === icon)) : undefined
+	);
+	const iconNeedle = $derived(iconFilter.trim().toLocaleLowerCase());
+	const shownStickers = $derived(
+		iconNeedle
+			? (catalog ?? []).filter(
+					(s) =>
+						s.name.toLocaleLowerCase().includes(iconNeedle) ||
+						s.tags.some((tag) => tag.includes(iconNeedle))
+				)
+			: (catalog ?? [])
+	);
+	async function openIcons(next: boolean) {
+		iconsOpen = next;
+		if (next && !catalog) catalog = await loadCatalog().catch(() => []);
+	}
+	function pick(sticker: StickerDef | null) {
+		if (sticker) stickers.set(sticker.id, sticker);
+		icon = sticker?.id ?? null;
+		iconsOpen = false;
+	}
 	function toggle(key: string) {
 		chosen = chosen.includes(key) ? chosen.filter((x) => x !== key) : [...chosen, key];
 	}
@@ -122,16 +150,16 @@
 				if (result.status === 'rejected')
 					throw new Error(result.message ?? 'Could not rename this space.');
 			}
-			if (hue !== savedHue) {
+			if (icon !== savedIcon) {
 				const current = library.get<Row>('spaces', target);
 				const result = await library.save({
-					type: 'space.hue',
+					type: 'space.icon',
 					id: target,
 					expectedRevision: String(current?.revision ?? '1') as Revision,
-					hue
+					icon
 				});
 				if (result.status === 'rejected')
-					throw new Error(result.message ?? 'Could not save the colour.');
+					throw new Error(result.message ?? 'Could not save the icon.');
 			}
 			const before = members();
 			const added = chosen.filter((k) => !before.includes(k));
@@ -176,7 +204,6 @@
 	><Dialog.Portal
 		><Dialog.Overlay class="dialog-overlay" /><Dialog.Content
 			class="dialog-content name-sheet folder-sheet space-sheet"
-			style={`--space-color: ${color}`}
 		>
 			<header class="name-sheet-head">
 				<Dialog.Title class="name-sheet-title">{space ? 'Edit space' : 'New space'}</Dialog.Title>
@@ -190,41 +217,75 @@
 			>
 			<form class="name-sheet-form" onsubmit={save}>
 				<fieldset disabled={busy}>
-					<label class="name-sheet-name">
-						<span class="sr-only">Name</span>
-						<span class="name-sheet-glyph"
-							><span class="space-chip space-chip-large">{spaceInitial(name || 'S')}</span></span
-						>
+					<div class="name-sheet-name space-name-field">
+						<Popover.Root open={iconsOpen} onOpenChange={(next) => void openIcons(next)}>
+							<Popover.Trigger
+								type="button"
+								class={['space-icon-trigger', !chosenSticker && 'empty']}
+								aria-label={chosenSticker ? `Icon: ${chosenSticker.name}. Change icon` : 'Add icon'}
+								title={chosenSticker ? 'Change icon' : 'Add icon'}
+								>{#if chosenSticker}<Sticker sticker={chosenSticker} size={26} />{:else}<ImagePlus
+									/>{/if}</Popover.Trigger
+							>
+							<Popover.Portal>
+								<Popover.Content
+									class="menu-content icon-popover"
+									side="bottom"
+									align="start"
+									sideOffset={8}
+									collisionPadding={12}
+								>
+									<div class="icon-popover-head">
+										<label class="folder-sheet-filter"
+											><Search /><input
+												bind:value={iconFilter}
+												placeholder="Search icons"
+												aria-label="Search icons"
+												autocomplete="off"
+												spellcheck="false"
+												onkeydown={(e) => {
+													if (e.key === 'Enter') e.preventDefault();
+												}}
+											/></label
+										>
+										{#if icon}<button
+												type="button"
+												class="icon-popover-remove"
+												onclick={() => pick(null)}>Remove</button
+											>{/if}
+									</div>
+									{#if catalog}{#if shownStickers.length}<div
+												class="icon-popover-grid"
+												role="group"
+												aria-label="Icons"
+											>
+												{#each shownStickers as sticker (sticker.id)}<button
+														type="button"
+														class="icon-popover-option"
+														aria-pressed={icon === sticker.id}
+														aria-label={sticker.name}
+														title={sticker.name}
+														onclick={() => pick(sticker)}><Sticker {sticker} size={26} /></button
+													>{/each}
+											</div>{:else}<p class="icon-popover-note">No icon matches.</p>{/if}{:else}<p
+											class="icon-popover-note"
+										>
+											Loading icons…
+										</p>{/if}
+								</Popover.Content>
+							</Popover.Portal>
+						</Popover.Root>
 						<input
 							bind:value={name}
 							required
 							maxlength="64"
+							aria-label="Name"
 							placeholder="Tech, Exploration…"
 							autocomplete="off"
 							spellcheck="false"
 						/>
-					</label>
-					{#if taken}<p class="name-sheet-hint exists">A space by that name already exists.</p>{/if}
-					<div class="space-hue">
-						<span class="space-hue-label">Colour</span>
-						<input
-							type="range"
-							min="0"
-							max="359"
-							step="1"
-							aria-label="Space colour"
-							value={shownHue}
-							style:--hue-track={HUE_TRACK}
-							oninput={(e) => (hue = Number(e.currentTarget.value))}
-						/>
-						<button
-							type="button"
-							class="space-hue-auto"
-							aria-pressed={hue === null}
-							title="Pick a colour from the name"
-							onclick={() => (hue = null)}>Auto</button
-						>
 					</div>
+					{#if taken}<p class="name-sheet-hint exists">A space by that name already exists.</p>{/if}
 					{#if items.length}<div class="folder-sheet-tags" role="group" aria-label="In this space">
 							<div class="folder-sheet-tags-head">
 								<span>Shows</span><small>{chosen.length}</small>

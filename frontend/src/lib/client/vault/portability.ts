@@ -450,13 +450,13 @@ export async function importLibrary(
 							old,
 							table
 						);
-					if (table === 'spaces' && typeof row.hue === 'number')
+					if (table === 'spaces' && typeof row.icon === 'string')
 						await send(
 							{
-								type: 'space.hue',
+								type: 'space.icon',
 								id,
 								expectedRevision: String(revision++) as Revision,
-								hue: row.hue
+								icon: row.icon
 							},
 							old,
 							table

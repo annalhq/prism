@@ -2004,7 +2004,7 @@ kbd {
 	padding-bottom: 4px;
 }
 
-/* Spaces. Colour stays on the chips so rows look the same in every space. */
+/* Spaces */
 .sidebar-shelf {
 	translate: var(--swipe, 0px) 0;
 	transition: translate 380ms var(--ease-spring);
@@ -2034,16 +2034,19 @@ kbd {
 .space-tab-slot {
 	display: contents;
 }
+/* Every tab is the same height; icons sit in a fixed 18px box so stickers, the Home glyph and
+   text-only names share one baseline. Inactive icon tabs show the icon alone. */
 .space-tab {
 	display: inline-flex;
 	flex-shrink: 0;
 	align-items: center;
 	gap: 0;
 	height: 28px;
-	padding: 0 4px;
+	padding: 0 8px;
 	border-radius: var(--radius-pill);
-	color: var(--secondary);
+	color: var(--tertiary);
 	font-size: var(--text-sm);
+	line-height: 1;
 	white-space: nowrap;
 	transition:
 		background-color 200ms var(--ease-out),
@@ -2052,29 +2055,29 @@ kbd {
 		gap 320ms var(--ease-spring),
 		padding 320ms var(--ease-spring);
 }
-.space-chip {
-	display: inline-grid;
+.space-tab > .sticker,
+.space-tab > .space-home {
+	display: block;
 	flex-shrink: 0;
-	place-items: center;
-	width: 20px;
-	height: 20px;
-	border-radius: 50%;
-	background: color-mix(in oklab, var(--space-color) 22%, transparent);
-	color: color-mix(in oklab, var(--space-color) 70%, var(--ink));
-	font-family: var(--font-mono);
-	font-size: 10.5px;
-	font-weight: 600;
-	line-height: 1;
+	width: 18px;
+	height: 18px;
 	transition:
-		background-color 200ms ease,
-		color 200ms ease,
-		scale 260ms var(--ease-spring);
+		opacity 160ms ease,
+		scale 260ms var(--ease-spring),
+		filter 200ms ease;
 }
-.space-chip svg {
-	width: 11px;
-	height: 11px;
+.space-tab.has-icon {
+	padding: 0 5px;
 }
-.space-name {
+.space-tab.has-icon:not(.active) > .sticker {
+	opacity: 0.75;
+	filter: saturate(0.7);
+}
+.space-tab > .space-home {
+	padding: 2px;
+	stroke-width: 2;
+}
+.space-tab.has-icon .space-name {
 	max-width: 0;
 	overflow: hidden;
 	opacity: 0;
@@ -2084,23 +2087,26 @@ kbd {
 		opacity 200ms var(--ease-out);
 }
 @media (hover: hover) {
-	.space-tab:not(.active):hover .space-chip {
-		background: color-mix(in oklab, var(--space-color) 34%, transparent);
+	.space-tab:not(.active):hover {
+		background: var(--highlight);
+		color: var(--ink);
+	}
+	.space-tab.has-icon:not(.active):hover > .sticker {
+		opacity: 1;
+		filter: none;
 		scale: 1.08;
 	}
 }
 .space-tab.active {
-	gap: 7px;
-	padding: 0 11px 0 4px;
 	background: var(--surface);
 	box-shadow: var(--raised);
 	color: var(--ink);
 }
-.space-tab.active .space-chip {
-	background: var(--space-color);
-	color: var(--canvas);
+.space-tab.has-icon.active {
+	gap: 6px;
+	padding: 0 10px 0 6px;
 }
-.space-tab.active .space-name {
+.space-tab.has-icon.active .space-name {
 	max-width: 120px;
 	opacity: 1;
 }
@@ -2108,9 +2114,14 @@ kbd {
 	outline: none;
 	box-shadow: inset 0 0 0 1px var(--line);
 }
-.space-tab.drop-target .space-chip {
-	background: var(--space-color);
-	color: var(--canvas);
+.space-tab.drop-target {
+	background: var(--hover);
+	box-shadow: inset 0 0 0 1px var(--line);
+	color: var(--ink);
+}
+.space-tab.drop-target > .sticker {
+	opacity: 1;
+	filter: none;
 	scale: 1.2;
 }
 .space-add {
@@ -2146,76 +2157,121 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
 	.sidebar-shelf,
 	.space-tab,
-	.space-name,
-	.space-chip {
+	.space-tab > .sticker,
+	.space-name {
 		transition: none;
 	}
 }
 /* Space sheet */
-.space-chip-large {
-	width: 22px;
-	height: 22px;
-	background: var(--space-color);
-	color: var(--canvas);
-	font-size: 11px;
+.space-name-field {
+	gap: 10px;
+	padding-left: 10px;
 }
-.space-hue {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	margin-top: 14px;
-}
-.space-hue-label {
+/* The icon slot leads the name, as in Notion: a sticker, or a quiet "add icon" mark. */
+.space-icon-trigger {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 38px;
+	height: 38px;
+	border-radius: var(--radius-control);
 	color: var(--tertiary);
-	font-size: var(--text-sm);
+	transition:
+		background-color 140ms ease,
+		color 140ms ease,
+		scale 220ms var(--ease-spring);
 }
-.space-hue input[type='range'] {
-	flex: 1;
-	height: 10px;
-	margin: 0;
-	border-radius: var(--radius-pill);
-	background: var(--hue-track);
-	appearance: none;
-	cursor: pointer;
+.space-icon-trigger .sticker {
+	display: block;
 }
-.space-hue input[type='range']::-webkit-slider-thumb {
-	width: 18px;
-	height: 18px;
-	border: 3px solid var(--canvas);
-	border-radius: 50%;
-	background: var(--space-color);
-	box-shadow:
-		0 0 0 1px var(--line),
-		0 1px 3px var(--shadow-soft);
-	appearance: none;
-}
-.space-hue input[type='range']::-moz-range-thumb {
-	width: 12px;
-	height: 12px;
-	border: 3px solid var(--canvas);
-	border-radius: 50%;
-	background: var(--space-color);
-	box-shadow:
-		0 0 0 1px var(--line),
-		0 1px 3px var(--shadow-soft);
-}
-.space-hue input[type='range']:focus-visible {
-	outline: 2px solid var(--line);
-	outline-offset: 3px;
-}
-.space-hue-auto {
-	padding: 3px 9px;
-	border-radius: var(--radius-pill);
-	color: var(--tertiary);
-	font-size: var(--text-sm);
+.space-icon-trigger.empty {
 	box-shadow: inset 0 0 0 1px var(--line);
 }
-.space-hue-auto[aria-pressed='true'] {
-	background: var(--surface);
+.space-icon-trigger.empty svg {
+	width: 17px;
+	height: 17px;
+}
+.space-icon-trigger:hover,
+.space-icon-trigger[data-state='open'] {
+	background: var(--hover);
 	color: var(--ink);
 }
-.space-hue-auto:hover {
+.space-icon-trigger:active {
+	scale: 0.96;
+}
+.icon-popover.menu-content {
+	--icon-cell: 40px;
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	gap: 8px;
+	width: min(332px, calc(100vw - 24px));
+	max-width: none;
+	max-height: min(360px, var(--bits-popover-content-available-height, 60vh));
+	padding: 8px;
+	overflow: hidden;
+	transform-origin: var(--bits-popover-content-transform-origin, top left);
+}
+.icon-popover-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.icon-popover-head .folder-sheet-filter {
+	flex: 1;
+	width: auto;
+}
+.icon-popover-remove {
+	flex-shrink: 0;
+	padding: 4px 8px;
+	border-radius: var(--radius-sm);
+	color: var(--secondary);
+	font-size: var(--text-sm);
+}
+.icon-popover-remove:hover {
+	background: var(--menu-fill);
 	color: var(--ink);
+}
+.icon-popover-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, var(--icon-cell));
+	justify-content: space-between;
+	gap: 2px;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+.icon-popover-option {
+	display: grid;
+	place-items: center;
+	width: var(--icon-cell);
+	height: var(--icon-cell);
+	border-radius: var(--radius-sm);
+	transition:
+		background-color 120ms ease,
+		scale 200ms var(--ease-spring);
+}
+.icon-popover-option .sticker {
+	display: block;
+}
+@media (hover: hover) {
+	.icon-popover-option:hover {
+		background: var(--menu-fill);
+		scale: 1.08;
+	}
+}
+.icon-popover-option:focus-visible {
+	outline: none;
+	background: var(--menu-fill);
+}
+.icon-popover-option[aria-pressed='true'] {
+	background: var(--menu-fill);
+	box-shadow: inset 0 0 0 1px var(--menu-edge);
+}
+.icon-popover-note {
+	padding: 16px 4px;
+	color: var(--tertiary);
+	font-size: var(--text-sm);
+	text-align: center;
 }
 
 /* Folder glyph: the shut and open folders are stacked in one box and cross-faded, so opening

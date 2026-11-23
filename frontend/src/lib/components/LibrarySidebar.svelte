@@ -28,13 +28,9 @@
 	import { ContextMenu } from 'bits-ui';
 	import { fly } from 'svelte/transition';
 	import { spaceOf } from '#lib/client/workflows.js';
-	import {
-		activeSpace,
-		restoreSpace,
-		showSpace,
-		spaceColor,
-		spaceInitial
-	} from '#lib/client/spaces.svelte.js';
+	import { activeSpace, restoreSpace, showSpace } from '#lib/client/spaces.svelte.js';
+	import { ensureStickers, stickers } from '#lib/client/stickers.svelte.js';
+	import Sticker from './ui/Sticker.svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { onMount, tick, untrack } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -131,6 +127,12 @@
 		if (next) switchTo(String(next.id));
 	}
 	onMount(restoreSpace);
+	const spaceIcons = $derived(
+		spaces.map((s) => s.icon).filter((icon): icon is string => typeof icon === 'string')
+	);
+	$effect(() => {
+		if (spaceIcons.length) void ensureStickers(spaceIcons);
+	});
 	// Opening a tag kept in another space brings that space forward, so the row is in view.
 	$effect(() => {
 		if (!view.startsWith('tag:')) return;
@@ -621,15 +623,20 @@
 					{#each shelf as entry, index (String(entry.id))}
 						{@const id = String(entry.id)}
 						{@const selected = id === spaceId}
+						{@const sticker = typeof entry.icon === 'string' ? stickers.get(entry.icon) : undefined}
 						{#snippet tab()}<button
-								class={['space-tab', selected && 'active', spaceTarget === id && 'drop-target']}
+								class={[
+									'space-tab',
+									(sticker || !id) && 'has-icon',
+									selected && 'active',
+									spaceTarget === id && 'drop-target'
+								]}
 								role="tab"
 								aria-selected={selected}
 								tabindex={selected ? 0 : -1}
 								title={selected
 									? String(entry.name)
 									: `${entry.name} · drop a tag or folder to move it here`}
-								style:--space-color={spaceColor(entry)}
 								ondragenter={(event) => overSpace(event, id)}
 								ondragover={(event) => overSpace(event, id)}
 								ondragleave={() => {
@@ -637,9 +644,9 @@
 								}}
 								ondrop={(event) => void dropOnSpace(event, id)}
 								onclick={() => switchTo(id)}
-								><span class="space-chip" aria-hidden="true"
-									>{#if id}{spaceInitial(entry.name)}{:else}<House />{/if}</span
-								><span class="space-name">{entry.name}</span></button
+								>{#if sticker}<Sticker {sticker} />{:else if !id}<House
+										class="space-home"
+									/>{/if}<span class="space-name">{entry.name}</span></button
 							>{/snippet}
 						{#if id && onEditSpace}<ContextMenu.Root
 								><ContextMenu.Trigger class="space-tab-slot">{@render tab()}</ContextMenu.Trigger

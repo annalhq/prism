@@ -35,7 +35,7 @@ export function taxonomyProjection(
 		...('position' in row ? { position: row.position } : {}),
 		...('isPrivate' in row ? { isPrivate: row.isPrivate, folderId: row.folderId } : {}),
 		...('spaceId' in row ? { spaceId: row.spaceId } : {}),
-		...('hue' in row ? { hue: row.hue } : {}),
+		...('icon' in row ? { icon: row.icon } : {}),
 		revision: String(row.revision) as Revision,
 		lastSeq: String(row.lastSeq) as Sequence,
 		deletedAt: row.deletedAt?.toISOString() ?? null,
@@ -131,11 +131,11 @@ export async function changeTaxonomy(
 			.returning();
 		return [{ type: 'folder.upsert', folder: taxonomyProjection(moved) }];
 	}
-	if (command.type === 'space.move' || command.type === 'space.hue') {
+	if (command.type === 'space.move' || command.type === 'space.icon') {
 		const [moved] = await tx
 			.update(spaces)
 			.set({
-				...('hue' in command ? { hue: command.hue } : { position: command.position }),
+				...('icon' in command ? { icon: command.icon } : { position: command.position }),
 				revision: current!.revision + 1n,
 				lastSeq: seq,
 				updatedAt: now

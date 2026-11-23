@@ -35,8 +35,8 @@ export type TaxonomyCommand =
 	| { type: 'tag.privacy'; id: string; expectedRevision: Revision; isPrivate: boolean }
 	// Files a tag into a folder, or back out of every folder with null.
 	| { type: 'tag.folder'; id: string; expectedRevision: Revision; folderId: string | null }
-	// A space's colour as an OKLCH hue in degrees, or null to derive it from the name.
-	| { type: 'space.hue'; id: string; expectedRevision: Revision; hue: number | null }
+	// A sticker id shown beside a space's name, or null for the name alone.
+	| { type: 'space.icon'; id: string; expectedRevision: Revision; icon: string | null }
 	// Shows a loose tag or a folder in a space, or back in Home with null.
 	| {
 			type: 'tag.space' | 'folder.space';
@@ -88,7 +88,7 @@ export const ORGANIZATION_COMMAND_TYPES = [
 	'space.rename',
 	'space.delete',
 	'space.move',
-	'space.hue',
+	'space.icon',
 	'collection.create',
 	'collection.rename',
 	'collection.delete',
@@ -117,6 +117,7 @@ export function normalizeOrganizationName(value: unknown): {
 // key fits between any two others without renumbering. Trailing zeros would make two
 // spellings of one value, so they are not allowed.
 const POSITION_DIGITS = '0123456789abcdefghijklmnopqrstuvwxyz';
+export const SPACE_ICON_PATTERN = /^(?=.{1,64}$)[a-z0-9]+(-[a-z0-9]+)*$/;
 export const TAG_POSITION_PATTERN = /^[0-9a-z]{0,127}[1-9a-z]$/;
 export function parseTagPosition(value: unknown): string {
 	if (typeof value !== 'string' || !TAG_POSITION_PATTERN.test(value))
@@ -243,15 +244,15 @@ export function parseOrganizationCommand(value: unknown): OrganizationCommand {
 				expectedRevision: revision(c.expectedRevision),
 				folderId: c.folderId === null ? null : uuid(c.folderId)
 			};
-		case 'space.hue':
-			keys(c, ['type', 'id', 'expectedRevision', 'hue']);
-			if (c.hue !== null && (!Number.isInteger(c.hue) || Number(c.hue) < 0 || Number(c.hue) > 359))
-				throw new ValidationError('A space hue is a whole number of degrees from 0 to 359.');
+		case 'space.icon':
+			keys(c, ['type', 'id', 'expectedRevision', 'icon']);
+			if (c.icon !== null && (typeof c.icon !== 'string' || !SPACE_ICON_PATTERN.test(c.icon)))
+				throw new ValidationError('Choose a valid icon.');
 			return {
 				type: c.type,
 				id,
 				expectedRevision: revision(c.expectedRevision),
-				hue: c.hue === null ? null : Number(c.hue)
+				icon: c.icon
 			};
 		case 'tag.space':
 		case 'folder.space':
