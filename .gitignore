@@ -15,7 +15,10 @@ ARCHITECTURE.md
 AGENT.md
 TODO.*
 *.md
+!.github/CONTRIBUTING.md
 !.github/theming.md
+!docs/self-hosting.md
+!docs/using-prism.md
 
 .env
 .env.*

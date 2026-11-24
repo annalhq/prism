@@ -1,8 +1,8 @@
 # Prism for Chrome
 
-Save pages and X/Twitter posts to your Prism library without leaving your browser. Add tags, connect people, and queue saves when you're offline. Works with [OldTwitter](https://github.com/dimdenGD/OldTwitter), created by [dimden](https://github.com/dimdenGD), too.
+Save pages, highlights, and X/Twitter posts to your Prism library without leaving your browser. Add tags, connect people, and queue saves when you're offline. Works with [OldTwitter](https://github.com/dimdenGD/OldTwitter), created by [dimden](https://github.com/dimdenGD), too.
 
-Supports Chrome 116+ and other Chromium browsers, including Edge, Brave, Arc, and Vivaldi. You'll need a running [Prism library](../../.github/README.md#self-hosting) to connect to.
+Supports Chrome 116+ and other Chromium browsers, including Edge, Brave, Arc, and Vivaldi. You'll need a running [Prism library](../../docs/self-hosting.md) to connect to.
 
 ## Install
 
@@ -15,16 +15,17 @@ Keep that folder in place: Chrome loads the extension from it. In other Chromium
 
 ## Connect to Prism
 
-1. Sign in to Prism and open **Account**.
+1. Sign in to Prism and open **Settings → Browser extension**.
 2. Generate a pairing code.
 3. Click the Prism icon in your browser toolbar, paste the code, and connect.
 4. Allow access to your Prism site when the browser asks.
 
-Pairing codes expire and can only be used once. Generate a new one if needed. You can revoke the connection from Prism's Account panel at any time.
+Pairing codes expire and can only be used once. Generate a new one if needed. You can revoke the connection from **Settings → Browser extension**.
 
 ## Save something
 
 - **Any page:** click the Prism toolbar icon or press `Alt + Shift + P`.
+- **A passage:** select text on a page, right-click, and choose **Add to Prism**. Find the saved passage in Prism’s **Highlights** view.
 - **X/Twitter or OldTwitter:** click the Prism save button on a post.
 - **Before saving:** edit the title, add `#tags` or an `@person`, then click **Save**. You can also press `Ctrl + Enter` (`⌘ + Enter` on macOS).
 
@@ -40,7 +41,7 @@ Use the same folder to preserve your pairing. Updates to an unpacked extension a
 
 ## Build from source
 
-After completing the [project setup](../../.github/README.md#self-hosting), run these commands from the repository root as needed:
+After completing [local setup](../../docs/self-hosting.md#run-locally), run these commands from the repository root.
 
 | Command                | What it does                                   |
 | ---------------------- | ---------------------------------------------- |
