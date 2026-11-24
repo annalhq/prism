@@ -28,7 +28,8 @@
 		"db:migrate": "bun scripts/db/migrate.ts",
 		"themes:schema": "bun scripts/themes/schema.ts && prettier --write static/themes/theme.schema.json",
 		"db:inventory": "bun scripts/db/inventory.ts",
-		"db:init-owner": "bun scripts/db/init-owner.ts"
+		"db:init-owner": "bun scripts/db/init-owner.ts",
+		"og:image": "bun scripts/og/render.mjs"
 	},
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.1161.0",
