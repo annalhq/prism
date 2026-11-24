@@ -7,7 +7,7 @@ import { chromium } from '@playwright/test';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const harnessId = `${root}favicon-test-harness.svelte`;
 const svg =
-	'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="green"/></svg>';
+	'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="green"/></svg>';
 const server = await createServer({
 	root,
 	envDir: false,
@@ -122,9 +122,9 @@ try {
 				assert.match(
 					src ?? '',
 					scenario === 'URL changes'
-						? /domain=stripe.com/
+						? /google\.com.*stripe\.com/
 						: scenario === 'stale image event'
-							? /domain=example.com/
+							? /google\.com.*example\.com/
 							: /icons.duckduckgo.com/
 				);
 				for (const release of held) release();
@@ -149,7 +149,7 @@ try {
 				await page.waitForTimeout(100);
 				assert.match(
 					(await page.locator('.favicon img').getAttribute('src')) ?? '',
-					/domain=stripe.com/
+					/google\.com.*stripe\.com/
 				);
 			}
 			for (const release of held) release();

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { asset } from '$app/paths';
 
-const google = (host: string) => `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
+const google = (host: string) =>
+	`https://www.google.com/s2/favicons?domain_url=https%3A%2F%2F${host}&sz=64`;
 const duck = (host: string) => `https://icons.duckduckgo.com/ip3/${host}.ico`;
 
 // Image events and storage are browser boundaries; the resolver and timers are real.
@@ -9,6 +10,8 @@ class TestImage {
 	static instances: TestImage[] = [];
 	src = '';
 	referrerPolicy = '';
+	naturalWidth = 32;
+	naturalHeight = 32;
 	onload: (() => void) | null = null;
 	onerror: (() => void) | null = null;
 	constructor() {
@@ -95,6 +98,21 @@ describe('favicon resolution', () => {
 		lateLoad();
 		await vi.advanceTimersByTimeAsync(500);
 		expect([...storage.values()].join('')).toContain(duck('example.com'));
+	});
+	it("treats Google's 16px placeholder as a miss and falls back at once", async () => {
+		const result = favicons.resolveFavicon('https://studio.example.com');
+		const placeholder = TestImage.instances[0];
+		placeholder.naturalWidth = placeholder.naturalHeight = 16;
+		placeholder.onload!();
+		expect(TestImage.instances[1].src).toBe(duck('studio.example.com'));
+		TestImage.instances[1].onload!();
+		await expect(result).resolves.toBe(duck('studio.example.com'));
+	});
+	it('accepts small real icons from Google', async () => {
+		const result = favicons.resolveFavicon('https://news.example.com');
+		TestImage.instances[0].naturalWidth = TestImage.instances[0].naturalHeight = 18;
+		TestImage.instances[0].onload!();
+		await expect(result).resolves.toBe(google('news.example.com'));
 	});
 	it('starts fallback immediately on primary failure', async () => {
 		const result = favicons.resolveFavicon('https://example.com');
