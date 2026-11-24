@@ -945,6 +945,8 @@
 							aria-label="Suggestions"
 							transition:scale={{ duration: 140, start: 0.97, easing: cubicOut }}
 						>
+							<!-- Keyboard picks go through the field (combobox with aria-activedescendant). -->
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
 							{#each options as choice, index (key(choice))}<li
 									id={`capture-option-${index}`}
 									role="option"
@@ -954,8 +956,8 @@
 									onpointerdown={(e) => {
 										// Keep focus in the field so the list stays open for the next pick.
 										e.preventDefault();
-										add(choice);
 									}}
+									onclick={() => add(choice)}
 								>
 									{#if choice.kind === 'new-tag'}<Plus /><span>Create <b>#{choice.name}</b></span
 										>{:else}{#if choice.kind === 'person'}<PersonAvatar

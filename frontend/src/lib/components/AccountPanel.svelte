@@ -228,32 +228,11 @@
 	}
 	const sync = $derived(syncSummary(status));
 	const sections = $derived([
-		{ id: 'general', label: 'General', icon: SlidersHorizontal, hint: '' },
-		{
-			id: 'appearance',
-			label: 'Appearance',
-			icon: Palette,
-			hint: [
-				listPreference.minimal && 'Minimal list',
-				toolbarPreference.hidden && 'No list header',
-				cornersPreference.square && 'Square corners'
-			]
-				.filter(Boolean)
-				.join(' · ')
-		},
-		{
-			id: 'extension',
-			label: 'Browser extension',
-			icon: Puzzle,
-			hint: extensionConnections.length ? `${extensionConnections.length} connected` : 'Not paired'
-		},
-		{
-			id: 'library',
-			label: 'Library',
-			icon: Library,
-			hint: `${tags.length} ${tags.length === 1 ? 'tag' : 'tags'}`
-		},
-		{ id: 'account', label: 'Account', icon: LockKeyhole, hint: '' }
+		{ id: 'general', label: 'General', icon: SlidersHorizontal },
+		{ id: 'appearance', label: 'Appearance', icon: Palette },
+		{ id: 'extension', label: 'Browser extension', icon: Puzzle },
+		{ id: 'library', label: 'Library', icon: Library },
+		{ id: 'account', label: 'Account', icon: LockKeyhole }
 	] as const);
 	const current = $derived(sections.find((entry) => entry.id === section)!);
 	let themePage = $state<'main' | 'themes'>('main');
@@ -312,9 +291,7 @@
 										onclick={() => openSection(entry.id)}
 										><span class="settings-nav-icon"><entry.icon /></span><span
 											class="settings-nav-label">{entry.label}</span
-										>{#if entry.hint}<small>{entry.hint}</small>{/if}<ChevronRight
-											class="settings-nav-go"
-										/></button
+										><ChevronRight class="settings-nav-go" /></button
 									>
 								</li>{/each}
 						</ul>

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Ellipsis, Plus } from '@lucide/svelte';
-	import { ContextMenu, DropdownMenu } from 'bits-ui';
+	import { Plus } from '@lucide/svelte';
+	import { ContextMenu } from 'bits-ui';
 	import { tick } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { flip } from 'svelte/animate';
@@ -11,7 +11,7 @@
 	import SpaceActions from './SpaceActions.svelte';
 
 	type Row = Record<string, unknown>;
-	// Mobile space switcher. Tap to switch; long-press a tab or use ⋯ for actions.
+	// Mobile space switcher. Tap to switch; long-press a tab for its actions.
 	let {
 		spaces,
 		current,
@@ -36,7 +36,6 @@
 	} = $props();
 
 	const currentIndex = $derived(spaces.findIndex((s) => String(s.id) === current));
-	const currentSpace = $derived(spaces[currentIndex]);
 	const motion = $derived(prefersReducedMotion.current ? 0 : 1);
 
 	// Positions the pill and centres the active tab. Resizes only reposition the pill.
@@ -157,7 +156,6 @@
 						><ContextMenu.Portal
 							><ContextMenu.Content class="menu-content" collisionPadding={12}>
 								<SpaceActions
-									Menu={ContextMenu}
 									{space}
 									{index}
 									count={spaces.length}
@@ -172,37 +170,10 @@
 			</div>
 		{/each}
 	</div>
-	{#if onEditSpace}<DropdownMenu.Root
-			><DropdownMenu.Trigger class="icon-button space-more" aria-label="Space actions"
-				><Ellipsis /></DropdownMenu.Trigger
-			><DropdownMenu.Portal
-				><DropdownMenu.Content
-					class="menu-content"
-					align="end"
-					sideOffset={6}
-					collisionPadding={12}
-				>
-					<DropdownMenu.Item class="menu-item" onSelect={() => onEditSpace(null)}
-						><Plus /><span>New space</span></DropdownMenu.Item
-					>
-					{#if currentSpace}<DropdownMenu.Separator class="menu-separator" /><DropdownMenu.Group
-							><DropdownMenu.GroupHeading class="space-menu-heading"
-								>{currentSpace.name}{#if current === defaultId}<span>
-										· Default</span
-									>{/if}</DropdownMenu.GroupHeading
-							><SpaceActions
-								Menu={DropdownMenu}
-								space={currentSpace}
-								index={currentIndex}
-								count={spaces.length}
-								isDefault={current === defaultId}
-								{onEditSpace}
-								{onSetDefault}
-								{onReorderSpace}
-							/></DropdownMenu.Group
-						>{/if}
-				</DropdownMenu.Content></DropdownMenu.Portal
-			></DropdownMenu.Root
+	{#if onEditSpace}<button
+			class="icon-button space-add"
+			aria-label="New space"
+			onclick={() => onEditSpace(null)}><Plus /></button
 		>{/if}
 </div>
 
@@ -353,23 +324,17 @@
 			translate 320ms var(--ease-spring),
 			width 320ms var(--ease-spring);
 	}
-	:global(.space-more) {
+	.space-add {
 		flex-shrink: 0;
 		border-radius: 50%;
 		color: var(--secondary);
 		-webkit-tap-highlight-color: transparent;
+		transition: scale 200ms var(--ease-spring);
 	}
-	:global(.space-more:active) {
+	.space-add:active {
 		background: var(--hover);
 		scale: 0.94;
-	}
-	:global(.space-menu-heading) {
-		padding: 6px 10px 4px;
-		color: var(--tertiary);
-		font-size: var(--text-xs);
-		font-weight: 500;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
+		transition-duration: 80ms;
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.space-tabs,
