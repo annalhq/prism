@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.4](https://github.com/annalhq/prism/compare/v0.3.3...v0.3.4) (2026-11-24)
+
+### Features
+
+* **spaces:** default space, native swiping and tab reordering ([70ccb1c](https://github.com/annalhq/prism/commit/70ccb1c8d88af0d47464145316ac822aef3065a2))
+* **spaces:** sticker icons instead of hues ([0b8b4f8](https://github.com/annalhq/prism/commit/0b8b4f884202a1405f1e3cda613b208d0e678473))
+* **spaces:** tap-to-switch spaces on the mobile tags page ([a8a9c61](https://github.com/annalhq/prism/commit/a8a9c618c92c12fcceee0aaeb188c729e3ef94cf))
+
+### Bug Fixes
+
+* **corners:** keep landing, sign-in and extension spinners round ([efc4765](https://github.com/annalhq/prism/commit/efc47650f03ba7b4d2f10bf01d1e5365a4f44179))
+* **sidebar:** stop icons drifting left when collapsed ([3eeff50](https://github.com/annalhq/prism/commit/3eeff5028e098bb3db240496336f8714f043f513))
+
+### Styling
+
+* **brand:** petal animations in sidebar and landing page ([d8e787f](https://github.com/annalhq/prism/commit/d8e787f50fd6b80560276c383752f054ec6dd9cc))
+
 ## [0.3.3](https://github.com/annalhq/prism/compare/v0.3.2...v0.3.3) (2026-11-22)
 
 ### Features
