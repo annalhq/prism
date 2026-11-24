@@ -8645,8 +8645,9 @@ a.editor-source:hover > svg {
 /*
  * Square corners (Settings → Appearance): every curve flattened for a strict, minimal look.
  * One override instead of a second set of radii, so new components follow without extra work.
+ * The landing and sign-in pages (.grain-page) are brand surfaces and keep their curves.
  */
-:root[data-corners='square'] {
+:root[data-corners='square']:not(:has(.grain-page)) {
 	--radius-sm: 0px;
 	--radius-control: 0px;
 	--radius-card: 0px;
@@ -8654,8 +8655,8 @@ a.editor-source:hover > svg {
 	--radius-pill: 0px;
 	--shell-radius: 0px;
 }
-:root[data-corners='square'] *,
-:root[data-corners='square'] *::before,
-:root[data-corners='square'] *::after {
+:root[data-corners='square']:not(:has(.grain-page)) *,
+:root[data-corners='square']:not(:has(.grain-page)) *::before,
+:root[data-corners='square']:not(:has(.grain-page)) *::after {
 	border-radius: 0 !important;
 }

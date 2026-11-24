@@ -51,7 +51,7 @@ ${zenDark};
 @media (prefers-color-scheme:light){:host(:not([data-scheme])),:root:not([data-scheme]){${zenLight}}}
 :host([data-scheme=light]),:root[data-scheme=light]{${zenLight}}
 :host([data-corners=square]),:root[data-corners=square]{--radius-sm:0px!important;--radius-control:0px!important;--radius-card:0px!important;--radius-panel:0px!important;--radius-pill:0px!important}
-:host([data-corners=square]) *,:root[data-corners=square] *,:host([data-corners=square]) *::before,:root[data-corners=square] *::before,:host([data-corners=square]) *::after,:root[data-corners=square] *::after{border-radius:0!important}
+:host([data-corners=square]) :not(.spinner),:root[data-corners=square] :not(.spinner),:host([data-corners=square]) ::before,:root[data-corners=square] ::before,:host([data-corners=square]) ::after,:root[data-corners=square] ::after{border-radius:0!important}
 `;
 
 /**
