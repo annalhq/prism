@@ -138,7 +138,7 @@
 								>{/each}{#if people.length > 3}
 								+{people.length - 3}{/if}</span
 						>{/if}{/if}
-				{#if isReadLater(item)}<span class="later-badge" title="Read later"
+				{#if isReadLater(item)}<span class="later-badge"
 						><Clock3Icon /><span class="sr-only">Read later</span></span
 					>{/if}
 			</header>{/if}

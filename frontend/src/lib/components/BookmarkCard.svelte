@@ -210,26 +210,25 @@
 
 {#snippet row()}
 	<div class="row-leading">
-		{#if item.kind === 'text'}<span class="favicon fallback" title="Note"><NoteIcon /></span
-			>{:else if stash}<span class="favicon fallback" title="Rabbit hole"><RabbitIcon /></span
+		{#if item.kind === 'text'}<span class="favicon fallback" role="img" aria-label="Note"
+				><NoteIcon /></span
+			>{:else if stash}<span class="favicon fallback" role="img" aria-label="Rabbit hole"
+				><RabbitIcon /></span
 			>{:else}<Favicon url={source} />{/if}
 	</div>
 
 	<div class="bookmark-content">
 		{#if source}<a
 				class="bookmark-title"
-				title={String(item.title)}
 				href={source}
 				target="_blank"
 				rel="noopener noreferrer"
 				onclick={toggleFromTitle}>{item.title}</a
 			>{:else}<button class="bookmark-title" onclick={toggleFromButton}>{item.title}</button>{/if}
-		{#if highlighted}<span
-				class="later-badge highlight-badge"
-				title={`${passages.length} ${passages.length === 1 ? 'highlight' : 'highlights'}`}
+		{#if highlighted}<span class="later-badge highlight-badge"
 				><HighlighterIcon /><span class="sr-only">Highlights</span></span
 			>{/if}
-		{#if isReadLater(item)}<span class="later-badge" title="Read later"
+		{#if isReadLater(item)}<span class="later-badge"
 				><Clock3Icon /><span class="sr-only">Read later</span></span
 			>{/if}
 		{#if hasNote}<ChevronRightIcon class="disclosure-chevron" aria-hidden="true" />{/if}

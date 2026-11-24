@@ -236,7 +236,6 @@
 								type="button"
 								class={['space-icon-trigger', !chosenSticker && 'empty']}
 								aria-label={chosenSticker ? `Icon: ${chosenSticker.name}. Change icon` : 'Add icon'}
-								title={chosenSticker ? 'Change icon' : 'Add icon'}
 								>{#if chosenSticker}<Sticker sticker={chosenSticker} size={26} />{:else}<ImagePlus
 									/>{/if}</Popover.Trigger
 							>
@@ -277,7 +276,6 @@
 														class="icon-popover-option"
 														aria-pressed={icon === sticker.id}
 														aria-label={sticker.name}
-														title={sticker.name}
 														onclick={() => pick(sticker)}><Sticker {sticker} size={26} /></button
 													>{/each}
 											</div>{:else}<p class="icon-popover-note">No icon matches.</p>{/if}{:else}<p
@@ -328,9 +326,6 @@
 										type="button"
 										class="folder-chip"
 										aria-pressed={picked}
-										title={elsewhere && !picked
-											? `In ${elsewhere}; choosing it moves it here`
-											: undefined}
 										onclick={() => toggle(item.key)}
 										>{#if picked}<Check />{:else if item.folder}<FolderGlyph />{:else}<span
 												aria-hidden="true">#</span
@@ -359,7 +354,6 @@
 									type="button"
 									class="name-sheet-delete"
 									disabled={lockedDefault}
-									title={lockedDefault ? 'Make another space the default first' : undefined}
 									onclick={() => (deleteArmed = true)}><Trash2 />Delete</button
 								>{/if}{#if space && !isDefault}<button
 									type="button"

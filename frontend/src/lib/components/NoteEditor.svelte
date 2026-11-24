@@ -317,7 +317,7 @@
 			{@attach autosize(noteText)}
 			{@attach markdownShortcuts}></textarea>{/if}
 	<div class="editor-prop">
-		<span class="editor-prop-icon" title="Linked in this note"><LinkIcon /></span>
+		<span class="editor-prop-icon" role="img" aria-label="Linked in this note"><LinkIcon /></span>
 		<TokenInput
 			label="Link saved content"
 			placeholder="Link a bookmark or person"

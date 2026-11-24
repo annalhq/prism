@@ -144,7 +144,6 @@
 					type="button"
 					class="stash-trail-step"
 					aria-current={index === trail.length - 1 ? 'location' : undefined}
-					title={step.title}
 					onclick={() => (selected = step.key)}>{step.title}</button
 				>{/each}
 		</nav>{/if}

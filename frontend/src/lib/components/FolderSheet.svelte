@@ -197,9 +197,6 @@
 										type="button"
 										class="folder-chip"
 										aria-pressed={chosen.includes(id)}
-										title={elsewhere && !chosen.includes(id)
-											? `In ${elsewhere}; choosing it moves it here`
-											: undefined}
 										onclick={() => toggle(id)}
 										>{#if chosen.includes(id)}<Check />{:else}<span aria-hidden="true">#</span
 											>{/if}{tag.name}{#if elsewhere && !chosen.includes(id)}<small

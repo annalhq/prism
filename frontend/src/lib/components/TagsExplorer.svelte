@@ -110,7 +110,6 @@
 		{#if onCreate}<button
 				class="icon-button tags-new"
 				aria-label="New tag or folder"
-				title="New tag · end with / for a folder"
 				onclick={() => onCreate('')}><Plus /></button
 			>{/if}
 	</div>

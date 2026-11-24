@@ -689,7 +689,7 @@
 		]}
 		aria-current={view === `tag:${row.id}` ? 'page' : undefined}
 		aria-keyshortcuts={onReorder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
-		title={onReorder ? `${row.name} · drag or Alt+↑/↓ to reorder` : String(row.name)}
+		aria-label={String(row.name)}
 		data-tag-id={String(row.id)}
 		draggable={!!onReorder && !collapsed}
 		ondragstart={(event) => start(event, 'tag', row, group)}
@@ -715,9 +715,7 @@
 					class="sidebar-link sidebar-folder-toggle"
 					aria-expanded={open}
 					aria-keyshortcuts={onReorderFolder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
-					title={onReorderFolder
-						? `${group.folder.name} · drag or Alt+↑/↓ to reorder`
-						: String(group.folder.name)}
+					aria-label={String(group.folder.name)}
 					data-folder-id={id}
 					draggable={!!onReorderFolder && !collapsed}
 					ondragstart={(event) => start(event, 'folder', group.folder)}
@@ -808,7 +806,6 @@
 			class="icon-button sidebar-toggle"
 			aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 			aria-expanded={!collapsed}
-			title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 			onclick={toggle}
 			>{#if collapsed}<PanelLeft />{:else}<PanelRight />{/if}</button
 		>
@@ -840,7 +837,6 @@
 						class={['quad-tile', view === item.id && 'active']}
 						aria-current={view === item.id ? 'page' : undefined}
 						aria-label={item.label}
-						title={countOf(item.id) ? `${item.label} · ${countOf(item.id)}` : item.label}
 						onclick={() => onSelect(item.id)}
 						><item.icon />{#if countOf(item.id)}<small class="quad-count sidebar-label"
 								>{countOf(item.id)}</small
@@ -849,7 +845,7 @@
 			</div>{:else}{#each views as item (item.id)}<button
 					class={['sidebar-link', view === item.id && 'active']}
 					aria-current={view === item.id ? 'page' : undefined}
-					title={item.label}
+					aria-label={item.label}
 					onclick={() => onSelect(item.id)}
 					><item.icon /><span class="sidebar-label">{item.label}</span>{#if countOf(item.id)}<small
 							class="sidebar-count sidebar-label">{countOf(item.id)}</small
@@ -900,7 +896,6 @@
 									role="tab"
 									aria-selected={selected}
 									tabindex={selected ? 0 : -1}
-									title={`${entry.name}${isDefault ? ' · default' : ''}${selected ? '' : ' · drop a tag or folder to move it here'}`}
 									draggable={!!onReorderSpace && !collapsed}
 									ondragstart={(event) => startSpaceDrag(event, id)}
 									ondragend={() => (spaceDrag = null)}
@@ -955,7 +950,6 @@
 					{#if onEditSpace}<button
 							class="space-add"
 							aria-label="New space"
-							title="New space"
 							onclick={() => onEditSpace(null)}><Plus /></button
 						>{/if}
 				</div>{/if}
@@ -963,18 +957,15 @@
 				<button
 					class={['sidebar-heading-link', view === 'tags' && 'active']}
 					aria-current={view === 'tags' ? 'page' : undefined}
-					title="Explore all tags"
 					onclick={() => onSelect('tags')}>Tags</button
 				><span class="sidebar-heading-actions"
 					>{#if onEditSpace && !spaces.length}<button
 							class="icon-button"
 							aria-label="New space"
-							title="New space · split your tags into shelves you swipe between"
 							onclick={() => onEditSpace(null)}><Layers /></button
 						>{/if}{#if onCreate}<button
 							class="icon-button"
 							aria-label="Add tag or folder"
-							title="Add tag · end with / for a folder"
 							onclick={() => onCreate('tag')}><Plus /></button
 						>{/if}</span
 				>
@@ -1012,17 +1003,17 @@
 	{#if onAccount}<div class="sidebar-footer">
 			<button
 				class="sidebar-link sidebar-account account-button"
-				title="Settings · ,"
+				aria-label="Settings"
+				aria-keyshortcuts=","
 				onclick={onAccount}
 				data-cuelume-open><Settings2 /><span class="sidebar-label">Settings</span></button
 			>{#if footerTrash}<button
 					class={['icon-button sidebar-trash', view === 'trash' && 'active']}
 					aria-label="Trash"
 					aria-current={view === 'trash' ? 'page' : undefined}
-					title={countOf('trash') ? `Trash · ${countOf('trash')}` : 'Trash'}
 					onclick={() => onSelect('trash')}><Trash2 /></button
 				>{/if}
-		</div>{:else}<p class="sidebar-link sidebar-account sidebar-readonly" title="View only">
+		</div>{:else}<p class="sidebar-link sidebar-account sidebar-readonly">
 			<Eye /><span class="sidebar-label">View only</span>
 		</p>{/if}
 </aside>

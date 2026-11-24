@@ -121,7 +121,6 @@
 					target="_blank"
 					rel="noopener noreferrer"
 					aria-label={`Open ${tweet.author.name}’s post on X`}
-					title="Open on X"
 					onclick={onOpen}
 				>
 					<svg class="tweet-x" viewBox="0 0 24 24" aria-hidden="true"

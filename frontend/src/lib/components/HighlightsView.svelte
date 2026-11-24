@@ -111,18 +111,14 @@
 			<span class="reading-actions">
 				<button
 					class="icon-button"
-					title="Copy highlights as Markdown"
 					aria-label={`Copy highlights from ${item.title}`}
 					onclick={() =>
 						void copyText(
 							passagesMarkdown(String(item.title), source, passages),
 							'Highlights copied.'
 						)}><CopyIcon /></button
-				><button
-					class="icon-button"
-					title="Edit"
-					aria-label={`Edit ${item.title}`}
-					onclick={() => onEdit(item)}><PencilIcon /></button
+				><button class="icon-button" aria-label={`Edit ${item.title}`} onclick={() => onEdit(item)}
+					><PencilIcon /></button
 				>
 			</span>
 		</header>
@@ -154,13 +150,9 @@
 								href={passageUrl(source, passage.text)}
 								target="_blank"
 								rel="noopener noreferrer"
-								title="Open the page at this passage"
 								onclick={() => onOpen(item)}>In context<ArrowUpRightIcon /></a
 							>{/if}
-						<button
-							title="Copy passage"
-							onclick={() => void copyText(passage.text, 'Passage copied.')}>Copy</button
-						>
+						<button onclick={() => void copyText(passage.text, 'Passage copied.')}>Copy</button>
 					</span>
 				</li>
 			{/each}

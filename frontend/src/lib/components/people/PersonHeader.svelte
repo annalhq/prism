@@ -35,7 +35,6 @@
 		{#if onEdit}<button
 				class="landing-glass person-edit"
 				aria-label="Edit profile"
-				title="Edit profile"
 				onclick={onEdit}
 				data-cuelume-open><Pencil /></button
 			>{/if}

@@ -1333,12 +1333,10 @@
 							<button
 								role="radio"
 								aria-checked={feedScope === 'connected'}
-								title="Links connected to people"
 								onclick={() => void setFeedScope('connected')}>Connected</button
 							><button
 								role="radio"
 								aria-checked={feedScope === 'all'}
-								title="Every saved post from X, connected or not"
 								onclick={() => void setFeedScope('all')}>All posts</button
 							>
 						</div>{/if}
@@ -1357,7 +1355,6 @@
 					>
 						{#each recentPeople as entry (String(entry.id))}<button
 								onclick={() => navigate({ kind: 'person', id: String(entry.id) })}
-								title={String(entry.displayName)}
 								><PersonAvatar
 									name={String(entry.displayName)}
 									photo={photoOf(String(entry.id))}
@@ -1405,7 +1402,6 @@
 						{#if query}<span class="muted">{results.items.length} found</span
 							>{:else if hidingHighlights && listed.length < results.items.length}<button
 								class="hidden-highlights"
-								title="Highlight entries are hidden here. Show them in Settings → Library."
 								onclick={() => void navigate(null, `tag:${highlightTag}`)}
 								>{results.items.length - listed.length} hidden in #highlight</button
 							>{/if}

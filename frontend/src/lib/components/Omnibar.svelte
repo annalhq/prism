@@ -728,7 +728,6 @@
 				class:burrowing
 				disabled={!ready}
 				aria-label={mode === 'search' ? 'Switch to add bookmark' : 'Switch to search'}
-				title={mode === 'search' ? 'Add a bookmark · i' : 'Search · /'}
 				onclick={() => switchMode(mode === 'search' ? 'insert' : 'search')}
 				><span class="omnibar-glyph search-glyph"><Search /></span><span
 					class="omnibar-glyph insert-glyph"><Plus /></span
@@ -743,7 +742,6 @@
 				{#each search.chips as chip, index (`${index}:${chip.raw}`)}<span
 						role="listitem"
 						class={['omnibar-chip', `is-${chip.kind}`, chip.negate && 'negate']}
-						title={chip.raw}
 						in:scale={pop}
 						>{describeToken(chip)}<button
 							type="button"
@@ -819,14 +817,12 @@
 							: mode === 'search'
 								? 'Clear search'
 								: 'Clear link'}
-						title={trailing === 'close' ? 'Close · Esc' : 'Clear · Esc'}
 						onclick={clearOrClose}
 						in:scale={pop}><X /></button
 					>{:else if trailing === 'save'}<button
 						type="button"
 						class={['omnibar-save', { busy }]}
 						aria-label={busy ? 'Saving' : created ? 'Finish' : writing ? 'Save note' : 'Save link'}
-						title="Save"
 						disabled={!ready || busy}
 						onclick={() => void save()}
 						in:scale={pop}><Check /></button
@@ -879,12 +875,7 @@
 						{@attach autosize(body)}
 						{@attach markdownShortcuts}></textarea>
 				{:else}
-					<button
-						type="button"
-						class="capture-source"
-						title={created ? url : `${url} · Edit link`}
-						disabled={created}
-						onclick={editLink}
+					<button type="button" class="capture-source" disabled={created} onclick={editLink}
 						><Favicon {url} /><span>{host}</span>{#if !created}<small>Edit</small>{/if}</button
 					>
 					<div class="capture-title-field">

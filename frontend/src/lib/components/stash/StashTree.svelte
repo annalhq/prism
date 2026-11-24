@@ -227,19 +227,13 @@
 								href={node.url}
 								target="_blank"
 								rel="noopener noreferrer"
-								title={repeated.has(node.url)
-									? `${node.url} · also elsewhere in this trail`
-									: node.url}
 								ondblclick={(event) => {
 									if (readonly) return;
 									event.preventDefault();
 									renaming = node.key;
 								}}>{node.title}</a
 							>{/if}
-						{#if folder && !expanded}<span
-								class="stash-badge"
-								title={`${descendantCount(node)} links inside`}>{descendantCount(node)}</span
-							>{/if}
+						{#if folder && !expanded}<span class="stash-badge">{descendantCount(node)}</span>{/if}
 					</span>
 					{#if node.description && !editing}<span class="stash-description">{node.description}</span
 						>{/if}

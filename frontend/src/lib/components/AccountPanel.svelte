@@ -495,7 +495,6 @@
 													<button
 														role="radio"
 														aria-checked={sidebarPreference.mode === 'list'}
-														title="List"
 														onclick={() => setSidebarMode('list')}
 														><span class="layout-sketch list" aria-hidden="true"
 															><i></i><i></i><i></i></span
@@ -503,7 +502,6 @@
 													><button
 														role="radio"
 														aria-checked={sidebarPreference.mode === 'quad'}
-														title="Quad"
 														onclick={() => setSidebarMode('quad')}
 														><span class="layout-sketch quad" aria-hidden="true"
 															><i></i><i></i><i></i><i></i></span
@@ -527,9 +525,6 @@
 															<button
 																class="folder-chip quad-chip"
 																aria-pressed={on}
-																title={id === 'highlights' && !hasHighlightTag
-																	? 'Shows once a highlight is saved to #highlight'
-																	: meta.label}
 																disabled={on
 																	? sidebarPreference.quad.length === 1
 																	: sidebarPreference.quad.length >= MAX_QUAD}

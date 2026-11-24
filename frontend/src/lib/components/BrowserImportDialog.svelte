@@ -131,9 +131,7 @@
 						<thead><tr><th>In the file</th><th>Collection</th><th>Tag</th></tr></thead>
 						<tbody>
 							{#each plan.mapping.slice(0, MAPPING_ROWS) as row (row.path + row.collection + row.tag)}<tr
-									><td title={row.path}>{row.path}</td><td>{row.collection ?? '—'}</td><td
-										>{row.tag ?? '—'}</td
-									></tr
+									><td>{row.path}</td><td>{row.collection ?? '—'}</td><td>{row.tag ?? '—'}</td></tr
 								>{/each}
 						</tbody>
 					</table>

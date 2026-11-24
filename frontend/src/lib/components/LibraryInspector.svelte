@@ -285,7 +285,6 @@
 				href={safeSource}
 				target="_blank"
 				rel="noopener noreferrer"
-				title={safeSource}
 				onclick={() => void library.save({ type: 'activity.open', id: entity.id })}
 				><Favicon url={safeSource} /><span>{host}</span><ArrowUpRightIcon /></a
 			>{:else if stashItem}<span class="editor-source muted"
@@ -300,7 +299,6 @@
 					class={['icon-button', 'editor-later', isReadLater(row) && 'on']}
 					aria-pressed={isReadLater(row)}
 					aria-label={isReadLater(row) ? 'Remove from Read later' : 'Read later'}
-					title={isReadLater(row) ? 'In Read later' : 'Read later'}
 					onclick={() => organize({ readingStatus: isReadLater(row) ? 'unread' : 'reading' })}
 					><Clock3Icon /></button
 				><DropdownMenu.Root
@@ -364,7 +362,7 @@
 				<!-- Properties: one quiet row each, an icon instead of a label. -->
 				<div class="editor-props">
 					<div class="editor-prop">
-						<span class="editor-prop-icon" title="Tags"><HashIcon /></span>
+						<span class="editor-prop-icon" role="img" aria-label="Tags"><HashIcon /></span>
 						<TokenInput
 							label="Tags"
 							placeholder="Add a tag"
@@ -376,7 +374,7 @@
 						/>
 					</div>
 					<div class="editor-prop">
-						<span class="editor-prop-icon" title="People"><UsersIcon /></span>
+						<span class="editor-prop-icon" role="img" aria-label="People"><UsersIcon /></span>
 						<TokenInput
 							label="Connect people"
 							placeholder="Connect a person"

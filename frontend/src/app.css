@@ -1784,7 +1784,7 @@ kbd {
 	border: 0;
 	border-top: 1px solid var(--hairline);
 }
-/* Quad layout: up to four views as icon tiles; names live in the tooltip. */
+/* Quad layout: up to four views as icon tiles; names live in aria-label. */
 .quad-grid {
 	position: relative;
 	display: grid;

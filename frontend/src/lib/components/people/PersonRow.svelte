@@ -26,7 +26,5 @@
 			><strong>{name}</strong>{#if handle}<span>@{handle}</span>{/if}</span
 		>{#if about}<small>{about}</small>{/if}
 	</span>
-	{#if count}<span class="person-row-count" title={`${count} ${count === 1 ? 'link' : 'links'}`}
-			>{count}</span
-		>{/if}
+	{#if count}<span class="person-row-count">{count}</span>{/if}
 </button>
