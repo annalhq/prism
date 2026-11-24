@@ -801,7 +801,7 @@
 
 <aside class={['library-sidebar', collapsed && 'collapsed']}>
 	<div class="sidebar-brand">
-		<Brand compact {home} /><span class="sidebar-label">prism</span>
+		<Brand {home} labelClass="sidebar-label" />
 		<button
 			class="icon-button sidebar-toggle"
 			aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}

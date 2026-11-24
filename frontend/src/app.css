@@ -361,17 +361,10 @@ kbd {
 .brand-symbol {
 	display: inline-flex;
 }
-.brand-symbol img {
-	width: 24px;
-	height: 24px;
-}
-/* The mark is drawn light; on paper it needs to read dark. */
-:root[data-theme='light'] .brand-symbol img {
-	filter: invert(0.85);
-}
-.compact-brand {
-	width: 24px;
-	height: 28px;
+/* The mark is drawn in currentColor, so it follows the text in both themes. */
+.brand {
+	--brand-mark: 24px;
+	color: var(--ink);
 }
 .muted {
 	color: var(--secondary);
@@ -1530,26 +1523,38 @@ kbd {
 .library-sidebar.collapsed {
 	width: 64px;
 }
+/* Mark and wordmark are one link home. The mark's centre lines up with the row icons below
+   (sidebar padding 14 + 8 = 22px in, 22px wide → centred on the 33px icon column), and the row
+   is as tall as a nav row, so the header sits on the same rhythm as the list. */
 .sidebar-brand {
 	position: relative;
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	min-height: 32px;
-	margin-bottom: 26px;
+	min-height: 36px;
+	margin-bottom: 22px;
 	padding-left: 8px;
 }
+.sidebar-brand > .brand {
+	--brand-mark: 22px;
+	gap: 9px;
+	min-width: 0;
+	padding-right: 8px;
+}
+/* The serif's lowercase sits low on its line box; a pixel up centres it on the mark. */
 .sidebar-brand .sidebar-label {
 	font-family: var(--font-display);
-	font-size: var(--text-title);
+	font-size: 21px;
+	font-weight: 400;
 	letter-spacing: var(--tracking-title);
 	line-height: 1;
+	translate: 0 -1px;
 }
 /* The toggle stays out of the way until the panel is pointed at. */
 .sidebar-toggle {
 	position: absolute;
-	top: 0;
+	top: 50%;
 	right: 0;
+	translate: 0 -50%;
 	border-radius: 50%;
 	opacity: 0;
 	transition:
@@ -1567,7 +1572,7 @@ kbd {
 	color: var(--ink);
 }
 .sidebar-label,
-.sidebar-brand > .compact-brand,
+.sidebar-brand > .brand,
 .sidebar-group {
 	transition:
 		opacity 180ms var(--ease-out) 60ms,
@@ -1763,7 +1768,7 @@ kbd {
 }
 .collapsed .sidebar-label,
 .collapsed .sidebar-group,
-.collapsed .sidebar-brand > .compact-brand {
+.collapsed .sidebar-brand > .brand {
 	opacity: 0;
 	visibility: hidden;
 	transition:
@@ -7132,11 +7137,56 @@ a.editor-source:hover > svg {
 	font-weight: 400;
 	letter-spacing: var(--tracking-title);
 }
-.grain-brand .brand img,
-:root[data-theme='light'] .grain-brand .brand-symbol img {
-	width: 24px;
-	height: 24px;
-	filter: none;
+/*
+ * The landing's opening, once per visit: a flower blooms large in the middle of the empty screen,
+ * breathes out, and dissolves (growing a little, softening) while the page fades in beneath it:
+ * the mark in its corner, then the headline, then the way in. Nothing travels; one thing gives
+ * way to the next. Without motion there is no flower, and the page fades in as it always does.
+ */
+.grain-bloom {
+	display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+	/* Centred a little above the middle (42% down), clear of the headline. */
+	.grain-bloom {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		display: grid;
+		place-items: center;
+		padding-bottom: 16dvh;
+		pointer-events: none;
+		animation: bloom-dissolve 1500ms 2100ms cubic-bezier(0.4, 0, 0.2, 1) both;
+	}
+	.grain-bloom .brand {
+		--brand-mark: clamp(88px, 13vw, 132px);
+		color: var(--warm-white);
+	}
+	.grain-intro .grain-brand {
+		animation: fade-in 1400ms 2500ms var(--ease-out) both;
+	}
+	.grain-intro .grain-headline {
+		animation: landing-rise 1500ms 2650ms var(--ease-out) both;
+	}
+	.grain-intro .grain-card {
+		animation-duration: 1100ms;
+		animation-delay: 3050ms;
+	}
+}
+@keyframes bloom-dissolve {
+	to {
+		opacity: 0;
+		scale: 1.16;
+		filter: blur(10px);
+	}
+}
+/* The headline's arrival, slower and softer than the usual rise. */
+@keyframes landing-rise {
+	from {
+		opacity: 0;
+		translate: 0 14px;
+		filter: blur(4px);
+	}
 }
 .grain-headline {
 	max-width: 760px;
