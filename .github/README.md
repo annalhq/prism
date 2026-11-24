@@ -148,8 +148,9 @@ Bug reports, ideas and pull requests are welcome. [Open an issue](https://github
 
 ## Acknowledgements
 
-- Logo by [@bymyno\_](https://www.instagram.com/bymyno_/).
+- Logo inspiration from [@bymyno\_](https://www.instagram.com/bymyno_/).
 - Space icons are hand-drawn crayon stickers from [Trazo](https://trazo.akoder.xyz) ([`trazo-stickers`](https://github.com/AdityaKodez/trazo)) by Aditya Ojha, used under the MIT License.
+- OG-image background by [りも(Limo)](https://twitter.com/vibe_walking)
 
 ## License
 
