@@ -93,6 +93,7 @@
 	} from '#lib/domain/contracts.js';
 	import LibraryInspector from './LibraryInspector.svelte';
 	import TagsExplorer from './TagsExplorer.svelte';
+	import MobileTagsView from './mobile/tags/MobileTagsView.svelte';
 	import FolderSheet from './FolderSheet.svelte';
 	import SpaceSheet from './SpaceSheet.svelte';
 	import { activeSpace, showSpace } from '#lib/client/spaces.svelte.js';
@@ -144,7 +145,8 @@
 		deleteArmed = $state(false);
 	let omnibar: Omnibar | undefined = $state();
 	let sidebar: LibrarySidebar | undefined = $state();
-	let tagsExplorer: TagsExplorer | undefined = $state();
+	// The tags page, desktop or phone; either can take focus in its finder.
+	let tagsExplorer: { focusSearch(): void } | undefined = $state();
 	let helpOpen = $state(false);
 	let keys: ReturnType<typeof libraryKeyboard> | undefined;
 	// Visual mode's marked run, and the bookmarks `x` cut, waiting for a destination.
@@ -251,6 +253,15 @@
 			await setDefaultSpace(library, id);
 			cue('success');
 			feedback(`${spaces.find((s) => s.id === id)?.name ?? 'Space'} is now the default space.`);
+		} catch (e) {
+			cue('error');
+			feedback((e as Error).message);
+		}
+	}
+	async function reorderSpace(id: string, toIndex: number) {
+		if (!library) return;
+		try {
+			await moveTag(library, spaces, id, toIndex, 'spaces');
 		} catch (e) {
 			cue('error');
 			feedback((e as Error).message);
@@ -1275,15 +1286,7 @@
 		onEditSpace={editSpace}
 		onSetDefault={makeDefault}
 		onPlace={place}
-		onReorderSpace={async (id, toIndex) => {
-			if (!library) return;
-			try {
-				await moveTag(library, spaces, id, toIndex, 'spaces');
-			} catch (e) {
-				cue('error');
-				feedback((e as Error).message);
-			}
-		}}
+		onReorderSpace={reorderSpace}
 	/>
 	<main id="library-main" class="library-main" tabindex="-1">
 		<h1 class="view-title" class:inline-heading={!!profileSlug || view === 'tags'}>{title}</h1>
@@ -1381,6 +1384,21 @@
 								>Open cached library on this trusted device</button
 							>{/if}{/if}
 				</section>
+			{:else if view === 'tags' && mobile}
+				<MobileTagsView
+					bind:this={tagsExplorer}
+					{tags}
+					{folders}
+					{spaces}
+					counts={shelfStats.counts}
+					shelves={shelfStats.shelves}
+					onSelect={(value) => void navigate(null, value)}
+					onCreate={(name) => create('tag', name)}
+					onEditFolder={editFolder}
+					onEditSpace={editSpace}
+					onSetDefault={makeDefault}
+					onReorderSpace={reorderSpace}
+				/>
 			{:else if view === 'tags'}
 				<TagsExplorer
 					bind:this={tagsExplorer}

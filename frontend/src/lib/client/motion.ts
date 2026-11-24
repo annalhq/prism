@@ -33,3 +33,28 @@ export function grow(
 			`transform: translateY(${offset * u}px) scale(${0.96 + 0.04 * t})`
 	};
 }
+
+/**
+ * One space's list giving way to the next. `direction` is where the new space sits relative to
+ * the old (1: to the right, -1: to the left), so the list travels the way the tabs did: the
+ * outgoing list drifts off the opposite side, the incoming one slides in from the tapped side.
+ */
+export function shelfSwap(
+	_node: Element,
+	{ direction = 0, leaving = false }: { direction?: number; leaving?: boolean } = {}
+): TransitionConfig {
+	if (prefersReducedMotion.current)
+		return { duration: leaving ? 0 : 120, css: (t) => `opacity: ${t}` };
+	const shift = 16 * Math.sign(direction);
+	if (leaving)
+		return {
+			duration: 140,
+			easing: cubicIn,
+			css: (t, u) => `opacity: ${t}; transform: translateX(${-shift * u}px)`
+		};
+	return {
+		duration: 220,
+		easing: (t) => 1 - (1 - t) ** 3,
+		css: (t, u) => `opacity: ${t}; transform: translateX(${shift * u}px)`
+	};
+}
