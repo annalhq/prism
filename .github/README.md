@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="media/prism.png" alt="Prism — A quiet place for everything you keep." width="100%">
+<img src="media/prism.jpg" alt="A quiet place for everything you keep." width="100%">
 
 # Prism
 
