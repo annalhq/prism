@@ -361,7 +361,6 @@ kbd {
 .brand-symbol {
 	display: inline-flex;
 }
-/* The mark is drawn in currentColor, so it follows the text in both themes. */
 .brand {
 	--brand-mark: 24px;
 	color: var(--ink);
@@ -1523,9 +1522,7 @@ kbd {
 .library-sidebar.collapsed {
 	width: 64px;
 }
-/* Mark and wordmark are one link home. The mark's centre lines up with the row icons below
-   (sidebar padding 14 + 8 = 22px in, 22px wide → centred on the 33px icon column), and the row
-   is as tall as a nav row, so the header sits on the same rhythm as the list. */
+/* The mark is centred on the nav icon column (22px in, 22px wide). */
 .sidebar-brand {
 	position: relative;
 	display: flex;
@@ -1540,7 +1537,7 @@ kbd {
 	min-width: 0;
 	padding-right: 8px;
 }
-/* The serif's lowercase sits low on its line box; a pixel up centres it on the mark. */
+/* Optical alignment for the serif wordmark. */
 .sidebar-brand .sidebar-label {
 	font-family: var(--font-display);
 	font-size: 21px;
@@ -7137,17 +7134,11 @@ a.editor-source:hover > svg {
 	font-weight: 400;
 	letter-spacing: var(--tracking-title);
 }
-/*
- * The landing's opening, once per visit: a flower blooms large in the middle of the empty screen,
- * breathes out, and dissolves (growing a little, softening) while the page fades in beneath it:
- * the mark in its corner, then the headline, then the way in. Nothing travels; one thing gives
- * way to the next. Without motion there is no flower, and the page fades in as it always does.
- */
+/* Landing intro: the mark blooms centre screen and dissolves as the page fades in. */
 .grain-bloom {
 	display: none;
 }
 @media (prefers-reduced-motion: no-preference) {
-	/* Centred a little above the middle (42% down), clear of the headline. */
 	.grain-bloom {
 		position: absolute;
 		inset: 0;
@@ -7180,7 +7171,6 @@ a.editor-source:hover > svg {
 		filter: blur(10px);
 	}
 }
-/* The headline's arrival, slower and softer than the usual rise. */
 @keyframes landing-rise {
 	from {
 		opacity: 0;

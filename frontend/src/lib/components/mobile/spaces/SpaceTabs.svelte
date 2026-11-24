@@ -11,9 +11,7 @@
 	import SpaceActions from './SpaceActions.svelte';
 
 	type Row = Record<string, unknown>;
-	// The phone's space switcher: a strip of tabs, switched by tapping (never by swiping, so a
-	// sideways drag only scrolls the strip), with one pill gliding to the current tab. Long-press
-	// a tab for its actions; ⋯ holds the same for the current space, plus New space.
+	// Mobile space switcher. Tap to switch; long-press a tab or use ⋯ for actions.
 	let {
 		spaces,
 		current,
@@ -28,9 +26,8 @@
 		spaces: Row[];
 		current: string;
 		defaultId: string;
-		// The list these tabs control.
 		panelId: string;
-		// Folds the tabs away (while searching every space) without unmounting them.
+		// Collapses the bar while searching.
 		hidden?: boolean;
 		onSelect: (id: string) => void;
 		onEditSpace?: (space: Row | null, intent?: 'delete') => void;
@@ -42,9 +39,7 @@
 	const currentSpace = $derived(spaces[currentIndex]);
 	const motion = $derived(prefersReducedMotion.current ? 0 : 1);
 
-	// Places the pill on the current tab and brings that tab to the middle of the strip. Re-runs
-	// when the current tab or the order changes; resizes (a sticker loading, rotation) only
-	// re-place the pill, so the strip is never scrolled out from under a finger.
+	// Positions the pill and centres the active tab. Resizes only reposition the pill.
 	function strip(id: string, order: string): Attachment<HTMLElement> {
 		return (bar) => {
 			void order;
@@ -56,7 +51,7 @@
 				}
 				bar.style.setProperty('--pill-x', `${tab.offsetLeft}px`);
 				bar.style.setProperty('--pill-w', `${tab.offsetWidth}px`);
-				// The first placement lands without gliding in from the edge.
+				// Skip the transition on first placement.
 				if (bar.dataset.pill !== 'on') {
 					bar.dataset.pill = 'placing';
 					requestAnimationFrame(() => (bar.dataset.pill = 'on'));
@@ -67,7 +62,6 @@
 						behavior: motion ? 'smooth' : 'instant'
 					});
 			};
-			// Fades show only on the sides with more tabs to scroll to.
 			const edges = () => {
 				bar.toggleAttribute('data-more-start', bar.scrollLeft > 2);
 				bar.toggleAttribute(
@@ -91,7 +85,6 @@
 		};
 	}
 
-	// Arrow keys move between tabs for keyboards on tablets; focus follows the selection.
 	async function keys(event: KeyboardEvent) {
 		if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
 		event.preventDefault();
@@ -104,7 +97,6 @@
 			?.focus();
 	}
 
-	// A removed tab folds its width away, so its neighbours close the gap instead of jumping.
 	function fold(node: HTMLElement): TransitionConfig {
 		const width = node.offsetWidth;
 		return {
@@ -113,7 +105,6 @@
 				`opacity: ${t}; transform: scale(${0.8 + 0.2 * t}); max-width: ${width * t}px; overflow: hidden`
 		};
 	}
-	// A new tab springs in from slightly small.
 	function pop(node: Element): TransitionConfig {
 		(node as HTMLElement).style.transformOrigin = 'center';
 		return {
@@ -122,7 +113,7 @@
 			css: (t) => `opacity: ${Math.min(1, t * 2)}; transform: scale(${0.8 + 0.2 * t})`
 		};
 	}
-	// A short tick confirms a long-press where the platform offers it (Android; iOS ignores it).
+	// Haptic feedback on long-press (Android only).
 	const buzz = (open: boolean) => {
 		if (open) navigator.vibrate?.(10);
 	};
@@ -216,7 +207,6 @@
 </div>
 
 <style>
-	/* Pinned under the top edge while the list scrolls, so switching never means scrolling up. */
 	.space-tabs {
 		position: sticky;
 		z-index: 2;
@@ -232,7 +222,7 @@
 			translate 260ms var(--ease-spring),
 			margin-bottom 260ms var(--ease-spring);
 	}
-	/* Folded: fades up and gives back its row and the gap after it (56px + the page's 16px). */
+	/* Collapsed: offsets the bar height (56px) plus the parent gap (16px). */
 	.space-tabs.folded {
 		margin-bottom: -72px;
 		opacity: 0;
@@ -279,7 +269,6 @@
 	:global(.space-chip-slot) {
 		display: contents;
 	}
-	/* 40px tall in a 44px row: thumb-sized, with name and sticker always shown (no hover here). */
 	.space-chip {
 		position: relative;
 		z-index: 1;
@@ -332,7 +321,6 @@
 			opacity 160ms ease,
 			filter 200ms ease;
 	}
-	/* The sticker gives a small bounce as its tab becomes current. */
 	.space-chip.active .space-chip-icon {
 		opacity: 1;
 		filter: none;
@@ -343,7 +331,6 @@
 			scale: 1.14;
 		}
 	}
-	/* One pill glides between tabs; it lives inside the strip, so it scrolls with them. */
 	.space-pill {
 		position: absolute;
 		top: 2px;

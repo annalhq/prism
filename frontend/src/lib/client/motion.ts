@@ -34,11 +34,7 @@ export function grow(
 	};
 }
 
-/**
- * One space's list giving way to the next. `direction` is where the new space sits relative to
- * the old (1: to the right, -1: to the left), so the list travels the way the tabs did: the
- * outgoing list drifts off the opposite side, the incoming one slides in from the tapped side.
- */
+/* Directional list swap. `direction` is 1 when moving right, -1 when moving left. */
 export function shelfSwap(
 	_node: Element,
 	{ direction = 0, leaving = false }: { direction?: number; leaving?: boolean } = {}

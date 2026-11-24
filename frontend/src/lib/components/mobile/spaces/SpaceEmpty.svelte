@@ -4,16 +4,13 @@
 	import Sticker from '../../ui/Sticker.svelte';
 
 	type Row = Record<string, unknown>;
-	// A space with nothing in it yet: what it is, and the two ways to fill it.
 	let {
 		space,
 		onEditSpace,
 		onCreate
 	}: {
 		space: Row;
-		// Opens the space sheet to choose its tags and folders.
 		onEditSpace?: (space: Row) => void;
-		// Starts a new tag, which lands in the space showing.
 		onCreate?: () => void;
 	} = $props();
 	const sticker = $derived(typeof space.icon === 'string' ? stickers.get(space.icon) : undefined);

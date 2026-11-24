@@ -19,8 +19,7 @@
 	import MobileTagRow from './MobileTagRow.svelte';
 
 	type Row = Record<string, unknown>;
-	// The phone's tags page: shelves, a finder, then one space at a time, switched by tapping its
-	// tab. Searching looks through every space at once. The desktop page is TagsExplorer.
+	// Mobile tags page. Desktop uses TagsExplorer.
 	let {
 		tags,
 		folders = [],
@@ -42,7 +41,7 @@
 		onSelect: (value: string) => void;
 		onCreate?: (name: string) => void;
 		onEditFolder?: (folder: Row, intent?: 'delete') => void;
-		// The space sheet: null makes a new space; `delete` opens with deleting armed.
+		// null creates a space; 'delete' opens the sheet with deletion armed.
 		onEditSpace?: (space: Row | null, intent?: 'delete') => void;
 		onSetDefault?: (id: string) => void | Promise<void>;
 		onReorderSpace?: (id: string, toIndex: number) => void | Promise<void>;
@@ -53,7 +52,7 @@
 		searchInput = $state<HTMLInputElement>(),
 		filter = $state(''),
 		order = $state<'used' | 'name' | 'custom'>('used'),
-		// Which way the last switch went, so the list travels with the tabs.
+		// Direction of the last switch, for the list transition.
 		direction = $state(0);
 
 	onMount(() => {
@@ -89,7 +88,6 @@
 	const defaultId = $derived(defaultSpaceId(spaces));
 	const spaceId = $derived(resolveSpaceId(spaces, activeSpace.id));
 	const space = $derived(spaces.find((s) => String(s.id) === spaceId));
-	// With no spaces, everything is one shelf.
 	const shelf = $derived(
 		space ? shelfFor(spaceId, sorted, folders, spaces) : groupTags(sorted, folders)
 	);
@@ -99,7 +97,6 @@
 	const searching = $derived(!!needle);
 	const count = $derived(searching ? matches.length : space ? shelfCount : tags.length);
 
-	// A search result says where the tag lives, since the list around it doesn't.
 	const folderName = $derived(new Map(folders.map((f) => [String(f.id), String(f.name)])));
 	const spaceName = $derived(new Map(spaces.map((s) => [String(s.id), String(s.name)])));
 	function whereOf(tag: Row) {
@@ -109,8 +106,7 @@
 		return parts.length ? parts.join(' · ') : undefined;
 	}
 
-	// Tapping a tab. If the tabs are pinned (the list is scrolled), the new space starts from
-	// its top, just under them, rather than somewhere in its middle.
+	// When the tab bar is stuck, scroll so the new space starts just below it.
 	function select(id: string) {
 		if (id === spaceId) return;
 		const from = spaces.findIndex((s) => String(s.id) === spaceId),
@@ -149,7 +145,6 @@
 			>{/if}
 	</nav>
 
-	<!-- The finder sits above the tabs, so the field never moves while the tabs fold away. -->
 	<label class="tags-search">
 		<Search /><input
 			bind:this={searchInput}
@@ -271,7 +266,7 @@
 </section>
 
 <style>
-	/* The outgoing and incoming lists share one cell, so a switch never stacks them. */
+	/* Outgoing and incoming lists share one grid cell during the transition. */
 	.space-panel {
 		display: grid;
 	}

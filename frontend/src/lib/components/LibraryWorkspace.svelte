@@ -145,7 +145,6 @@
 		deleteArmed = $state(false);
 	let omnibar: Omnibar | undefined = $state();
 	let sidebar: LibrarySidebar | undefined = $state();
-	// The tags page, desktop or phone; either can take focus in its finder.
 	let tagsExplorer: { focusSearch(): void } | undefined = $state();
 	let helpOpen = $state(false);
 	let keys: ReturnType<typeof libraryKeyboard> | undefined;

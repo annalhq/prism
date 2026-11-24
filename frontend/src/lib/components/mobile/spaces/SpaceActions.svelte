@@ -3,8 +3,7 @@
 	import type { ContextMenu, DropdownMenu } from 'bits-ui';
 
 	type Row = Record<string, unknown>;
-	// One space's actions. The same items serve the long-press menu on a tab (ContextMenu) and the
-	// ⋯ menu beside the tabs (DropdownMenu), so `Menu` is whichever namespace hosts them.
+	// Space actions, shared by the tab's long-press menu and the ⋯ menu.
 	let {
 		Menu,
 		space,
@@ -25,7 +24,7 @@
 		onReorderSpace?: (id: string, toIndex: number) => void;
 	} = $props();
 	const id = $derived(String(space.id));
-	// The default holds everything unplaced, so it goes only when it is the last space.
+	// The default space can only be deleted when it is the last one.
 	const locked = $derived(isDefault && count > 1);
 </script>
 

@@ -8,19 +8,15 @@
 		labelClass,
 		bloom = false
 	}: {
-		// The mark alone, without the wordmark.
 		compact?: boolean;
 		home?: '/' | '/public';
-		// Extra classes for the wordmark, such as the sidebar's fading label.
 		labelClass?: ClassValue;
-		// The flower alone, for show (the landing's opening): not a link and no wordmark. Once it
-		// has opened it breathes out, relaxing fully open, for the page to fade it away.
+		// Decorative mark for the landing intro: no link or wordmark.
 		bloom?: boolean;
 	} = $props();
 
-	// The mark's five petals (static/logo.svg), drawn inline so each can move on its own. They
-	// run clockwise from the top one, 72° apart around the flower's centre: a petal's place in
-	// this list is both its angle and its turn to open.
+	// Petals from static/logo.svg, clockwise from the top (72° apart).
+	// The index sets each petal's angle and bloom order.
 	const PETALS = [
 		'M143.404 115.886C137.806 124.137 125.622 124.056 120.132 115.732L85.6075 63.3779C76.7038 49.876 80.1057 31.7465 93.2985 22.3909L120.196 3.31712C126.428 -1.1029 134.773 -1.10601 141.009 3.30938L170.226 23.9958C183.559 33.4357 186.888 51.808 177.715 65.3256L143.404 115.886Z',
 		'M155.726 142.646C146.149 139.871 142.461 128.258 148.681 120.466L187.804 71.4521C197.894 58.8118 216.188 56.4448 229.162 66.1009L255.614 85.7874C261.744 90.3494 264.325 98.2844 262.053 105.58L251.408 139.759C246.55 155.357 230.105 164.2 214.415 159.653L155.726 142.646Z',
@@ -48,8 +44,7 @@
 	>{/if}
 
 <style>
-	/* How far a petal has relaxed open (0 at rest, 1 fully relaxed, below 0 tucked in), and where
-	   it is in its slow breath (-1 to 1). Registered as numbers so they can ease and animate. */
+	/* --petal-relax: 0 at rest, 1 relaxed, negative when pressed. --petal-breath: -1 to 1. */
 	@property --petal-relax {
 		syntax: '<number>';
 		inherits: true;
@@ -71,7 +66,6 @@
 	.brand-symbol {
 		flex-shrink: 0;
 	}
-	/* Sized by height; the width follows the mark's own proportions (263 × 252). */
 	.brand-mark {
 		display: block;
 		width: auto;
@@ -80,12 +74,8 @@
 		overflow: visible;
 	}
 	/*
-	 * Each petal is moved in its own frame: turned to point straight up, changed there (x is its
-	 * width, y its length, up is away from the centre), then turned back. So a petal can lengthen,
-	 * broaden or drift outward along its own axis, whichever way it faces.
-	 * At rest every term is zero. Relaxed, it lies a little further out, longer and broader, and
-	 * breathes: its length and lean rise and fall slowly, scaled by how relaxed it is, so the
-	 * breath fades in and out with the hover instead of starting or stopping.
+	 * Each petal is transformed in its own frame: rotated upright, scaled and offset
+	 * along its axis, then rotated back.
 	 */
 	.brand-petal {
 		--a: calc(var(--order) * 72deg);
@@ -100,22 +90,16 @@
 			rotate(calc(var(--a) * -1));
 	}
 	@media (prefers-reduced-motion: no-preference) {
-		/* On arrival the flower blooms from a bud: the petals start small, short and wound around
-		   the centre, as if still closed and pointing up at you. The bud swells, then they unwind
-		   and lay themselves open almost together, each a beat after the one before, a touch past
-		   flat before settling. Filling only backwards hands each petal back to the rule above
-		   once it has opened. */
+		/* `backwards` fill returns the petal to the base transform after blooming, so hover can drive it. */
 		.brand-petal {
 			animation:
 				petal-bloom 1400ms backwards,
 				petal-breath 3200ms ease-in-out infinite alternate paused;
 			animation-delay: calc(140ms + var(--order) * 45ms), calc(var(--order) * -1300ms);
 			transition: --petal-relax 900ms cubic-bezier(0.33, 0, 0.15, 1);
-			/* The relaxing passes around the flower rather than landing on every petal at once. */
 			transition-delay: calc(var(--order) * 45ms);
 		}
-		/* The opening flower: after it has bloomed it breathes out, each petal relaxing fully open
-		   a beat after the last and breathing on, while the page fades it away. */
+		/* Landing intro: bloom, then relax fully open while the page fades it out. */
 		.brand-bloom .brand-petal {
 			animation:
 				petal-bloom 1400ms backwards,
@@ -125,8 +109,7 @@
 				calc(140ms + var(--order) * 45ms), calc(var(--order) * -1300ms),
 				calc(1750ms + var(--order) * 50ms);
 		}
-		/* Pointed at (or focused), the petals relax open and breathe; leaving, they draw back in
-		   and the breath stills where it is. */
+		/* Hover and focus relax the petals and start the breathing loop. */
 		@media (hover: hover) {
 			.brand:hover .brand-petal {
 				--petal-relax: 1;
@@ -137,7 +120,6 @@
 			--petal-relax: 1;
 			animation-play-state: running, running;
 		}
-		/* Pressed, the flower tucks in a touch, quickly, and reopens on release. */
 		.brand:active .brand-petal {
 			--petal-relax: -0.3;
 			transition-duration: 180ms;
@@ -151,7 +133,6 @@
 				rotate(calc(var(--a) * -1));
 			animation-timing-function: ease-out;
 		}
-		/* The bud: closed, wound around the centre, swelling a little before it gives. */
 		20% {
 			opacity: 1;
 			transform: rotate(calc(var(--a) - 52deg)) translateY(0) scale(0.5, 0.3)

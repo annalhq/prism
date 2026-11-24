@@ -1,10 +1,9 @@
-// Sidebar spaces: which one is showing on this device, and what each one shows.
 import { defaultSpaceId, groupTags, spaceOf, type FolderGroup } from './workflows.js';
 
 type Row = Record<string, unknown>;
 const KEY = 'prism:space';
 
-/** The space showing in the sidebar; '' is Home. Restored after mount, kept per device. */
+/* The active space id, persisted per device. */
 export const activeSpace = $state<{ id: string }>({ id: '' });
 
 export function restoreSpace() {
@@ -22,16 +21,13 @@ export function showSpace(id: string) {
 		/* Optional preference. */
 	}
 }
-/** The space to show: the remembered one while it still exists, else the default ('' for none). */
+/* The remembered space if it still exists, otherwise the default. */
 export function resolveSpaceId(spaces: Row[], remembered: string): string {
 	return remembered && spaces.some((s) => s.id === remembered)
 		? remembered
 		: defaultSpaceId(spaces);
 }
-/**
- * The folders and loose tags one space shows, in the order given. A tag in a folder goes where
- * its folder goes; anything unplaced shows in the default space.
- */
+/* Folders and loose tags in a space. Tags follow their folder; unplaced items belong to the default. */
 export function shelfFor(
 	id: string,
 	tags: Row[],

@@ -5,8 +5,7 @@
 	import MobileTagRow from './MobileTagRow.svelte';
 
 	type Row = Record<string, unknown>;
-	// One space's folders, each folding its tags beneath it, then its loose tags. Shares the
-	// tags page's global classes and fold state, so folders stay open or shut across both.
+	// Folders and loose tags for one space. Reuses the tags page classes and fold state.
 	let {
 		groups,
 		loose,
@@ -20,10 +19,8 @@
 		counts: Record<string, number>;
 		onSelect: (value: string) => void;
 		onCreate?: (name: string) => void;
-		// Long-press a folder for its sheet (rename, choose tags, delete).
 		onEditFolder?: (folder: Row, intent?: 'delete') => void;
 	} = $props();
-	// Rows rise in one after another, briefly; past the first few they arrive together.
 	const stagger = (index: number) => Math.min(index, 8);
 </script>
 

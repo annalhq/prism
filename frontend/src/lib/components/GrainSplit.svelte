@@ -1,7 +1,5 @@
 <script lang="ts" module>
-	// The landing's opening plays once per visit: only when the landing is the first page shown,
-	// never again on coming back to it from sign-in. Set on mount, so the server always renders
-	// the opening and the first paint already has it.
+	// The landing intro plays only on the first landing render of a visit.
 	let introduced = false;
 </script>
 
@@ -18,9 +16,7 @@
 		panel,
 		landing = false
 	}: { id: string; children: Snippet; panel?: Snippet; landing?: boolean } = $props();
-	// Decided once, as the page is made: a flower blooms mid-screen, then dissolves into the page.
 	const intro = untrack(() => landing) && !introduced;
-	// The opening flower leaves the page once it has faded out.
 	let bloomed = $state(false);
 	onMount(() => {
 		introduced = true;
