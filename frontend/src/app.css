@@ -2634,7 +2634,7 @@ kbd {
 	rotate: 0deg;
 	scale: 1;
 }
-/* A link and one space in the add field: the plus becomes a rabbit, one space from a rabbit hole. */
+/* Shift held over a link in the add field: the plus becomes a rabbit, Shift+Enter starts a rabbit hole. */
 .burrow-glyph {
 	opacity: 0;
 	rotate: -90deg;

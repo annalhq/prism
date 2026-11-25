@@ -436,15 +436,11 @@
 		await tick();
 		(document.activeElement as HTMLElement | null)?.blur();
 	}
-	// A link then one space: one more starts a rabbit hole. The leading glyph shows it's coming.
+	// Shift held over a link: Shift+Enter starts a rabbit hole. The leading glyph shows it's coming.
+	let shiftHeld = $state(false);
 	const burrowing = $derived(
-		mode === 'insert' && !url && !writing && /\S [ ]?$/.test(draft) && looksLikeLink(draft.trim())
+		shiftHeld && mode === 'insert' && !url && !writing && looksLikeLink(draft.trim())
 	);
-	// A link then two spaces (or the ". " phones put in for a double space) starts a rabbit hole.
-	function burrowGesture(value: string): string | null {
-		const match = /^(.*\S)(?: {2}|\. )$/.exec(value);
-		return match && looksLikeLink(match[1]) ? match[1] : null;
-	}
 	/**
 	 * A rabbit hole: one item holding a trail of links, this link first. It's created at once,
 	 * with any tags or people already chosen, and opened in the editor to keep digging.
@@ -763,24 +759,36 @@
 					? 'New note'
 					: url
 						? ''
-						: 'Paste a link, write a note… (space twice: rabbit hole)'}
+						: 'Paste a link, write a note… (Shift+Enter: rabbit hole)'}
 			value={mode === 'search' ? search.rest : draft}
 			oninput={(e) => {
 				if (mode === 'search') query = compose(search.chips, e.currentTarget.value);
 				else {
 					draft = e.currentTarget.value;
-					const burrow = burrowGesture(draft);
-					if (burrow) {
-						void startRabbitHole(burrow);
-						return;
-					}
 					prefetchTitle(
 						draft,
 						(e as unknown as InputEvent).inputType === 'insertFromPaste' ? 0 : 300
 					);
 				}
 			}}
+			onkeyup={(e) => (shiftHeld = e.shiftKey)}
+			onblur={() => (shiftHeld = false)}
 			onkeydown={(e) => {
+				shiftHeld = e.shiftKey;
+				// Shift+Enter on a link starts a rabbit hole instead of saving a bookmark.
+				if (
+					e.key === 'Enter' &&
+					e.shiftKey &&
+					!e.isComposing &&
+					mode === 'insert' &&
+					!url &&
+					!writing &&
+					looksLikeLink(draft.trim())
+				) {
+					e.preventDefault();
+					void startRabbitHole(draft.trim());
+					return;
+				}
 				// Backspace at the start of an empty field takes the last chip back to edit it.
 				if (
 					e.key === 'Backspace' &&
